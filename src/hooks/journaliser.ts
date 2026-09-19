@@ -6,6 +6,8 @@ import { idDe } from '../access/roles'
  * Invariant I12 : journal minimal des changements sensibles (rôles,
  * affectations, domaines). Création interne uniquement (access create: false
  * sur la collection `journal`) — les hooks écrivent avec overrideAccess.
+ * L'opération interne reçoit `req` pour rejoindre la transaction en cours
+ * (sinon la FK vers une ligne créée dans la même opération est invisible).
  * Un échec d'audit ne bloque jamais l'opération principale.
  */
 export type TypeJournal = 'commune' | 'utilisateur' | 'domaine'
@@ -26,6 +28,7 @@ async function ecrire(
         ...(req.user?.id ? { utilisateur: idDe(req.user.id) } : {}),
       },
       overrideAccess: true,
+      req, // rejoindre la transaction de l'opération parente
     })
   } catch (erreur) {
     req.payload.logger.error({
@@ -40,17 +43,28 @@ function intitule(doc: Record<string, unknown>): string {
   return String(doc.nom ?? doc.hostname ?? doc.email ?? doc.id ?? '?')
 }
 
+/**
+ * Commune associée à l'entrée de journal :
+ * - domaine → la commune référencée ;
+ * - commune → la commune elle-même ;
+ * - utilisateur → aucune (un compte peut être multi-communes ; l'opérateur voit tout).
+ */
+function communeDe(type: TypeJournal, brut: Record<string, unknown>): number | undefined {
+  if (type === 'domaine') return idDe(brut.commune)
+  if (type === 'commune') return idDe(brut.id)
+  return undefined
+}
+
 /** Journalise les créations/modifications d'une collection (afterChange). */
 export const journaliser =
   (type: TypeJournal): CollectionAfterChangeHook =>
   async ({ req, doc, operation }) => {
     const brut = doc as unknown as Record<string, unknown>
-    const commune = type === 'domaine' ? idDe(brut.commune) : (idDe(brut.id) ?? undefined)
     await ecrire(
       req,
       type,
       `${operation === 'create' ? 'Création' : 'Modification'} — ${intitule(brut)}`,
-      commune,
+      communeDe(type, brut),
     )
     return doc
   }
@@ -60,7 +74,6 @@ export const journaliserSuppression =
   (type: TypeJournal): CollectionAfterDeleteHook =>
   async ({ req, doc }) => {
     const brut = doc as unknown as Record<string, unknown>
-    const commune = type === 'domaine' ? idDe(brut.commune) : (idDe(brut.id) ?? undefined)
-    await ecrire(req, type, `Suppression — ${intitule(brut)}`, commune)
+    await ecrire(req, type, `Suppression — ${intitule(brut)}`, communeDe(type, brut))
     return doc
   }

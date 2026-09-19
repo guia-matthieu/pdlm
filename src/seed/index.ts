@@ -129,7 +129,11 @@ async function seed() {
   process.exit(0)
 }
 
-seed().catch((erreur) => {
+// Top-level await : `payload run` attend la fin de l'évaluation du module —
+// sans cela, le CLI sortirait avant la fin du seed.
+try {
+  await seed()
+} catch (erreur) {
   console.error(erreur)
   process.exit(1)
-})
+}
