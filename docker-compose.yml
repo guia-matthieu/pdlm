@@ -1,0 +1,153 @@
+# glm — déploiement de production
+#
+# Seuls Caddy (80/443) est exposé. PostgreSQL, MinIO et l'app vivent sur le
+# réseau interne. Le service `migrate` applique les migrations AVANT le
+# démarrage de l'app (pas de synchronisation automatique de schéma en prod).
+#
+# Local (démo sans TLS) : CADDY_FILE par défaut = Caddyfile.dev (port 80).
+# Production : CADDY_FILE=./Caddyfile + domaines réels (TLS automatique).
+#
+# Variables (fichier .env) : voir .env.example — POSTGRES_PASSWORD,
+# PAYLOAD_SECRET, S3_APP_PASSWORD et MINIO_ROOT_PASSWORD obligatoires en prod.
+
+# Nom de projet explicite : la pile de développement (docker-compose.dev.yml)
+# occupe le projet `glm`. Sans ces deux noms distincts, les deux piles se
+# disputent les mêmes conteneurs et les mêmes volumes.
+name: glm-prod
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-glm}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-glm}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Aucun port publié : réseau interne uniquement
+
+  minio:
+    # Épinglé par digest (reproductibilité + scan Trivy J8) — RELEASE.2025-09-07T16-13-09Z.
+    # `latest` pouvait changer de version majeure entre deux déploiements.
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Aucun port publié (console comprise) : réseau interne uniquement
+
+  createbuckets:
+    # Épinglé par digest (mc 9.6, même raison que minio ci-dessus).
+    image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-glm}
+      S3_APP_PASSWORD: ${S3_APP_PASSWORD:-motdepasse-a-changer}
+    # Idempotent : chaque étape tolère l'existant, et l'attachement de la
+    # policy est INCONDITIONNEL. L'ancienne forme `policy create || policy
+    # attach` ne rattachait jamais au premier démarrage (create réussissant,
+    # attach était sauté) : l'utilisateur glm-app restait sans droits.
+    # Le bucket n'est pas anonyme : les fichiers sont servis par Payload
+    # (/api/media/file/…), jamais lus directement depuis MinIO.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$S3_BUCKET"
+        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:*"],"Resource":["arn:aws:s3:::'"$$S3_BUCKET"'","arn:aws:s3:::'"$$S3_BUCKET"'/*"]}]}' > /tmp/policy.json
+        mc admin policy create local glm-app /tmp/policy.json 2>/dev/null || echo "policy glm-app : déjà présente"
+        mc admin user add local glm-app "$$S3_APP_PASSWORD" 2>/dev/null || echo "utilisateur glm-app : déjà présent"
+        mc admin policy attach local glm-app --user glm-app 2>/dev/null || echo "policy glm-app : déjà attachée"
+        echo "--- droits effectifs de glm-app ---"
+        mc admin user info local glm-app
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Réseau interne : les URIs du .env (127.0.0.1) ne s'appliquent pas en prod
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-glm}
+      PAYLOAD_SECRET: ${PAYLOAD_SECRET:?PAYLOAD_SECRET requis dans .env}
+      S3_ENABLED: 'false'
+    restart: 'no'
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-glm}
+      PAYLOAD_SECRET: ${PAYLOAD_SECRET:?PAYLOAD_SECRET requis dans .env}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: glm-app
+      S3_SECRET_ACCESS_KEY: ${S3_APP_PASSWORD:-motdepasse-a-changer}
+      S3_ENABLED: 'true'
+      S3_BUCKET: ${S3_BUCKET:-glm}
+      S3_REGION: ${S3_REGION:-fr-1}
+      NEXT_PUBLIC_S3_PUBLIC_URL: ${NEXT_PUBLIC_S3_PUBLIC_URL:-http://localhost:9000}
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-localhost}
+      ADMIN_URL: ${ADMIN_URL:-http://localhost}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost}
+      NODE_ENV: production
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Aucun port publié : Caddy est l'unique point d'entrée
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ${CADDY_FILE:-./Caddyfile.dev}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    # TLS automatique par domaine via Let's Encrypt (Caddyfile prod)
+
+volumes:
+  pgdata:
+  minio_data:
+  caddy_data:
+  caddy_config:

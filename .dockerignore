@@ -1,0 +1,48 @@
+# Contexte de build Docker.
+#
+# Raison d'être principale : SANS ce fichier, le `COPY . .` de l'étape builder
+# embarque `.env` (secrets : PAYLOAD_SECRET, mots de passe) dans une couche de
+# l'image — récupérable par quiconque obtient l'image. Il évite aussi d'envoyer
+# node_modules et .next au démon Docker (contexte de plusieurs centaines de Mo).
+
+# — Secrets —
+.env
+.env.*
+!.env.example
+test.env
+
+# — Dépendances et artefacts de build (reconstruits dans l'image) —
+node_modules
+.next
+out
+tsconfig.tsbuildinfo
+
+# — Historique et outillage local —
+.git
+.gitignore
+.claude
+.vscode
+.idea
+
+# — Tests et rapports (l'image de production n'en a pas besoin) —
+tests
+playwright-report
+test-results
+playwright.config.ts
+
+# — Infrastructure (jamais utilisée depuis l'intérieur de l'image) —
+Dockerfile
+.dockerignore
+docker-compose*.yml
+Caddyfile
+Caddyfile.dev
+scripts
+backups
+
+# — Documentation —
+*.md
+!README.md
+
+# — Divers —
+.DS_Store
+npm-debug.log*

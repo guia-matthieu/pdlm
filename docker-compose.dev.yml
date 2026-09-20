@@ -1,5 +1,11 @@
 # Environnement de développement : PostgreSQL + MinIO uniquement.
 # L'application tourne hors Docker (`npm run dev`).
+#
+# Nom de projet explicite : la pile de production (docker-compose.yml) occupe
+# le projet `glm-prod`. Sans ces deux noms distincts, les deux piles se
+# disputent les mêmes conteneurs et les mêmes volumes.
+name: glm
+
 services:
   postgres:
     image: postgres:17-alpine

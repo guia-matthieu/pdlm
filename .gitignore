@@ -42,6 +42,9 @@ next-env.d.ts
 
 /media
 
+# sauvegardes produites par scripts/backup.sh (base + fichiers : jamais versionnées)
+/backups
+
 # Playwright
 node_modules/
 /test-results/
