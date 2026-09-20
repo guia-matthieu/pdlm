@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeAll } from 'vitest'
 
 import { candidatCommune, normaliserHost, sansWww } from '@/lib/commune'
+import { estDomainePlateforme } from '@/proxy'
 
 describe('normaliserHost', () => {
   it('minuscules, sans port ni point final', () => {
@@ -65,5 +66,35 @@ describe('candidatCommune', () => {
     Object.assign(process.env, { NODE_ENV: 'production' })
     expect(candidatCommune('valvert.localhost:3000')).toBeNull()
     Object.assign(process.env, { NODE_ENV: precedent })
+  })
+})
+
+describe('estDomainePlateforme (I7)', () => {
+  it('reconnaît la plateforme, son www et son admin — et rien d’autre', () => {
+    const precedent = process.env.PLATFORM_DOMAIN
+    process.env.PLATFORM_DOMAIN = 'plateforme.test'
+    expect(estDomainePlateforme('plateforme.test')).toBe(true)
+    expect(estDomainePlateforme('www.plateforme.test:3000')).toBe(true)
+    expect(estDomainePlateforme('admin.plateforme.test')).toBe(true)
+    expect(estDomainePlateforme('mairie-saintx.fr')).toBe(false)
+    expect(estDomainePlateforme('saint-ex.plateforme.test')).toBe(false)
+    process.env.PLATFORM_DOMAIN = precedent
+  })
+
+  it('PLATFORM_DOMAIN absent : permissif en dev, jamais en production', () => {
+    const domaine = process.env.PLATFORM_DOMAIN
+    const env = process.env.NODE_ENV
+    delete process.env.PLATFORM_DOMAIN
+
+    Object.assign(process.env, { NODE_ENV: 'development' })
+    expect(estDomainePlateforme('mairie-saintx.fr')).toBe(true)
+
+    // En production, une variable oubliée ne doit pas ouvrir /api sur tous
+    // les domaines communaux : on échoue du côté fermé.
+    Object.assign(process.env, { NODE_ENV: 'production' })
+    expect(estDomainePlateforme('mairie-saintx.fr')).toBe(false)
+
+    process.env.PLATFORM_DOMAIN = domaine
+    Object.assign(process.env, { NODE_ENV: env })
   })
 })

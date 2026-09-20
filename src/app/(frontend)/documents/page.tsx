@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 import { resolveCommune } from '@/lib/commune'
 import { documentsCommune } from '@/lib/contenu'
@@ -31,17 +32,17 @@ export default async function PageDocuments({
     <section className="bloc bloc-texte">
       <h1>Documents</h1>
       <nav aria-label="Filtrer par catégorie" className="filtres-documents">
-        <a href="/documents" className={!categorie ? 'actif' : undefined}>
+        <Link href="/documents" className={!categorie ? 'actif' : undefined}>
           Toutes
-        </a>
+        </Link>
         {Object.entries(CATEGORIES).map(([valeur, libelle]) => (
-          <a
+          <Link
             key={valeur}
             href={`/documents?categorie=${valeur}`}
             className={categorie === valeur ? 'actif' : undefined}
           >
             {libelle}
-          </a>
+          </Link>
         ))}
       </nav>
       {res.docs.length === 0 ? (

@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import type { Menu, Page } from '@/payload-types'
 
 interface EnteteNav {
@@ -36,8 +38,13 @@ export function Navigation({ menu, pages }: { menu: Menu | null; pages: Map<numb
     <nav aria-label="Menu principal" id="menu-principal">
       <ul className="nav-principale">
         <li>
-          <a href="/">Accueil</a>
+          <Link href="/">Accueil</Link>
         </li>
+        {/*
+          Les items venus du CMS gardent un <a> : leur href peut être une URL
+          externe (champ `url`, validé par validerUrlEditoriale). next/link
+          préchargerait alors un site tiers.
+        */}
         {entetes.map((entete) => (
           <li key={entete.href + entete.label}>
             {entete.enfants.length > 0 ? (
@@ -57,13 +64,13 @@ export function Navigation({ menu, pages }: { menu: Menu | null; pages: Map<numb
           </li>
         ))}
         <li>
-          <a href="/actualites">Actualités</a>
+          <Link href="/actualites">Actualités</Link>
         </li>
         <li>
-          <a href="/agenda">Agenda</a>
+          <Link href="/agenda">Agenda</Link>
         </li>
         <li>
-          <a href="/documents">Documents</a>
+          <Link href="/documents">Documents</Link>
         </li>
       </ul>
     </nav>

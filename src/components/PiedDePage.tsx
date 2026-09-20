@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import type { Commune } from '@/payload-types'
 
 /** Pied de page : coordonnées de la commune + liens légaux obligatoires. */
@@ -62,13 +64,13 @@ export function PiedDePage({ commune }: { commune: Commune }) {
           <h2>Informations</h2>
           <ul>
             <li>
-              <a href="/mentions-legales">Mentions légales</a>
+              <Link href="/mentions-legales">Mentions légales</Link>
             </li>
             <li>
-              <a href="/confidentialite">Politique de confidentialité</a>
+              <Link href="/confidentialite">Politique de confidentialité</Link>
             </li>
             <li>
-              <a href="/accessibilite">Accessibilité</a>
+              <Link href="/accessibilite">Accessibilité</Link>
             </li>
           </ul>
         </div>

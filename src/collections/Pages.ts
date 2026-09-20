@@ -8,7 +8,7 @@ import {
   uniqueSlugParCommune,
   validerRelationsTenant,
 } from '../hooks'
-import { bloquerPublication } from '../hooks/bloquerPublication'
+import { bloquerPublication, memoriserModeBrouillon } from '../hooks/bloquerPublication'
 
 /** I4 : références média exposées par les blocs d'une page. */
 const extraireRefsPages = (data: Record<string, unknown>) => ({
@@ -35,6 +35,10 @@ export const Pages: CollectionConfig = {
     },
   },
   hooks: {
+    // `beforeOperation` est le seul point où l'argument `draft` est visible :
+    // `bloquerPublication` en a besoin pour distinguer un brouillon d'une
+    // écriture sur la version publique (I3).
+    beforeOperation: [memoriserModeBrouillon],
     beforeValidate: [uniqueSlugParCommune('titre')],
     beforeChange: [figerTenant, bloquerPublication, validerRelationsTenant(extraireRefsPages)],
   },

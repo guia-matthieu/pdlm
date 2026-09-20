@@ -3,6 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { communesAvecRole, isOperateur } from '../access/roles'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
 import { slugifier } from '../hooks/formatSlug'
+import { validerUrlEditoriale } from '../lib/url'
 
 /** Domaines réservés à la plateforme — un hostname communal ne peut pas les prendre (I6). */
 export function hostnamesReserves(): string[] {
@@ -138,10 +139,19 @@ export const Communes: CollectionConfig = {
       name: 'reseaux',
       type: 'group',
       label: 'Réseaux sociaux',
+      // Ces valeurs partent telles quelles dans un `href` du pied de page :
+      // sans validation, un `javascript:…` saisi ici s'exécuterait chez tous
+      // les visiteurs du site communal (XSS stocké). Même règle que les liens
+      // de menus et de boutons.
       fields: [
-        { name: 'facebook', type: 'text', label: 'Facebook (URL)' },
-        { name: 'instagram', type: 'text', label: 'Instagram (URL)' },
-        { name: 'youtube', type: 'text', label: 'YouTube (URL)' },
+        { name: 'facebook', type: 'text', label: 'Facebook (URL)', validate: validerUrlEditoriale },
+        {
+          name: 'instagram',
+          type: 'text',
+          label: 'Instagram (URL)',
+          validate: validerUrlEditoriale,
+        },
+        { name: 'youtube', type: 'text', label: 'YouTube (URL)', validate: validerUrlEditoriale },
       ],
     },
     {

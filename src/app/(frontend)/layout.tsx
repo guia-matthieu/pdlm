@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { BandeauAlerte } from '@/components/BandeauAlerte'
@@ -38,9 +39,9 @@ export default async function LayoutFront({ children }: { children: React.ReactN
         <BandeauAlerte alertes={alertes} />
         <header className="entete-site">
           <div className="entete-site__marque">
-            <a href="/" className="entete-site__titre">
+            <Link href="/" className="entete-site__titre">
               {commune.nom}
-            </a>
+            </Link>
           </div>
           <Navigation menu={menu} pages={pages} />
         </header>

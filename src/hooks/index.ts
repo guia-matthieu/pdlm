@@ -1,7 +1,7 @@
 export { formatSlug, slugifier } from './formatSlug'
 export { figerPrivileges } from './figerPrivileges'
 export { figerTenant } from './figerTenant'
-export { bloquerPublication } from './bloquerPublication'
+export { bloquerPublication, memoriserModeBrouillon } from './bloquerPublication'
 export { journaliser, journaliserSuppression } from './journaliser'
 export { limiterTaille } from './limiterTaille'
 export { SLUGS_RESERVES, uniqueSlugParCommune } from './uniqueSlugParCommune'

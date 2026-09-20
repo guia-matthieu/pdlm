@@ -3,7 +3,13 @@ import type { Payload, PayloadRequest } from 'payload'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { getPayloadClient } from '@/lib/payload'
-import { alertesActives, menuCommune, pagesDuMenu } from '@/lib/contenu'
+import {
+  actualiteParSlug,
+  actualitesCommune,
+  alertesActives,
+  menuCommune,
+  pagesDuMenu,
+} from '@/lib/contenu'
 
 /**
  * Preuve d'isolation (J4) — invariants I1 à I6, I9 du plan.
@@ -251,6 +257,102 @@ describe('I3 — workflow de publication', () => {
     })
     expect((versionPublique as unknown as { titre: string }).titre).toBe('Publiée B')
   })
+
+  it('rédacteur : écriture SANS _status sur un document publié refusée', async () => {
+    // Le test ci-dessus ne couvre que la demande explicite `_status: published`,
+    // alors que `bloquerPublication` ne teste QUE `data._status`. Ce test ferme
+    // le doute sur le PATCH nu : Payload force `publishAllLocales` dès que
+    // l'appel ne porte pas `draft: true` (updateByID.js l. 81), ce qui fixe
+    // `data._status = 'published'` AVANT les hooks de collection
+    // (update.js l. 40-43). Une écriture directe est donc bien vue comme une
+    // publication par le hook — et refusée. Ce test verrouille cet enchaînement,
+    // qui tient à un détail d'implémentation de Payload.
+    const publiee = await payload.create({
+      collection: 'pages',
+      data: { ...pageMin('Publiée B intacte', communeB), _status: 'published' },
+      req: req(operateur),
+    })
+
+    await expect(
+      payload.update({
+        collection: 'pages',
+        id: publiee.id,
+        data: { titre: 'Détournée par le rédacteur' },
+        req: req(redacteurB),
+        overrideAccess: false,
+      }),
+    ).rejects.toThrow(/administrateur|publier/i)
+
+    const versionPublique = await payload.findByID({
+      collection: 'pages',
+      id: publiee.id,
+      overrideAccess: true,
+      draft: false,
+    })
+    expect((versionPublique as unknown as { titre: string }).titre).toBe('Publiée B intacte')
+  })
+
+  it('rédacteur : dépublication refusée', async () => {
+    // Retirer un contenu de la vitrine publique est aussi un acte de
+    // publication : un rédacteur ne doit pas pouvoir dépublier.
+    const publiee = await payload.create({
+      collection: 'pages',
+      data: { ...pageMin('Publiée B à dépublier', communeB), _status: 'published' },
+      req: req(operateur),
+    })
+
+    // Document COMPLET (comme le poste l'interface d'admin) avec
+    // `_status: 'draft'` et SANS `draft: true` : l'écriture vise la table
+    // principale, donc la version publique.
+    await expect(
+      payload.update({
+        collection: 'pages',
+        id: publiee.id,
+        data: { ...pageMin('Publiée B à dépublier', communeB), _status: 'draft' },
+        req: req(redacteurB),
+        overrideAccess: false,
+      }),
+    ).rejects.toThrow(/administrateur|publier/i)
+
+    const versionPublique = await payload.findByID({
+      collection: 'pages',
+      id: publiee.id,
+      overrideAccess: true,
+      draft: false,
+    })
+    expect((versionPublique as unknown as { _status: string })._status).toBe('published')
+  })
+
+  it('rédacteur : brouillon sur un document publié TOUJOURS autorisé', async () => {
+    // Garde-fou : verrouiller la publication ne doit pas fermer le travail
+    // normal d'un rédacteur (proposer une modification en brouillon).
+    // Le document complet est transmis, comme le fait l'interface d'admin —
+    // `drafts.validate: true` valide le brouillon, `blocs` est requis.
+    const publiee = await payload.create({
+      collection: 'pages',
+      data: { ...pageMin('Publiée B pour brouillon', communeB), _status: 'published' },
+      req: req(operateur),
+    })
+
+    const brouillon = await payload.update({
+      collection: 'pages',
+      id: publiee.id,
+      data: pageMin('Proposition du rédacteur', communeB),
+      draft: true,
+      req: req(redacteurB),
+      overrideAccess: false,
+    })
+    expect((brouillon as unknown as { titre: string }).titre).toBe('Proposition du rédacteur')
+
+    // …et la version publique n'a pas bougé
+    const versionPublique = await payload.findByID({
+      collection: 'pages',
+      id: publiee.id,
+      overrideAccess: true,
+      draft: false,
+    })
+    expect((versionPublique as unknown as { titre: string }).titre).toBe('Publiée B pour brouillon')
+  })
 })
 
 describe('I4 — relations contrôlées au même tenant', () => {
@@ -356,5 +458,60 @@ describe('I6/D9 — visibilité et fenêtres de dates', () => {
     // Aucune fuite depuis une autre commune
     const activesA = await alertesActives(communeA)
     expect(activesA.map((a) => a.message)).not.toContain('Active')
+  })
+
+  it('actualités : une parution programmée reste invisible, liste ET accès direct', async () => {
+    const JOUR = 86_400_000
+    const programmee = await payload.create({
+      collection: 'actualites',
+      data: {
+        titre: 'Parution de demain',
+        slug: 'parution-de-demain',
+        tenant: communeB,
+        resume: 'Sous embargo jusqu’à demain.',
+        datePublication: new Date(Date.now() + JOUR).toISOString(),
+        contenu: {
+          root: {
+            type: 'root',
+            direction: 'ltr',
+            format: '',
+            indent: 0,
+            version: 1,
+            children: [
+              {
+                type: 'paragraph',
+                direction: 'ltr',
+                format: '',
+                indent: 0,
+                version: 1,
+                children: [
+                  {
+                    type: 'text',
+                    detail: 0,
+                    format: 0,
+                    mode: 'normal',
+                    style: '',
+                    text: 'Texte',
+                    version: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        _status: 'published',
+      } as any,
+      req: req(operateur),
+    })
+    expect(programmee.id).toBeDefined()
+
+    // La liste filtre déjà sur la date…
+    const liste = await actualitesCommune(communeB)
+    expect(liste.docs.map((a) => a.slug)).not.toContain('parution-de-demain')
+
+    // …mais l'embargo ne vaut que si l'accès direct par URL filtre aussi :
+    // sinon le slug, devinable, donne le contenu en avance.
+    const directe = await actualiteParSlug(communeB, 'parution-de-demain')
+    expect(directe).toBeNull()
   })
 })

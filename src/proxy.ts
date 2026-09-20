@@ -11,10 +11,17 @@ import { NextResponse, type NextRequest } from 'next/server'
  */
 const ROUTES_API_PUBLIQUES = [/^\/api\/(media|documents)\/file\//, /^\/api\/health\/?$/]
 
-function estDomainePlateforme(host: string): boolean {
+export function estDomainePlateforme(host: string): boolean {
   const plateforme = (process.env.PLATFORM_DOMAIN ?? '').toLowerCase()
   const nu = host.split(':')[0]
-  if (!plateforme) return true
+  if (!plateforme) {
+    // Sans PLATFORM_DOMAIN, répondre « oui » revient à considérer TOUT host
+    // comme la plateforme : l'API s'ouvre alors sur tous les domaines
+    // communaux, et une variable d'environnement oubliée suffit à désarmer I7.
+    // En production on refuse ce mode dégradé ; en développement le confort
+    // (host nu, *.localhost) est conservé.
+    return process.env.NODE_ENV !== 'production'
+  }
   return nu === plateforme || nu === `www.${plateforme}` || nu === `admin.${plateforme}`
 }
 

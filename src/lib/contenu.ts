@@ -50,18 +50,8 @@ export async function actualitesCommune(
   const payload = await getPayloadClient()
   const res = await payload.find({
     collection: 'actualites',
-    where: {
-      and: [
-        baseCommune(id),
-        filtrePublication(),
-        {
-          or: [
-            { datePublication: { exists: false } },
-            { datePublication: { less_than_equal: new Date().toISOString() } },
-          ],
-        },
-      ],
-    },
+    // `filtrePublication()` porte déjà l'état publié ET la fenêtre de parution.
+    where: { and: [baseCommune(id), filtrePublication()] },
     sort: '-datePublication',
     depth: 0,
     limit: limite,
@@ -71,13 +61,18 @@ export async function actualitesCommune(
   return res
 }
 
-/** Une actualité publiée par slug. */
+/**
+ * Une actualité publiée par slug.
+ * `filtrePublication()` et non `_status` seul : une parution programmée est
+ * publiée mais sous embargo, et un slug se devine. Filtrer la liste sans
+ * filtrer l'accès direct livrerait le contenu en avance.
+ */
 export async function actualiteParSlug(id: IdCommune, slug: string): Promise<Actualite | null> {
   const payload = await getPayloadClient()
   const res = await payload.find({
     collection: 'actualites',
     where: {
-      and: [baseCommune(id), { slug: { equals: slug } }, { _status: { equals: 'published' } }],
+      and: [baseCommune(id), { slug: { equals: slug } }, filtrePublication()],
     },
     depth: 0,
     limit: 1,

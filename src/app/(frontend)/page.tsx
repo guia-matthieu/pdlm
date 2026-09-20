@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { RenduBlocs } from '@/components/RenduBlocs'
 import { resolveCommune } from '@/lib/commune'
 import { pageAccueil } from '@/lib/contenu'
@@ -13,7 +15,7 @@ export default async function PageAccueil() {
         <h1>Bienvenue à {commune.nom}</h1>
         <p>
           Le site est en cours de construction. Revenez bientôt ! Vous pouvez consulter les{' '}
-          <a href="/actualites">actualités</a> et l’<a href="/agenda">agenda</a>.
+          <Link href="/actualites">actualités</Link> et l’<Link href="/agenda">agenda</Link>.
         </p>
       </section>
     )
