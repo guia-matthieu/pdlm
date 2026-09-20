@@ -6,6 +6,16 @@ import 'dotenv/config'
  * `reuseExistingServer` ne doit jamais être vrai en CI — sinon Playwright
  * attaque n'importe quel serveur qui écoute sur le port, y compris celui d'un
  * autre projet, et les tests valident alors une application étrangère.
+ *
+ * En local, si un `next dev` de ce dépôt tourne déjà, **Next 16 refuse d'en
+ * démarrer un second pour le même répertoire** (« Another next dev server is
+ * already running ») et Playwright échoue sur « Process from config.webServer
+ * was not able to start ». Lancer alors la suite sur le port de ce serveur, pour
+ * qu'elle le réutilise au lieu d'en créer un :
+ *
+ *     E2E_PORT=3001 npm run test:e2e
+ *
+ * En CI la question ne se pose pas : rien ne tourne, Playwright démarre le sien.
  */
 const PORT = Number(process.env.E2E_PORT ?? 3000)
 const BASE_URL = `http://localhost:${PORT}`
