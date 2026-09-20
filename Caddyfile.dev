@@ -1,4 +1,4 @@
-# glm — Caddyfile de démonstration locale (HTTP :80, tous hosts)
+# pdlm — Caddyfile de démonstration locale (HTTP :80, tous hosts)
 # Usage : docker compose up (CADDY_FILE par défaut) — puis http://saint-ex.localhost/
 :80 {
 	reverse_proxy app:3000

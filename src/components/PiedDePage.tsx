@@ -76,7 +76,7 @@ export function PiedDePage({ commune }: { commune: Commune }) {
         </div>
       </div>
       <p className="pied-page__mentions">
-        © {annee} {commune.nom} — Site propulsé par <a href="https://github.com/">glm</a> (logiciel
+        © {annee} {commune.nom} — Site propulsé par <a href="https://github.com/">pdlm</a> (logiciel
         libre).
       </p>
     </footer>

@@ -123,7 +123,7 @@ export async function seedContenuDemo(
           'Éditeur : Mairie de Saint-Exupéry-les-Bains — [adresse à compléter].',
           'Directeur de la publication : Monsieur/Madame le Maire — [à compléter].',
           'Hébergeur : [nom et coordonnées de l’hébergeur à compléter].',
-          'Ce site est propulsé par glm, logiciel libre sous licence AGPL-3.0.',
+          'Ce site est propulsé par pdlm, logiciel libre sous licence AGPL-3.0.',
         ),
       },
     ],

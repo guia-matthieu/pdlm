@@ -21,7 +21,7 @@ import { aRoleSur, isOperateur } from '../access/roles'
  * version » de « j'écris dans la vitrine publique ».
  */
 
-const clePourCollection = (slug: string) => `glmBrouillon:${slug}`
+const clePourCollection = (slug: string) => `pdlmBrouillon:${slug}`
 
 /**
  * Mémorise, pour la requête en cours, si l'opération demande l'enregistrement

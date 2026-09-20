@@ -1,10 +1,10 @@
-# glm — Caddyfile de production (exemple)
+# pdlm — Caddyfile de production (exemple)
 #
 # Caddy obtient et renouvelle automatiquement les certificats Let's Encrypt.
 # Remplacer les domaines ci-dessous, puis ajouter un bloc par commune.
 # Le domaine de la plateforme héberge l'interface d'administration (/admin).
 
-glm.example.fr, www.glm.example.fr {
+pdlm.example.fr, www.pdlm.example.fr {
 	reverse_proxy app:3000
 }
 

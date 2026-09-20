@@ -4,6 +4,6 @@
 import 'dotenv/config'
 
 process.env.DATABASE_URI =
-  process.env.DATABASE_URI_TEST ?? 'postgres://postgres:postgres@127.0.0.1:5432/glm_test'
+  process.env.DATABASE_URI_TEST ?? 'postgres://postgres:postgres@127.0.0.1:5432/pdlm_test'
 process.env.S3_ENABLED = 'false'
 Object.assign(process.env, { NODE_ENV: process.env.NODE_ENV ?? 'test' })

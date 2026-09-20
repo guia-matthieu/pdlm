@@ -6,7 +6,7 @@ import { connecterAdmin } from '../helpers/login'
  * Compte opérateur créé par `npm run seed` (src/seed/index.ts). Mot de passe de
  * démonstration, base jetable — jamais un identifiant de production.
  */
-const OPERATEUR = { email: 'operateur@glm.dev', motDePasse: 'demo1234' }
+const OPERATEUR = { email: 'operateur@pdlm.dev', motDePasse: 'demo1234' }
 
 test.describe('Admin Payload', () => {
   test.beforeEach(async ({ page }) => {

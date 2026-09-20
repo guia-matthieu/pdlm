@@ -1,4 +1,4 @@
-# glm — image de production (Next.js standalone) + image de migration (CLI payload complet)
+# pdlm — image de production (Next.js standalone) + image de migration (CLI payload complet)
 #
 # Deux cibles :
 #   - runner (défaut)  : serveur Next standalone, utilisateur non-root

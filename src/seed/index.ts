@@ -101,7 +101,7 @@ async function seed() {
   }
 
   await upsertUser(payload, {
-    email: 'operateur@glm.dev',
+    email: 'operateur@pdlm.dev',
     name: 'Opérateur (démo)',
     password: MOT_DE_PASSE_DEMO,
     role: 'operateur',
@@ -127,7 +127,7 @@ async function seed() {
       : 'Seed : communes Saint-Exupéry-les-Bains et Valvert créées avec leurs comptes de démonstration.',
   )
   payload.logger.info(
-    `Comptes démo — operateur@glm.dev / admin@saint-ex.fr / redacteur@saint-ex.fr — mot de passe : ${MOT_DE_PASSE_DEMO}`,
+    `Comptes démo — operateur@pdlm.dev / admin@saint-ex.fr / redacteur@saint-ex.fr — mot de passe : ${MOT_DE_PASSE_DEMO}`,
   )
   process.exit(0)
 }

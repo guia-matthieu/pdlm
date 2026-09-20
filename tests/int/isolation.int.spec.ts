@@ -82,14 +82,14 @@ beforeAll(async () => {
     })
   }
 
-  operateur = await mkUser('iso-operateur@glm.test', { role: 'operateur' })
-  adminA = await mkUser('iso-admin-a@glm.test', {
+  operateur = await mkUser('iso-operateur@pdlm.test', { role: 'operateur' })
+  adminA = await mkUser('iso-admin-a@pdlm.test', {
     tenants: [{ tenant: communeA, roles: ['admin'] }],
   })
-  redacteurB = await mkUser('iso-redacteur-b@glm.test', {
+  redacteurB = await mkUser('iso-redacteur-b@pdlm.test', {
     tenants: [{ tenant: communeB, roles: ['redacteur'] }],
   })
-  mixte = await mkUser('iso-mixte@glm.test', {
+  mixte = await mkUser('iso-mixte@pdlm.test', {
     tenants: [
       { tenant: communeA, roles: ['admin'] },
       { tenant: communeB, roles: ['redacteur'] },
@@ -116,7 +116,7 @@ afterAll(async () => {
     }
     await payload.delete({
       collection: 'users',
-      where: { email: { like: '@glm.test' } },
+      where: { email: { like: '@pdlm.test' } },
       overrideAccess: true,
     })
     await payload.delete({
@@ -125,7 +125,7 @@ afterAll(async () => {
       overrideAccess: true,
     })
   } catch {
-    // toléré : la base glm_test est recréable
+    // toléré : la base pdlm_test est recréable
   }
 })
 
