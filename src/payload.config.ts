@@ -11,8 +11,14 @@ import sharp from 'sharp'
 import { Communes } from './collections/Communes'
 import { Domaines } from './collections/Domaines'
 import { Journal } from './collections/Journal'
-import { Media } from './collections/Media'
 import { Users } from './collections/Users'
+import { Media } from './collections/Media'
+import { Pages } from './collections/Pages'
+import { Actualites } from './collections/Actualites'
+import { Evenements } from './collections/Evenements'
+import { Documents } from './collections/Documents'
+import { Alertes } from './collections/Alertes'
+import { Menus } from './collections/Menus'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -31,7 +37,19 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Communes, Domaines, Journal, Users, Media],
+  collections: [
+    Communes,
+    Domaines,
+    Journal,
+    Users,
+    Media,
+    Pages,
+    Actualites,
+    Evenements,
+    Documents,
+    Alertes,
+    Menus,
+  ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -60,7 +78,12 @@ export default buildConfig({
       userHasAccessToAllTenants: (user) => user?.role === 'operateur',
       collections: {
         media: { tenantFieldOverrides: { label: 'Commune' } },
-        // J4 : pages, actualites, evenements, documents, alertes, menus (isGlobal)
+        pages: { tenantFieldOverrides: { label: 'Commune' } },
+        actualites: { tenantFieldOverrides: { label: 'Commune' } },
+        evenements: { tenantFieldOverrides: { label: 'Commune' } },
+        documents: { tenantFieldOverrides: { label: 'Commune' } },
+        alertes: { tenantFieldOverrides: { label: 'Commune' } },
+        menus: { isGlobal: true },
       },
       tenantsArrayField: {
         rowFields: [
@@ -83,6 +106,7 @@ export default buildConfig({
             bucket: process.env.S3_BUCKET ?? 'glm',
             collections: {
               media: { prefix: 'media' },
+              documents: { prefix: 'documents' },
             },
             config: {
               region: process.env.S3_REGION ?? 'fr-1',

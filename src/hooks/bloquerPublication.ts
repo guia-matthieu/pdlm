@@ -3,16 +3,16 @@ import type { CollectionBeforeChangeHook } from 'payload'
 import { aRoleSur, isOperateur } from '../access/roles'
 
 /**
- * Invariant I3 : la publication (transition `_status → 'published'`) est
- * réservée à l'opérateur et aux admins de la commune du document.
- * Avec drafts activés, l'édition d'un publié par un rédacteur crée un
- * brouillon — la version publique reste intacte jusqu'à publication.
+ * Invariant I3 : toute écriture aboutissant à l'état publié est réservée à
+ * l'opérateur et aux admins de la commune du document. Cela couvre la
+ * transition brouillon→publié ET la ré-écriture d'un contenu déjà publié
+ * (sinon un rédacteur pourrait modifier directement la version publique en
+ * soumettant `_status: 'published'` — contournement B3 identifié en revue).
  */
 export const bloquerPublication: CollectionBeforeChangeHook = ({ req, originalDoc, data }) => {
-  const avant = (originalDoc as { _status?: string } | undefined)?._status
   const apres = (data as { _status?: string } | undefined)?._status
 
-  if (apres === 'published' && avant !== 'published') {
+  if (apres === 'published') {
     const commune =
       ((data as { tenant?: unknown }).tenant as string | number | undefined) ??
       ((originalDoc as { tenant?: unknown } | undefined)?.tenant as string | number | undefined)

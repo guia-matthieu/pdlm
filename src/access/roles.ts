@@ -34,9 +34,11 @@ export function communesAvecRole(
   if (!user) return []
   const resultat: string[] = []
   for (const ligne of user.tenants ?? []) {
-    if (!ligne?.tenant) continue
+    if (!ligne) continue
+    const id = idDe(ligne.tenant)
+    if (id === undefined) continue
     if ((ligne.roles ?? []).some((r) => roles.includes(r))) {
-      resultat.push(String(ligne.tenant))
+      resultat.push(String(id))
     }
   }
   return resultat
