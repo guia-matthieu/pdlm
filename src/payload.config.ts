@@ -103,7 +103,7 @@ export default buildConfig({
     ...(process.env.S3_ENABLED === 'true'
       ? [
           s3Storage({
-            bucket: process.env.S3_BUCKET ?? 'glm',
+            bucket: process.env.S3_BUCKET ?? 'pdlm',
             collections: {
               media: { prefix: 'media' },
               documents: { prefix: 'documents' },

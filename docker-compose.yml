@@ -1,4 +1,4 @@
-# glm — déploiement de production
+# pdlm — déploiement de production
 #
 # Seuls Caddy (80/443) est exposé. PostgreSQL, MinIO et l'app vivent sur le
 # réseau interne. Le service `migrate` applique les migrations AVANT le
@@ -11,9 +11,9 @@
 # PAYLOAD_SECRET, S3_APP_PASSWORD et MINIO_ROOT_PASSWORD obligatoires en prod.
 
 # Nom de projet explicite : la pile de développement (docker-compose.dev.yml)
-# occupe le projet `glm`. Sans ces deux noms distincts, les deux piles se
+# occupe le projet `pdlm`. Sans ces deux noms distincts, les deux piles se
 # disputent les mêmes conteneurs et les mêmes volumes.
-name: glm-prod
+name: pdlm-prod
 
 services:
   postgres:
@@ -22,11 +22,11 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-glm}
+      POSTGRES_DB: ${POSTGRES_DB:-pdlm}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-glm}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pdlm}']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -59,12 +59,12 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      S3_BUCKET: ${S3_BUCKET:-glm}
+      S3_BUCKET: ${S3_BUCKET:-pdlm}
       S3_APP_PASSWORD: ${S3_APP_PASSWORD:-motdepasse-a-changer}
     # Idempotent : chaque étape tolère l'existant, et l'attachement de la
     # policy est INCONDITIONNEL. L'ancienne forme `policy create || policy
     # attach` ne rattachait jamais au premier démarrage (create réussissant,
-    # attach était sauté) : l'utilisateur glm-app restait sans droits.
+    # attach était sauté) : l'utilisateur pdlm-app restait sans droits.
     # Le bucket n'est pas anonyme : les fichiers sont servis par Payload
     # (/api/media/file/…), jamais lus directement depuis MinIO.
     entrypoint:
@@ -75,11 +75,11 @@ services:
         mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
         mc mb --ignore-existing "local/$$S3_BUCKET"
         printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:*"],"Resource":["arn:aws:s3:::'"$$S3_BUCKET"'","arn:aws:s3:::'"$$S3_BUCKET"'/*"]}]}' > /tmp/policy.json
-        mc admin policy create local glm-app /tmp/policy.json 2>/dev/null || echo "policy glm-app : déjà présente"
-        mc admin user add local glm-app "$$S3_APP_PASSWORD" 2>/dev/null || echo "utilisateur glm-app : déjà présent"
-        mc admin policy attach local glm-app --user glm-app 2>/dev/null || echo "policy glm-app : déjà attachée"
-        echo "--- droits effectifs de glm-app ---"
-        mc admin user info local glm-app
+        mc admin policy create local pdlm-app /tmp/policy.json 2>/dev/null || echo "policy pdlm-app : déjà présente"
+        mc admin user add local pdlm-app "$$S3_APP_PASSWORD" 2>/dev/null || echo "utilisateur pdlm-app : déjà présent"
+        mc admin policy attach local pdlm-app --user pdlm-app 2>/dev/null || echo "policy pdlm-app : déjà attachée"
+        echo "--- droits effectifs de pdlm-app ---"
+        mc admin user info local pdlm-app
 
   migrate:
     build:
@@ -90,7 +90,7 @@ services:
         condition: service_healthy
     environment:
       # Réseau interne : les URIs du .env (127.0.0.1) ne s'appliquent pas en prod
-      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-glm}
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pdlm}
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:?PAYLOAD_SECRET requis dans .env}
       S3_ENABLED: 'false'
     restart: 'no'
@@ -110,13 +110,13 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-glm}
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pdlm}
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:?PAYLOAD_SECRET requis dans .env}
       S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY_ID: glm-app
+      S3_ACCESS_KEY_ID: pdlm-app
       S3_SECRET_ACCESS_KEY: ${S3_APP_PASSWORD:-motdepasse-a-changer}
       S3_ENABLED: 'true'
-      S3_BUCKET: ${S3_BUCKET:-glm}
+      S3_BUCKET: ${S3_BUCKET:-pdlm}
       S3_REGION: ${S3_REGION:-fr-1}
       NEXT_PUBLIC_S3_PUBLIC_URL: ${NEXT_PUBLIC_S3_PUBLIC_URL:-http://localhost:9000}
       PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-localhost}

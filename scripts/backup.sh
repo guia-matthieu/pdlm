@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# glm — sauvegarde cohérente PostgreSQL + S3 (MinIO)
+# pdlm — sauvegarde cohérente PostgreSQL + S3 (MinIO)
 #
 # Cohérence (plan J7) : l'application est ARRÊTÉE pendant la sauvegarde
 # (fenêtre de maintenance) — un pg_dump + mc mirror sous écritures
@@ -24,9 +24,9 @@ valeur_conteneur() { # $1=service $2=variable $3=valeur par défaut
 
 DOSSIER=${1:-backups/$(date +%Y%m%d-%H%M%S)}
 POSTGRES_USER=${POSTGRES_USER:-$(valeur_conteneur postgres POSTGRES_USER postgres)}
-POSTGRES_DB=${POSTGRES_DB:-$(valeur_conteneur postgres POSTGRES_DB glm)}
+POSTGRES_DB=${POSTGRES_DB:-$(valeur_conteneur postgres POSTGRES_DB pdlm)}
 # Lu AVANT l'arrêt de l'application (plus joignable ensuite).
-S3_BUCKET=${S3_BUCKET:-$(valeur_conteneur app S3_BUCKET glm)}
+S3_BUCKET=${S3_BUCKET:-$(valeur_conteneur app S3_BUCKET pdlm)}
 
 mkdir -p "$DOSSIER/s3"
 DOSSIER_ABS=$(cd "$DOSSIER" && pwd)

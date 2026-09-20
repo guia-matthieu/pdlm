@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# glm — restauration d'une sauvegarde créée par scripts/backup.sh
+# pdlm — restauration d'une sauvegarde créée par scripts/backup.sh
 #
 # ATTENTION : écrase la base et le bucket actuels. Procédure avec arrêt
 # applicatif (fenêtre de maintenance), migrations non appliquées par ce script
@@ -29,9 +29,9 @@ DOSSIER=${1:?Usage : ./scripts/restore.sh <dossier-de-sauvegarde>}
 DOSSIER_ABS=$(cd "$DOSSIER" && pwd)
 
 POSTGRES_USER=${POSTGRES_USER:-$(valeur_conteneur postgres POSTGRES_USER postgres)}
-POSTGRES_DB=${POSTGRES_DB:-$(valeur_conteneur postgres POSTGRES_DB glm)}
+POSTGRES_DB=${POSTGRES_DB:-$(valeur_conteneur postgres POSTGRES_DB pdlm)}
 # Lu AVANT l'arrêt de l'application (plus joignable ensuite).
-S3_BUCKET=${S3_BUCKET:-$(valeur_conteneur app S3_BUCKET glm)}
+S3_BUCKET=${S3_BUCKET:-$(valeur_conteneur app S3_BUCKET pdlm)}
 
 # Une sauvegarde illisible détectée APRÈS avoir supprimé la base, c'est la
 # perte des données : on vérifie avant de toucher à quoi que ce soit.
