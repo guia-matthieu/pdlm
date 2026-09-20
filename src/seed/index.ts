@@ -1,6 +1,7 @@
 import type { Commune, Domaine, User } from '../payload-types'
 
 import { getPayloadClient } from '../lib/payload'
+import { seedContenuDemo } from './contenu-demo'
 
 type Payload = Awaited<ReturnType<typeof getPayloadClient>>
 
@@ -105,7 +106,7 @@ async function seed() {
     password: MOT_DE_PASSE_DEMO,
     role: 'operateur',
   })
-  await upsertUser(payload, {
+  const admin = await upsertUser(payload, {
     email: 'admin@saint-ex.fr',
     name: 'Admin Saint-Exupéry (démo)',
     password: MOT_DE_PASSE_DEMO,
@@ -117,6 +118,8 @@ async function seed() {
     password: MOT_DE_PASSE_DEMO,
     tenants: [{ tenant: saintEx.id, roles: ['redacteur'] }],
   })
+
+  await seedContenuDemo(payload, saintEx.id, valvert.id, admin.id)
 
   payload.logger.info(
     nbCommunes > 0

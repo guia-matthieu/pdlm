@@ -40,6 +40,14 @@ export function candidatCommune(hostBrut: string): CandidatCommune | null {
   const host = normaliserHost(hostBrut)
   if (host === '') return null
 
+  // Hosts de développement AVANT la branche plateforme : en dev,
+  // PLATFORM_DOMAIN=localhost et le host nu doit déclencher le fallback.
+  if (HOSTS_DEV.has(host)) {
+    if (process.env.NODE_ENV === 'production') return null
+    const slug = process.env.DEFAULT_COMMUNE_SLUG
+    return slug ? { fallbackDev: slug } : null
+  }
+
   const plateforme = (process.env.PLATFORM_DOMAIN ?? '').toLowerCase()
   if (plateforme) {
     if (host === plateforme || host === `www.${plateforme}` || host === `admin.${plateforme}`) {
@@ -53,12 +61,6 @@ export function candidatCommune(hostBrut: string): CandidatCommune | null {
       }
       return null
     }
-  }
-
-  if (HOSTS_DEV.has(host)) {
-    if (process.env.NODE_ENV === 'production') return null
-    const slug = process.env.DEFAULT_COMMUNE_SLUG
-    return slug ? { fallbackDev: slug } : null
   }
 
   if (host.endsWith('.localhost')) {

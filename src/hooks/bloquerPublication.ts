@@ -10,6 +10,10 @@ import { aRoleSur, isOperateur } from '../access/roles'
  * soumettant `_status: 'published'` — contournement B3 identifié en revue).
  */
 export const bloquerPublication: CollectionBeforeChangeHook = ({ req, originalDoc, data }) => {
+  // Appels internes (seed, scripts, overrideAccess) : pas de req.user, l'access
+  // control a déjà filtré toute requête externe avant d'atteindre ce hook.
+  if (!req.user) return data
+
   const apres = (data as { _status?: string } | undefined)?._status
 
   if (apres === 'published') {

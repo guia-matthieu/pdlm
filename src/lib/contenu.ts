@@ -207,3 +207,23 @@ export function communePublique(c: Commune) {
     apparence: c.apparence ?? null,
   }
 }
+
+/** Hostname canonique de la commune (I6/I10 — canonicals et sitemap). */
+export async function domaineCanonique(id: IdCommune): Promise<string | null> {
+  const payload = await getPayloadClient()
+  const res = await payload.find({
+    collection: 'domaines',
+    where: { and: [{ commune: { equals: id } }, { canonique: { equals: true } }] },
+    limit: 1,
+    overrideAccess: true,
+  })
+  return res.docs[0]?.hostname ?? null
+}
+
+/** Base d'URLs publiques : domaine canonique, sinon sous-domaine plateforme. */
+export async function baseUrlsPubliques(id: IdCommune, slug: string): Promise<string> {
+  const canonique = await domaineCanonique(id)
+  if (canonique) return `https://${canonique}`
+  const plateforme = process.env.PLATFORM_DOMAIN
+  return plateforme ? `https://${slug}.${plateforme}` : ''
+}
