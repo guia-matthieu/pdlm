@@ -1,0 +1,210 @@
+# Intégration continue — J8.
+#
+# Cinq portes, toutes bloquantes : lint, types, tests, audit des dépendances,
+# analyse Trivy. Chaque job repart d'un `npm ci` sur le lockfile : aucune porte
+# ne dépend de l'état laissé par une autre.
+#
+# Node : lu depuis .nvmrc (22), source unique de vérité partagée avec le
+# Dockerfile et les développeurs. Ne jamais coder la version en dur ici.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Lecture seule : aucun job de cette CI ne pousse, ne publie ni ne commente.
+permissions:
+  contents: read
+
+# Un seul run par référence : les pushes successifs annulent le précédent.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  qualite:
+    name: Lint et types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Types TypeScript
+        run: npm run typecheck
+
+  tests:
+    name: Tests unitaires et d'intégration
+    runs-on: ubuntu-latest
+
+    # Même image majeure que le développement et la production (docker-compose)
+    # pour que la preuve d'isolation s'exécute sur le moteur réellement visé.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: glm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d glm_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URI: postgres://postgres:postgres@localhost:5432/glm_test
+      # Secret jetable, propre au runner : aucune valeur de production ici.
+      PAYLOAD_SECRET: ci-secret-ephemere-sans-valeur
+      ADMIN_URL: http://localhost:3000
+      PLATFORM_DOMAIN: localhost
+      DEFAULT_COMMUNE_SLUG: saint-ex
+      # S3_ENABLED volontairement absent : le plugin s3Storage ajoute des champs
+      # (_objectKey, prefix) aux types générés. L'activer ici ferait diverger
+      # src/payload-types.ts du fichier versionné.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tests unitaires
+        run: npm run test:unit
+
+      # Payload crée le schéma par push au démarrage (hors production) :
+      # aucune migration à jouer avant ce job.
+      - name: Tests d'intégration (preuve d'isolation)
+        run: npm run test:int
+
+  audit:
+    name: Audit des dépendances
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Seuil `high` : bloque les failles haute et critique. Restent en dessous
+      # les modérées de la chaîne drizzle-kit -> @esbuild-kit -> esbuild, sans
+      # correctif amont et hors production (outillage de build uniquement).
+      # Abaisser ce seuil à `moderate` rendra la CI rouge tant que
+      # @payloadcms/db-postgres n'aura pas migré hors de @esbuild-kit.
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+  trivy:
+    name: Trivy — failles, secrets, mauvaises configurations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Couverture réelle : package-lock.json (failles) et Dockerfile
+      # (mauvaises configurations). docker-compose.yml et les Caddyfile ne sont
+      # pas des cibles reconnues par Trivy — ils restent à relire à la main.
+      - name: Analyse du dépôt
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          # Une faille sans correctif publié ne peut pas être corrigée ici :
+          # elle bloquerait la CI indéfiniment sans action possible.
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-dirs: node_modules,.next
+
+  e2e:
+    name: Tests de bout en bout
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: glm_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d glm_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URI: postgres://postgres:postgres@localhost:5432/glm_e2e
+      PAYLOAD_SECRET: ci-secret-ephemere-sans-valeur
+      ADMIN_URL: http://localhost:3000
+      # Le proxy (src/proxy.ts) traite localhost comme le domaine plateforme :
+      # /admin est servi au lieu d'être redirigé, et l'API n'est pas restreinte.
+      PLATFORM_DOMAIN: localhost
+      # Résolution host -> commune sur un host local nu (src/lib/commune.ts).
+      DEFAULT_COMMUNE_SLUG: saint-ex
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Cache du compilateur Next entre les runs (guide officiel « CI Build
+      # Caching ») : le serveur de développement compile à la demande.
+      - name: Cache Next.js
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+      - name: Navigateur Playwright
+        run: npx playwright install --with-deps chromium
+
+      # Crée le schéma puis les communes, domaines, comptes et contenus de
+      # démonstration attendus par les tests.
+      - name: Données de démonstration
+        run: npm run seed
+
+      - name: Playwright
+        run: npm run test:e2e
+
+      - name: Rapport Playwright
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-playwright
+          path: playwright-report/
+          retention-days: 7

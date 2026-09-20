@@ -1,41 +1,50 @@
-import { test, expect, Page } from '@playwright/test'
-import { login } from '../helpers/login'
-import { seedTestUser, cleanupTestUser, testUser } from '../helpers/seedUser'
+import { expect, test } from '@playwright/test'
 
-test.describe('Admin Panel', () => {
-  let page: Page
+import { connecterAdmin } from '../helpers/login'
 
-  test.beforeAll(async ({ browser }, testInfo) => {
-    await seedTestUser()
+/**
+ * Compte opérateur créé par `npm run seed` (src/seed/index.ts). Mot de passe de
+ * démonstration, base jetable — jamais un identifiant de production.
+ */
+const OPERATEUR = { email: 'operateur@glm.dev', motDePasse: 'demo1234' }
 
-    const context = await browser.newContext()
-    page = await context.newPage()
-
-    await login({ page, user: testUser })
+test.describe('Admin Payload', () => {
+  test.beforeEach(async ({ page }) => {
+    await connecterAdmin(page, OPERATEUR)
   })
 
-  test.afterAll(async () => {
-    await cleanupTestUser()
+  test('la liste des communes montre les communes semées', async ({ page }) => {
+    await page.goto('/admin/collections/communes')
+
+    // Ciblé sur les liens du tableau : hors du tableau, le sélecteur de commune
+    // du plugin multi-tenant répète ces noms, et la colonne « slug » contient
+    // « valvert », que getByText('Valvert') matcherait aussi.
+    const tableau = page.locator('table')
+    await expect(tableau.getByRole('link', { name: 'Saint-Exupéry-les-Bains' })).toBeVisible()
+    await expect(tableau.getByRole('link', { name: 'Valvert' })).toBeVisible()
   })
 
-  test('can navigate to dashboard', async () => {
-    await page.goto('http://localhost:3000/admin')
-    await expect(page).toHaveURL('http://localhost:3000/admin')
-    const dashboardArtifact = page.locator('span[title="Dashboard"]').first()
-    await expect(dashboardArtifact).toBeVisible()
+  test('la liste des utilisateurs est accessible à l’opérateur', async ({ page }) => {
+    await page.goto('/admin/collections/users')
+
+    // Payload ajoute ?depth=1&limit=10 après le montage : une ancre $ ne passerait
+    // que si l'assertion devançait cet ajout — un test vert par hasard.
+    await expect(page).toHaveURL(/\/admin\/collections\/users(\?|$)/)
+    await expect(page.locator('table').getByText(OPERATEUR.email, { exact: true })).toBeVisible()
   })
 
-  test('can navigate to list view', async () => {
-    await page.goto('http://localhost:3000/admin/collections/users')
-    await expect(page).toHaveURL('http://localhost:3000/admin/collections/users')
-    const listViewArtifact = page.locator('h1', { hasText: 'Users' }).first()
-    await expect(listViewArtifact).toBeVisible()
-  })
+  test("le formulaire de création d'actualité s'ouvre", async ({ page }) => {
+    await page.goto('/admin/collections/actualites/create')
 
-  test('can navigate to edit view', async () => {
-    await page.goto('http://localhost:3000/admin/collections/users/create')
-    await expect(page).toHaveURL(/\/admin\/collections\/users\/[a-zA-Z0-9-_]+/)
-    const editViewArtifact = page.locator('input[name="email"]')
-    await expect(editViewArtifact).toBeVisible()
+    await expect(page.locator('#field-titre')).toBeVisible()
+  })
+})
+
+test.describe('Admin Payload — sans session', () => {
+  test('une collection est inaccessible sans connexion', async ({ page }) => {
+    await page.goto('/admin/collections/communes')
+
+    // Payload renvoie vers la connexion, avec le retour demandé en paramètre.
+    await expect(page).toHaveURL(/\/admin\/login/)
   })
 })
