@@ -35,11 +35,17 @@ a {
   color: var(--couleur-principale);
 }
 
+/* Anneau de focus bicolore, indépendant des couleurs communales : liseré
+   blanc (box-shadow) puis anneau quasi noir (outline). Sur tout fond, l'une
+   des deux couches contraste à 4,2:1 au moins (RGAA 10.7 / 3.3). Un anneau à
+   la couleur d'accent disparaissait sur le Hero (fond = couleur principale)
+   et sur fond blanc dès que l'accent était clair. */
 a:focus-visible,
 summary:focus-visible,
 button:focus-visible {
-  outline: 2px solid var(--couleur-accent);
+  outline: 2px solid var(--couleur-texte);
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--couleur-fond);
 }
 
 /* Lien d'évitement (accessibilité clavier) */
