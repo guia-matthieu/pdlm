@@ -47,12 +47,27 @@ services:
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      mc mb --ignore-existing local/pdlm &&
-      mc anonymous set download local/pdlm
-      "
+    # I5 : téléchargement d'objet connu autorisé, listing et écriture
+    # anonymes refusés. `mc anonymous set download` accorde à tort les DEUX
+    # permissions s3:GetObject ET s3:ListBucket (constat de recette J9,
+    # 2026-09-21 : listing anonyme du bucket entier possible en dev) — policy
+    # JSON explicite, GetObject seul, pour se limiter à ce que I5 documente.
+    #
+    # Forme liste + bloc littéral `|` (pas `>` replié en une ligne d'espaces,
+    # qui avait déjà silencieusement cassé une première version de ce script :
+    # sans `&&` explicite entre chaque commande, tout finissait comme
+    # arguments surnuméraires de la première — `mc alias set` seul, exit 0,
+    # aucune des étapes suivantes exécutée). Même forme que le service
+    # `createbuckets` de docker-compose.yml (prod), déjà correcte.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 minioadmin minioadmin
+        mc mb --ignore-existing local/pdlm
+        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::pdlm/*"]}]}' > /tmp/anon-policy.json
+        mc anonymous set-json /tmp/anon-policy.json local/pdlm
 
 volumes:
   pgdata_dev:
