@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 /**
  * Invariant I7 — proxy Next 16 (ex-middleware, runtime Node) :
  * 1. `/admin` est traité AVANT toute exclusion : si le host n'est pas le
- *    domaine de la plateforme, redirection vers ADMIN_URL ;
+ *    domaine de la plateforme, redirection vers ADMIN_URL (404 si absente) ;
  * 2. sur les domaines communaux, `/api` n'autorise que les routes fichiers
  *    et `/api/health` (exception interne explicite) — le reste vit sur la
  *    plateforme ;
@@ -38,6 +38,9 @@ export function proxy(request: NextRequest) {
       if (adminUrl) {
         return NextResponse.redirect(new URL(adminUrl + pathname))
       }
+      // ADMIN_URL oubliée : refuser plutôt que servir l'admin sur un domaine
+      // communal (même logique que PLATFORM_DOMAIN dans estDomainePlateforme).
+      return new NextResponse(null, { status: 404 })
     }
     return NextResponse.next()
   }
