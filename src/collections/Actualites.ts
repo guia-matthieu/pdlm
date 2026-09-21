@@ -7,6 +7,7 @@ import { bloquerPublication, memoriserModeBrouillon } from '../hooks/bloquerPubl
 /** I4 : image + auteur (affectation vérifiée, pas égalité fictive — I2). */
 const extraireRefsActualite = (data: Record<string, unknown>) => ({
   media: data['image'] ? [data['image'] as string | number] : [],
+  champMedia: 'image',
   auteur: (data['auteur'] as string | number | null | undefined) ?? null,
 })
 

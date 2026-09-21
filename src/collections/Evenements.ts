@@ -1,7 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
-import { figerTenant } from '../hooks'
+import { figerTenant, validerRelationsTenant } from '../hooks'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** Validation : la fin doit suivre le début. */
@@ -31,7 +31,8 @@ export const Evenements: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeChange: [figerTenant],
+    // I4 : pas de champ relationnel, mais la description (texte riche) peut en porter
+    beforeChange: [figerTenant, validerRelationsTenant(() => ({}))],
   },
   fields: [
     { name: 'titre', type: 'text', required: true, label: 'Titre' },

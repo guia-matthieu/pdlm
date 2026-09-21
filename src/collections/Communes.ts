@@ -1,8 +1,10 @@
 import type { CollectionConfig } from 'payload'
 
 import { communesAvecRole, isOperateur } from '../access/roles'
+import { idDe } from '../access/roles'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
 import { slugifier } from '../hooks/formatSlug'
+import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** Domaines réservés à la plateforme — un hostname communal ne peut pas les prendre (I6). */
@@ -77,6 +79,15 @@ export const Communes: CollectionConfig = {
         }
         return data
       },
+      // I4 : le logo est un média de la commune elle-même. À la création, la
+      // commune n'existe pas encore : aucun média ne peut lui appartenir.
+      validerRelationsTenant(
+        (data) => ({
+          media: data['logo'] ? [data['logo'] as string | number] : [],
+          champMedia: 'logo',
+        }),
+        ({ originalDoc }) => idDe(originalDoc) ?? null,
+      ),
     ],
     // Décision (f) : domaines.commune_id et users_tenants.tenant_id sont
     // NOT NULL avec une FK ON DELETE set null — supprimer une commune encore
