@@ -27,7 +27,7 @@ Hors périmètre de cette partie : la traduction automatique (partie 2), les slu
 - `dates` est facultatif. Il n'est à renseigner que si `Intl` ne connaît pas la langue (voir § 4).
 - **Ajouter une langue** demande une ligne dans cette liste, un dictionnaire d'interface (§ 4) et une migration de base.
 
-**Le français est toujours actif et fait foi.** C'est la langue par défaut de Payload (`defaultLocale: 'fr'`) et la langue de repli.
+**Le français est toujours actif et fait foi.** C'est la langue par défaut de Payload (`defaultLocale: 'fr'`) et la langue de repli. C'est aussi une obligation légale : une version en langue régionale est permise comme traduction, mais le français doit toujours exister, et les actes comme l'affichage légal restent en français (loi Molac art. 8, Conseil constitutionnel 2021-818 DC, CAA Toulouse 12/12/2024, Conseil d'État 5 juin 2025 ; sources dans `docs/recherche/2026-09-22_recherche-multilingue-corse.md`).
 
 **Communes** : nouveau champ `langues` (« Langues du site »), à choix multiples parmi les langues de la liste, français exclu puisqu'il est toujours actif.
 
@@ -109,7 +109,7 @@ Les slugs et les segments d'URL restent en français (`pigna.corsica/actualites/
 
 **Dictionnaires d'interface** : `src/i18n/fr.ts` (référence) et `src/i18n/co.ts`. Ils couvrent tous les textes fixes : lien d'évitement, rubriques, « Lire la suite », `aria-label`, titre et description par défaut de `generateMetadata`, mention « non traduit », sélecteur de langue. Le typage impose que chaque langue fournisse **toutes** les clés du français : une langue incomplète ne compile pas, et un test le vérifie aussi.
 
-**Dates** : `formaterDate(date, langue)` (`src/lib/dates.ts`) utilise `Intl` quand la langue est reconnue (`Intl.DateTimeFormat.supportedLocalesOf`), et sinon les noms de mois et de jours de la liste des langues. Constat du 2026-09-22 sur Node 23 : `co` n'est pas reconnu, et `Intl` retombe **en silence** sur le français. `br`, `eu`, `oc` et `ca` sont reconnus. Pour `gsw` (alsacien), les données sont celles du suisse allemand.
+**Dates** : `formaterDate(date, langue)` (`src/lib/dates.ts`) utilise `Intl` quand la langue est reconnue (`Intl.DateTimeFormat.supportedLocalesOf`), et sinon les noms de mois et de jours de la liste des langues. Constat du 2026-09-22 : `co` n'est pas reconnu, et `Intl` retombe **en silence** sur la locale du système, c'est-à-dire le français sur le poste de développement (Node 23) mais l'**anglais** dans l'image de production `node:22.17.0-alpine` (« Tuesday, September 22, 2026 », vérifié par exécution). Un test doit donc porter sur la sortie attendue, pas sur l'absence d'erreur. `br`, `eu`, `oc` et `ca` sont reconnus. Pour `gsw` (alsacien), les données sont celles du suisse allemand.
 
 **Sélecteur de langue** : il est dans l'en-tête et n'apparaît que si la commune a au moins deux langues. C'est un `<nav aria-label>` contenant une liste de liens simples, sans JavaScript ni menu déroulant. Chaque lien porte le nom natif de la langue, les attributs `lang` et `hreflang`, `aria-current` pour la langue affichée, et mène vers la même page dans l'autre langue.
 
@@ -148,7 +148,7 @@ Aucune donnée n'est à migrer pour les nouveaux champs : `langues` est vide et 
 
 - **Tests unitaires** sur des fonctions pures : lecture du préfixe dans le proxy, choix de la langue dans le layout, calcul de l'adresse canonique, liste `hreflang`, `formaterDate` pour `co` (y compris la détection du repli silencieux d'`Intl`), slugs réservés, complétude des dictionnaires.
 - **Tests d'intégration** (base réelle) : règles d'affichage du § 2 ; validations des Domaines (langue non activée, canonique par langue) et des Communes (I15) ; migration sans perte (§ 6).
-- **Tests de bout en bout** (Playwright) : `pigna.localhost/co/...` ; sélecteur de langue ; attributs `lang` de la page, de la mention et du contenu en repli ; 404 (I14) et redirection 308.
+- **Tests de bout en bout** (Playwright) : `pigna.localhost/co/...` ; sélecteur de langue ; attributs `lang` de la page, de la mention et du contenu en repli (une page non traduite sous `/co/` a `<html lang="co">` et son contenu dans un conteneur `lang="fr"` : c'est l'inverse de l'anti-modèle observé à Vannes, qui sert des pages françaises sous `/br/` en les déclarant bretonnes) ; 404 (I14) et redirection 308.
 - **Données de démonstration** : une commune avec le corse activé, une page traduite et validée, une page non traduite, un libellé de menu non traduit.
 
 ## 9. Critère de fin
@@ -159,6 +159,6 @@ Une commune active le corse, traduit une page et la valide. La page est alors se
 
 1. **Relecture des textes corses** : le dictionnaire `co.ts` (quelques dizaines de textes) et les noms de mois et de jours doivent être relus par un locuteur. Qui ?
 2. **Tester un domaine propre en local et en CI** : `*.localhost` est traité comme un sous-domaine de la plateforme par `candidatCommune`. Il faut un moyen de servir `pigna.corsica` dans les tests de bout en bout (Caddy de développement, résolution DNS de test, ou autre) : à trancher dans le plan.
-3. **Cadre légal** : la position « le français fait foi, les actes restent en français » est à confirmer par la recherche en cours (loi Molac, décision 2021-818 DC).
+3. ✅ **Cadre légal** : confirmé par la recherche du 2026-09-22 (voir § 1). Aucune jurisprudence propre aux sites web bilingues de collectivités n'a été trouvée.
 4. **Groupe `inscription` des Événements** : quels sous-champs traduire ? À régler dans le plan, après lecture du champ.
 5. **Partie 2** : ce socle expose ce dont la traduction automatique a besoin : lire le document en `fr`, écrire en L, positionner `traduction = a-relire`. L'interface commune des services de traduction, le traitement du texte riche Lexical et le choix du service pour le corse relèvent de la partie 2.
