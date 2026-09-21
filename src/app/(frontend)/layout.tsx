@@ -37,8 +37,9 @@ export default async function LayoutFront({ children }: { children: React.ReactN
     .filter((v): v is number => typeof v === 'number')
   const pages = await pagesDuMenu(commune.id, idsPages)
 
-  const couleurPrincipale = commune.apparence?.couleurPrincipale || '#000091'
-  const couleurAccent = commune.apparence?.couleurAccent || '#000091'
+  // Couleur non saisie : variable non posée, le défaut de styles.css (:root) s'applique
+  const couleurPrincipale = commune.apparence?.couleurPrincipale || undefined
+  const couleurAccent = commune.apparence?.couleurAccent || undefined
 
   return (
     <html lang="fr">

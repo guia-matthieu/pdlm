@@ -1,14 +1,17 @@
-/* pdlm — thème public sobre, inspiration administration française (Marianne) */
+/* pdlm — thème public sobre, neutre et personnalisable par commune.
+   Jamais l'identité visuelle de l'État (couleurs, police, bloc-marque du
+   DSFR) : elle est réservée aux sites en .gouv.fr (tests/unit/identite-etat). */
 
 :root {
-  --couleur-principale: #000091;
-  --couleur-accent: #000091;
+  /* Défaut ardoise : 10:1 avec le texte blanc, 10:1 comme lien sur fond blanc */
+  --couleur-principale: #264653;
+  --couleur-accent: #264653;
   --couleur-fond: #ffffff;
   --couleur-fond-alt: #f6f6f6;
   --couleur-texte: #161616;
   --couleur-texte-blanc: #ffffff;
   --couleur-bordure: #e0e0e0;
-  --couleur-erreur: #e1000f;
+  --couleur-erreur: #b3261e;
 }
 
 * {
@@ -17,7 +20,6 @@
 
 html {
   font-family:
-    'Marianne',
     'Segoe UI',
     system-ui,
     -apple-system,

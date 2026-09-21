@@ -208,7 +208,8 @@ export const Communes: CollectionConfig = {
         {
           name: 'couleurPrincipale',
           type: 'text',
-          defaultValue: '#000091',
+          // Même défaut que styles.css (:root) — jamais le bleu France, réservé à l'État
+          defaultValue: '#264653',
           label: 'Couleur principale (hex)',
           validate: (v: string | null | undefined) =>
             !v || /^#[0-9a-fA-F]{6}$/.test(v) || 'Format attendu : #RRGGBB',
