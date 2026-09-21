@@ -261,6 +261,14 @@ export interface Journal {
   message: string;
   commune?: (number | null) | Commune;
   utilisateur?: (number | null) | User;
+  /**
+   * Email de l’auteur au moment de l’action — figé ici pour survivre à la suppression du compte (FK `utilisateur` en SET NULL).
+   */
+  auteurEmail?: string | null;
+  /**
+   * Nom de la commune au moment de l’action — figé ici pour survivre à la suppression de la commune (FK `commune` en SET NULL).
+   */
+  communeNom?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -717,6 +725,8 @@ export interface JournalSelect<T extends boolean = true> {
   message?: T;
   commune?: T;
   utilisateur?: T;
+  auteurEmail?: T;
+  communeNom?: T;
   updatedAt?: T;
   createdAt?: T;
 }

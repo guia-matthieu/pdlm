@@ -15,7 +15,7 @@ import { getPayloadClient } from '@/lib/payload'
  */
 
 let payload: Payload
-let operateur: { id: number }
+let operateur: { id: number; email: string }
 
 /**
  * Domaine distinct de `@pdlm.test` : la suite d'isolation supprime ses
@@ -101,6 +101,47 @@ describe('I12 — suppression de commune', () => {
       expect(suppressions).toHaveLength(1)
       expect(suppressions[0].type).toBe('commune')
       expect(suppressions[0].utilisateur).toBe(operateur.id)
+      // Décision (g) : le nom de la commune survit à sa propre suppression
+      // (la relation `commune` est vide — la ligne référencée n'existe plus).
+      expect(suppressions[0].commune).toBeFalsy()
+      expect(suppressions[0].communeNom).toBe(nom)
+      expect(suppressions[0].auteurEmail).toBe(EMAIL_OPERATEUR)
     },
   )
+})
+
+describe('Décision (g) — instantanés auteur/commune', () => {
+  it('création de domaine : l’entrée porte le nom de la commune et l’email de l’auteur', async () => {
+    const suffixe = `instantanes${Date.now()}`
+    const nomCommune = `Instantanés ${suffixe}`
+    const commune = await payload.create({
+      collection: 'communes',
+      data: { nom: nomCommune, slug: `journal-${suffixe}`.toLowerCase(), actif: false },
+      overrideAccess: true,
+    })
+
+    await payload.create({
+      collection: 'domaines',
+      data: { hostname: `${commune.slug}.example`, commune: commune.id, canonique: false },
+      req: req(operateur),
+      overrideAccess: false,
+    })
+
+    const entrees = await payload.find({
+      collection: 'journal',
+      where: { type: { equals: 'domaine' }, commune: { equals: commune.id } },
+      depth: 0,
+      overrideAccess: true,
+    })
+    const creation = entrees.docs.find((e) => e.message.startsWith('Création'))
+    expect(creation?.communeNom).toBe(nomCommune)
+    expect(creation?.auteurEmail).toBe(EMAIL_OPERATEUR)
+
+    await payload.delete({
+      collection: 'domaines',
+      where: { commune: { equals: commune.id } },
+      overrideAccess: true,
+    })
+    await payload.delete({ collection: 'communes', id: commune.id, overrideAccess: true })
+  })
 })

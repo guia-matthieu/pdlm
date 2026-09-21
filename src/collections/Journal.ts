@@ -40,5 +40,23 @@ export const Journal: CollectionConfig = {
     { name: 'message', type: 'text', required: true },
     { name: 'commune', type: 'relationship', relationTo: 'communes', index: true },
     { name: 'utilisateur', type: 'relationship', relationTo: 'users' },
+    {
+      name: 'auteurEmail',
+      type: 'text',
+      label: 'Auteur (figé)',
+      admin: {
+        description:
+          'Email de l’auteur au moment de l’action — figé ici pour survivre à la suppression du compte (FK `utilisateur` en SET NULL).',
+      },
+    },
+    {
+      name: 'communeNom',
+      type: 'text',
+      label: 'Commune (figée)',
+      admin: {
+        description:
+          'Nom de la commune au moment de l’action — figé ici pour survivre à la suppression de la commune (FK `commune` en SET NULL).',
+      },
+    },
   ],
 }
