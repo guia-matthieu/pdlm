@@ -71,6 +71,34 @@ export const Communes: CollectionConfig = {
         return data
       },
     ],
+    // Décision (f) : domaines.commune_id et users_tenants.tenant_id sont
+    // NOT NULL avec une FK ON DELETE set null — supprimer une commune encore
+    // rattachée fait donc échouer Postgres sur une violation NOT NULL brute.
+    // Refus explicite, avant que la base n'ait à le faire.
+    beforeDelete: [
+      async ({ req, id }) => {
+        const domaines = await req.payload.count({
+          collection: 'domaines',
+          where: { commune: { equals: id } },
+          overrideAccess: true,
+        })
+        if (domaines.totalDocs > 0) {
+          throw new Error(
+            `Suppression impossible : ${domaines.totalDocs} domaine(s) sont encore rattaché(s) à cette commune. Retirez-les d’abord, ou désactivez la commune plutôt que de la supprimer.`,
+          )
+        }
+        const comptes = await req.payload.count({
+          collection: 'users',
+          where: { 'tenants.tenant': { equals: id } },
+          overrideAccess: true,
+        })
+        if (comptes.totalDocs > 0) {
+          throw new Error(
+            `Suppression impossible : ${comptes.totalDocs} compte(s) sont encore rattaché(s) à cette commune. Retirez-les d’abord, ou désactivez la commune plutôt que de la supprimer.`,
+          )
+        }
+      },
+    ],
     afterChange: [journaliser('commune')],
     afterDelete: [journaliserSuppression('commune')],
   },
