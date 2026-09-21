@@ -51,17 +51,24 @@ export const Communes: CollectionConfig = {
         if (typeof data?.nom === 'string' && !data.slug) {
           data.slug = slugifier(data.nom)
         }
-        // I6 : une commune active doit posséder un domaine canonique
+        // I6 : une commune active doit posséder un domaine canonique.
+        // À la création, ni `originalDoc` ni `data.id` n'existent encore
+        // (Postgres n'assigne l'id qu'après l'insert) — aucun domaine ne
+        // peut de toute façon référencer une commune qui n'existe pas
+        // encore, donc inutile d'interroger la base : 0 domaine canonique,
+        // sans quoi la requête reçoit un id absent et Postgres répond une
+        // erreur brute (« invalid input syntax for type integer: NaN »).
         if (data?.actif === true) {
-          const canoniques = await req.payload.count({
-            collection: 'domaines',
-            where: {
-              and: [
-                { commune: { equals: originalDoc?.id ?? data.id } },
-                { canonique: { equals: true } },
-              ],
-            },
-          })
+          const communeId = originalDoc?.id ?? data.id
+          const canoniques =
+            communeId === undefined
+              ? { totalDocs: 0 }
+              : await req.payload.count({
+                  collection: 'domaines',
+                  where: {
+                    and: [{ commune: { equals: communeId } }, { canonique: { equals: true } }],
+                  },
+                })
           if (canoniques.totalDocs === 0) {
             throw new Error(
               'Activation impossible : la commune doit posséder au moins un domaine canonique.',
