@@ -56,6 +56,9 @@ export const Domaines: CollectionConfig = {
       ({ data }) => {
         if (typeof data?.hostname === 'string' && data.hostname !== '') {
           data.hostname = normaliserHostname(data.hostname)
+          if (hostnamesReserves().includes(data.hostname)) {
+            throw new Error(`Hostname réservé à la plateforme : « ${data.hostname} »`)
+          }
         }
         return data
       },
