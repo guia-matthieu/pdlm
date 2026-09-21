@@ -1,0 +1,26 @@
+## Mises à jour de dépendances (I13) — deux écosystèmes : le code (npm) et
+## l'image de production (Dockerfile). Un scan Trivy ne repère que les
+## vulnérabilités déjà publiées sur les versions figées ; Dependabot est ce
+## qui propose réellement la mise à jour.
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    groups:
+      # Les mises à jour mineures/correctives groupées réduisent le nombre de
+      # PR ; une majeure reste seule (revue dédiée, risque de rupture).
+      mineures-et-correctives:
+        update-types: ['minor', 'patch']
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: 'docker'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'

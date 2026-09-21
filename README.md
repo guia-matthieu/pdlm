@@ -1,67 +1,242 @@
-# Payload Blank Template
+# pdlm — CMS pour petites communes françaises
 
-This template comes configured with the bare minimum to get started on anything you need.
+CMS open source (AGPL-3.0) **multi-tenant** : une seule installation sert
+plusieurs sites communaux indépendants (contenus, médias, rôles et domaines
+cloisonnés par commune). Destiné aux organisations qui hébergent ces sites
+pour le compte de communes — un EPCI, un syndicat mixte (SCEM) ou tout
+prestataire mutualisé.
 
-## Quick start
+Construit avec [Payload 3](https://payloadcms.com/) sur [Next.js 16](https://nextjs.org/)
+(App Router), PostgreSQL et un stockage compatible S3 (MinIO en développement).
 
-This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.
+## Sommaire
 
-## Quick Start - local setup
+- [Prérequis](#prérequis)
+- [Démarrage — développement](#démarrage--développement)
+- [Démarrage — production](#démarrage--production)
+- [Variables d'environnement](#variables-denvironnement)
+- [Rôles et permissions](#rôles-et-permissions)
+- [Ajouter une commune](#ajouter-une-commune)
+- [Politique de fichiers](#politique-de-fichiers)
+- [Accessibilité (RGAA)](#accessibilité-rgaa)
+- [Sauvegarde et restauration](#sauvegarde-et-restauration)
+- [Tests](#tests)
+- [Licence AGPL-3.0 — notice pour les opérateurs](#licence-agpl-30--notice-pour-les-opérateurs)
+- [Signalement de sécurité](#signalement-de-sécurité)
 
-To spin up this template locally, follow these steps:
+## Prérequis
 
-### Clone
+- [Node.js 22](https://nodejs.org/) (version exacte dans `.nvmrc` — `nvm use`)
+- [Docker](https://www.docker.com/) et Docker Compose v2 (`docker compose`, pas `docker-compose`)
+- `npm` (le dépôt utilise `package-lock.json`, pas `pnpm`/`yarn`)
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. If you've already cloned this repo, skip to [Development](#development).
+## Démarrage — développement
 
-### Development
+En développement, seuls PostgreSQL et MinIO tournent dans Docker ; l'application
+Next.js tourne directement sur la machine (rechargement à chaud).
 
-1. First [clone the repo](#clone) if you have not done so already
-2. `cd my-project && cp .env.example .env` to copy the example environment variables. You'll need to add the `MONGODB_URL` from your Cloud project to your `.env` if you want to use S3 storage and the MongoDB database that was created for you.
+```bash
+cp .env.example .env        # compléter les variables — voir ci-dessous
+docker compose -f docker-compose.dev.yml up -d
+npm install
+npm run seed                # comptes et contenus de démonstration
+npm run dev                 # http://localhost:3000 (ou :3001 si le port est pris)
+```
 
-3. `pnpm install && pnpm dev` to install dependencies and start the dev server
-4. open `http://localhost:3000` to open the app in your browser
+Comptes créés par le seed (mot de passe `demo1234`) :
 
-That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
+| Email                   | Rôle                                          |
+| ----------------------- | --------------------------------------------- |
+| `operateur@pdlm.dev`    | Opérateur (accès à toutes les communes)       |
+| `admin@saint-ex.fr`     | Administrateur de la commune de démonstration |
+| `redacteur@saint-ex.fr` | Rédacteur de la commune de démonstration      |
 
-#### Docker (Optional)
+Le site de la commune de démonstration est accessible en local via un
+sous-domaine `*.localhost` (résolution loopback, aucune configuration DNS
+requise) : `http://saint-ex.localhost:3000`. L'admin reste sur le domaine nu
+(`http://localhost:3000/admin`).
 
-If you prefer to use Docker for local development instead of a local MongoDB instance, the provided docker-compose.yml file can be used.
+## Démarrage — production
 
-To do so, follow these steps:
+```bash
+cp .env.example .env         # POSTGRES_PASSWORD, PAYLOAD_SECRET, S3_APP_PASSWORD,
+                              # MINIO_ROOT_PASSWORD obligatoires — le démarrage
+                              # échoue explicitement si l'un manque
+# éditer Caddyfile : remplacer pdlm.example.fr par le domaine de la plateforme,
+# ajouter un bloc par commune (voir « Ajouter une commune »)
+CADDY_FILE=./Caddyfile docker compose up --build -d
+```
 
-- Modify the `MONGODB_URL` in your `.env` file to `mongodb://127.0.0.1/<dbname>`
-- Modify the `docker-compose.yml` file's `MONGODB_URL` to match the above `<dbname>`
-- Run `docker-compose up` to start the database, optionally pass `-d` to run in the background.
+La pile de production (`docker-compose.yml`) : PostgreSQL et MinIO ne
+publient **aucun** port sur l'hôte (réseau Docker interne uniquement) ; un
+service `migrate` applique les migrations Postgres **avant** le démarrage de
+l'application (pas de synchronisation automatique de schéma en production) ;
+Caddy est l'unique point d'entrée exposé (80/443), avec certificats TLS
+automatiques (Let's Encrypt) par domaine.
 
-## How it works
+Vérification de bon fonctionnement : `GET /api/health` (utilisé par le
+healthcheck Docker de l'application).
 
-The Payload config is tailored specifically to the needs of most websites. It is pre-configured in the following ways:
+## Variables d'environnement
 
-### Collections
+Voir `.env.example` pour le gabarit complet. Les valeurs par défaut ci-dessous
+ne s'appliquent qu'à la pile de développement.
 
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
+| Variable                                                      | Rôle                                                                                        | Obligatoire en prod      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------ |
+| `DATABASE_URI`                                                | Chaîne de connexion PostgreSQL                                                              | oui (généré par Compose) |
+| `PAYLOAD_SECRET`                                              | Secret de signature (sessions, jetons) — aléatoire, jamais réutilisé                        | **oui**                  |
+| `ADMIN_URL`                                                   | Origine de l'interface d'administration (CORS/CSRF)                                         | **oui**                  |
+| `PLATFORM_DOMAIN`                                             | Domaine racine de la plateforme (résolution des sous-domaines communaux)                    | **oui**                  |
+| `DEFAULT_COMMUNE_SLUG`                                        | Commune servie sur un host local nu — **développement uniquement**, ignoré en production    | non                      |
+| `S3_ENABLED`                                                  | Active le stockage S3/MinIO (sinon disque local)                                            | oui (`true`)             |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`                       | Connexion au stockage objet                                                                 | oui                      |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`                    | Identifiants S3 — en Compose, généré depuis `S3_APP_PASSWORD`                               | oui                      |
+| `NEXT_PUBLIC_S3_PUBLIC_URL`                                   | Hostname du stockage, réservé pour qu'aucune commune ne puisse le revendiquer comme domaine | oui                      |
+| `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `S3_APP_PASSWORD` | Secrets d'infrastructure (Compose)                                                          | **oui**                  |
+| `CADDY_FILE`                                                  | Fichier Caddy à charger (`Caddyfile.dev` par défaut, démo sans TLS)                         | oui (`./Caddyfile`)      |
 
-- #### Users (Authentication)
+`.env` n'est jamais versionné (`.gitignore`, `.dockerignore`). En production,
+`PAYLOAD_SECRET`, `POSTGRES_PASSWORD`, `S3_APP_PASSWORD` et
+`MINIO_ROOT_PASSWORD` doivent être générés aléatoirement (`openssl rand -hex 32`)
+et non les valeurs de démonstration du gabarit.
 
-  Users are auth-enabled collections that have access to the admin panel.
+## Rôles et permissions
 
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/3.x/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
+Deux dimensions, toujours combinées :
 
-- #### Media
+- **Rôle plateforme** : `operateur` — personnel de l'organisation hébergeuse,
+  accès à toutes les communes. Seul rôle plateforme en v0.1 (pas d'inscription
+  publique ; les comptes sont créés par un opérateur).
+- **Rôle par commune** (`tenants[].roles`) : `admin` (gère sa commune :
+  contenus, domaines de sa commune, comptes de sa commune) ou `redacteur`
+  (rédige des brouillons, ne publie pas). Un compte peut cumuler des rôles
+  différents sur plusieurs communes.
 
-  This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
+Le sélecteur de commune de l'interface d'administration n'est **jamais** une
+preuve d'autorisation : chaque contrôle d'accès recalcule les communes où
+l'utilisateur détient effectivement le rôle requis.
 
-### Docker
+## Ajouter une commune
 
-Alternatively, you can use [Docker](https://www.docker.com) to spin up this template locally. To do so, follow these steps:
+1. Admin → _Communes_ → créer la commune (nom ; le slug est généré une fois
+   puis figé — c'est aussi le sous-domaine de démonstration
+   `<slug>.<PLATFORM_DOMAIN>`).
+2. Admin → _Domaines_ → ajouter le nom de domaine réel de la commune
+   (ex. `mairie-saintx.fr`), le marquer **canonique**. Une commune ne peut
+   être activée sans au moins un domaine canonique.
+3. **Vérification DNS** (hors de l'application — aucune automatisation en
+   v0.1) : le titulaire du domaine crée un enregistrement pointant vers le
+   serveur de la plateforme (`A`/`AAAA` vers l'IP publique, ou `CNAME` selon
+   l'hébergeur), pour le domaine nu et son alias `www`. Vérifier la
+   propagation avant de poursuivre :
+   ```bash
+   dig +short mairie-saintx.fr
+   dig +short www.mairie-saintx.fr
+   ```
+4. Ajouter un bloc Caddy pour ce domaine (`Caddyfile`, cf. les blocs commentés
+   en exemple) et recharger Caddy (`docker compose exec caddy caddy reload
+--config /etc/caddy/Caddyfile`) — le certificat TLS est obtenu
+   automatiquement au premier accès.
+5. Admin → _Communes_ → activer la commune (`actif`). Une commune inactive
+   renvoie 404 sur son site public sans supprimer ses données.
+6. Créer les comptes `admin`/`redacteur` de la commune (Admin → _Utilisateurs_).
 
-1. Follow [steps 1 and 2 from above](#development), the docker-compose file will automatically use the `.env` file in your project root
-1. Next run `docker-compose up`
-1. Follow [steps 4 and 5 from above](#development) to login and create your first admin user
+## Politique de fichiers
 
-That's it! The Docker instance will help you get up and running quickly while also standardizing the development environment across your teams.
+- **Médias** (`media`) : images uniquement — `jpeg`, `png`, `webp`, `avif`
+  (**pas de SVG**, risque XSS stocké). **Documents** (`documents`) : PDF
+  uniquement. Limite : 20 Mo. Le type accepté est vérifié sur le **contenu
+  réel** du fichier, jamais sur le seul type déclaré par le navigateur.
+- **Accès** : les fichiers sont servis par la route de l'application
+  (`/api/media/file/…`, `/api/documents/file/…`), qui applique le contrôle
+  d'accès Payload de la collection — en v0.1, `media` et `documents` sont
+  lisibles sans authentification (contenu destiné au site public), mais
+  **jamais** lus directement depuis le stockage objet : le bucket de
+  production n'accorde aucun accès anonyme (seules les identifiants
+  applicatifs `pdlm-app` peuvent lire/écrire). En développement, MinIO
+  autorise en complément le téléchargement anonyme direct sur le bucket
+  (commodité locale, sans conséquence en production).
+- **Limites assumées en v0.1** : l'URL d'un fichier n'est pas signée — la
+  confidentialité d'un brouillon non publié dont un média a déjà été
+  téléversé repose sur l'obscurité de l'URL, pas sur un contrôle d'accès
+  strict. Suppression d'un média = suppression effective dans le stockage
+  (fichier original et tailles dérivées). Prévu en v0.2 : URLs signées à
+  durée limitée, analyse antivirus des documents déposés.
 
-## Questions
+## Accessibilité (RGAA)
 
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+- Navigation clavier complète, lien d'évitement en première cible, focus
+  visible sur tous les éléments interactifs, testés jusqu'à un zoom 200 %.
+- Chaque commune personnalise une couleur principale et une couleur d'accent
+  (Admin → _Communes_ → _Apparence_). **Avant publication**, vérifier le
+  contraste obtenu avec le texte blanc du site (utilisé sur les boutons et
+  l'en-tête) — cible AA : ratio ≥ 4.5:1 pour le texte courant, ≥ 3:1 pour le
+  texte large et les composants d'interface. Outil recommandé :
+  [webaim.org/resources/contrastchecker](https://webaim.org/resources/contrastchecker/).
+  Une couleur trop claire (ex. jaune pâle) ne passe pas ce seuil sur fond
+  blanc/texte blanc — vérifier avant d'activer la commune.
+- Texte alternatif obligatoire sur chaque média.
+- Lighthouse est utilisé comme signal rapide (_smoke test_) pendant le
+  développement, jamais comme preuve de conformité RGAA — seule une recette
+  manuelle (grille RGAA officielle) fait foi.
+
+## Sauvegarde et restauration
+
+```bash
+./scripts/backup.sh [dossier]     # défaut : backups/AAAAMMJJ-HHMMSS
+./scripts/restore.sh <dossier>    # ATTENTION : écrase la base et le bucket actuels
+```
+
+Les deux scripts arrêtent brièvement l'application (fenêtre de maintenance) :
+un `pg_dump` et un miroir S3 réalisés sous écritures concurrentes ne sont pas
+garantis cohérents l'un avec l'autre. `restore.sh` refuse de continuer si
+l'archive `postgres.sql.gz` est illisible, **avant** de toucher à la base
+existante.
+
+## Tests
+
+```bash
+npm run lint          # ESLint
+npm run typecheck     # tsc --noEmit
+npm run test:unit     # Vitest — logique pure
+npm run test:int      # Vitest — Payload + PostgreSQL réels (pdlm_test)
+npm run test:e2e      # Playwright — E2E_PORT=3001 si le port 3000 est occupé
+npm run test          # unit + int + e2e
+```
+
+La CI (`.github/workflows/ci.yml`) ajoute `npm audit --audit-level=high` et un
+scan Trivy des images déployées.
+
+## Licence AGPL-3.0 — notice pour les opérateurs
+
+Ce logiciel est distribué sous licence
+[**GNU Affero General Public License v3.0**](LICENSE). Point souvent
+mal compris par rapport à une GPL classique : l'AGPL déclenche l'obligation de
+partage du code source **dès qu'un utilisateur interagit avec le logiciel via
+un réseau** (un visiteur du site, un élu qui se connecte à l'admin) — même
+sans distribution physique du logiciel.
+
+**Conséquence concrète pour toute organisation qui déploie ou modifie pdlm et
+le met à disposition d'un tiers (une commune, un agent, un citoyen)** :
+
+- Le code source de la version exploitée — modifications comprises — doit
+  être mis à disposition de ces utilisateurs, gratuitement, sous la même
+  licence.
+- Il est recommandé d'ajouter un lien visible (mentions légales ou pied de
+  page) vers le dépôt du code source réellement en production, y compris les
+  correctifs et personnalisations propres à l'organisation.
+- Utiliser pdlm sans le modifier n'exempte de rien : le code source du projet
+  **tel qu'exploité** doit rester accessible aux utilisateurs, à jour.
+
+Ce n'est pas un conseil juridique — en cas de doute sur une situation
+spécifique (marque blanche, module propriétaire ajouté, hébergement par un
+tiers), consulter un professionnel du droit.
+
+## Signalement de sécurité
+
+Voir [`SECURITY.md`](SECURITY.md).
+
+## Contribuer
+
+Voir [`CONTRIBUTING.md`](CONTRIBUTING.md).
