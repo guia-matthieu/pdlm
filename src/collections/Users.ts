@@ -33,6 +33,19 @@ export const Users: CollectionConfig = {
   hooks: {
     beforeChange: [figerPrivileges],
     afterChange: [journaliser('utilisateur')],
+    beforeDelete: [
+      async ({ req, id }) => {
+        // Décision (h) : l'entrée « Suppression » journalisée référence
+        // l'acteur (`utilisateur`) — s'il supprime son propre compte, cette
+        // FK pointerait vers une ligne absente dans la même transaction
+        // (violation brute). Accessoirement, évite aussi un auto-verrouillage.
+        if (req.user && String(req.user.id) === String(id)) {
+          throw new Error(
+            'Suppression impossible : vous ne pouvez pas supprimer votre propre compte. Demandez à un autre opérateur de le faire.',
+          )
+        }
+      },
+    ],
     afterDelete: [journaliserSuppression('utilisateur')],
   },
   fields: [
