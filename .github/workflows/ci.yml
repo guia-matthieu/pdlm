@@ -139,6 +139,101 @@ jobs:
           exit-code: '1'
           skip-dirs: node_modules,.next
 
+  trivy-images:
+    name: Trivy — images déployées (app, migrate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Bloquant sur les DEUX images que ce dépôt construit lui-même — donc
+      # sur lesquelles un correctif est toujours possible (contrairement aux
+      # images tierces, cf. job trivy-images-tierces ci-dessous).
+      - name: Construire l'image app (runner)
+        run: docker build --target runner -t pdlm-app:ci .
+
+      - name: Construire l'image migrate (migrator)
+        run: docker build --target migrator -t pdlm-migrate:ci .
+
+      - name: Scanner l'image app
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: pdlm-app:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # L'image migrate embarque node_modules complet (drizzle-kit, requis pour
+      # charger les migrations .ts au vol) : son binaire esbuild vendorisé
+      # porte des CVE stdlib Go sans correctif amont — la même chaîne
+      # drizzle-kit → @esbuild-kit → esbuild déjà documentée et acceptée dans
+      # le job `audit` (npm audit --audit-level=high) ci-dessus. Ignoré ici
+      # par chemin plutôt que par CVE : la liste de CVE d'un même binaire
+      # change à chaque scan, le chemin non. À revoir si drizzle-kit publie un
+      # correctif, ou si `payload migrate` cesse un jour de dépendre d'esbuild
+      # pour charger les fichiers de migration.
+      - name: Scanner l'image migrate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: pdlm-migrate:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-files: >-
+            app/node_modules/@esbuild/linux-arm64/bin/esbuild,
+            app/node_modules/@esbuild/linux-x64/bin/esbuild,
+            app/node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-arm64/bin/esbuild,
+            app/node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-x64/bin/esbuild
+
+  trivy-images-tierces:
+    name: Trivy — images tierces (postgres, caddy, minio) — remontée seule
+    runs-on: ubuntu-latest
+    # Non bloquant (I13) : ces images ne sont pas construites par ce dépôt —
+    # aucun correctif possible ici, seulement un changement de version/digest
+    # quand l'éditeur amont publie un rebuild. Un run rouge sur CE job precis
+    # n'empêche jamais un merge ; il est lu à la revue périodique (cf.
+    # trivy-rescan.yml, hebdomadaire) pour décider d'un bump de version.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: postgres:17-alpine
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: postgres:17-alpine
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: caddy:2-alpine
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: caddy:2-alpine
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # Digest épinglé (reproductibilité, cf. docker-compose.yml) : lu depuis
+      # le même fichier pour ne jamais diverger de ce qui est réellement
+      # déployé.
+      - name: Résoudre le digest minio épinglé
+        id: minio
+        run: |
+          DIGEST=$(grep -oP 'quay\.io/minio/minio@sha256:[a-f0-9]+' docker-compose.yml | head -1)
+          echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: minio (digest épinglé)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.minio.outputs.image }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
   e2e:
     name: Tests de bout en bout
     runs-on: ubuntu-latest

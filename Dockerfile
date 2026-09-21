@@ -5,7 +5,11 @@
 #   - migrator         : CLI payload + config + migrations (docker compose --build target)
 
 FROM node:22.17.0-alpine AS base
-RUN apk add --no-cache libc6-compat
+# Correctifs de sécurité Alpine publiés après le pin de l'image de base
+# (libcrypto3/libssl3/musl/zlib) — sans ça, Trivy relève des CVE HIGH/CRITICAL
+# déjà corrigées en amont (I13). Le pin `22.17.0` reste fixe : seuls les
+# paquets système sont mis à niveau, pas la version de Node.
+RUN apk update && apk upgrade --no-cache && apk add --no-cache libc6-compat
 
 # — Dépendances (npm ci depuis le lockfile) —
 FROM base AS deps
@@ -20,7 +24,11 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.json vitest.config.mts ./
 COPY src ./src
-CMD ["npx", "payload", "migrate"]
+# node_modules/.bin/payload est un script Node pur (pas un binaire natif) :
+# l'invoquer directement via `node` évite `npx`, donc le CLI npm global de
+# l'image de base — même correctif que le runner (I13).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+CMD ["node", "node_modules/payload/bin.js", "migrate"]
 
 # — Build de l'application —
 FROM base AS builder
@@ -38,6 +46,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
+
+# Le serveur standalone ne lance jamais npm/npx (CMD ci-dessous) — retirer le
+# CLI npm embarqué par l'image Node officielle retire au passage ses propres
+# dépendances vendorisées (tar, minimatch, pacote, sigstore…), qui remontaient
+# en HIGH/CRITICAL au scan Trivy sans jamais être exécutées en production.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 RUN mkdir .next && chown nextjs:nodejs .next

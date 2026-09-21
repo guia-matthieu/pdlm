@@ -1,0 +1,92 @@
+# pdlm — rescan périodique des images déployées (I13).
+#
+# Une image épinglée par version ou par digest ne change pas entre deux
+# déploiements, mais une CVE peut être publiée après coup sur ce qu'elle
+# contient déjà. `ci.yml` ne scanne qu'au push/PR : sans ce rescan planifié,
+# un dépôt inactif plusieurs semaines ne verrait jamais une CVE fraîchement
+# publiée sur ses images figées.
+name: Rescan Trivy périodique
+
+on:
+  schedule:
+    # Lundi 6h UTC — en dehors des heures de développement actif.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rescan:
+    name: Rescan des images déployées
+    runs-on: ubuntu-latest
+    # Le run planifié ne bloque aucun merge : il rend visible un nouveau
+    # constat (onglet Actions en rouge, notification GitHub par email aux
+    # watchers du dépôt) pour déclencher une revue humaine — bump de version,
+    # rebuild, ou exception documentée dans ci.yml.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construire l'image app (runner)
+        run: docker build --target runner -t pdlm-app:rescan .
+
+      - name: Construire l'image migrate (migrator)
+        run: docker build --target migrator -t pdlm-migrate:rescan .
+
+      - name: app
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: pdlm-app:rescan
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # Même exception que ci.yml (job trivy-images) — voir son commentaire.
+      - name: migrate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: pdlm-migrate:rescan
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-files: >-
+            app/node_modules/@esbuild/linux-arm64/bin/esbuild,
+            app/node_modules/@esbuild/linux-x64/bin/esbuild,
+            app/node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-arm64/bin/esbuild,
+            app/node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-x64/bin/esbuild
+
+      - name: postgres:17-alpine
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: postgres:17-alpine
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: caddy:2-alpine
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: caddy:2-alpine
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Résoudre le digest minio épinglé
+        id: minio
+        run: |
+          DIGEST=$(grep -oP 'quay\.io/minio/minio@sha256:[a-f0-9]+' docker-compose.yml | head -1)
+          echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: minio (digest épinglé)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.minio.outputs.image }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
