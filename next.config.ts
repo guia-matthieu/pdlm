@@ -22,12 +22,20 @@ const dirname = path.dirname(__filename)
  * Strict-Transport-Security ici : HSTS n'a de sens que servi sur une
  * connexion déjà HTTPS — porté par Caddy en production, jamais par l'app
  * elle-même qui ne sait pas si elle est derrière TLS.
+ *
+ * Cross-Origin-Embedder-Policy/-Opener-Policy (I13, recette ZAP J9) : aucune
+ * ressource cross-origin nulle part dans le projet (pas de police/CDN/iframe
+ * tiers — vérifié par grep avant ajout), donc require-corp/same-origin ne
+ * cassent rien aujourd'hui. À revoir si un widget tiers (carte, etc.) est
+ * ajouté plus tard.
  */
 const DEV = process.env.NODE_ENV !== 'production'
 const enTetesSecurite = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
   {
     key: 'Content-Security-Policy',
     value: [
