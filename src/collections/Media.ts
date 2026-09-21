@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { figerTenant } from '../hooks/figerTenant'
+import { limiterTaille } from '../hooks/limiterTaille'
 
 /**
  * I5 : médias = images uniquement (pas de SVG — risque XSS), limite 20 Mo,
@@ -22,15 +23,8 @@ export const Media: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeValidate: [
-      // I5 : limite de taille (20 Mo) — vérifiée sur le fichier réel, pas le MIME déclaré
-      ({ req }) => {
-        const fichier = (req as { file?: { size?: number } }).file
-        if (fichier?.size && fichier.size > 20 * 1024 * 1024) {
-          throw new Error('Fichier trop volumineux : la limite est de 20 Mo.')
-        }
-      },
-    ],
+    // I5 : limite de taille (20 Mo) — vérifiée sur le fichier réel, pas le MIME déclaré
+    beforeValidate: [limiterTaille(20)],
     beforeChange: [figerTenant],
   },
   upload: {
