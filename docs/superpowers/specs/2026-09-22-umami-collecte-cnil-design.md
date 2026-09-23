@@ -209,15 +209,15 @@ La CI n'a pas besoin d'un conteneur Umami. L'image `umami` rejoint le job Trivy 
 
 Umami 3.4.0 lancé sur une base jetable, API appelée avec une clé d'API réelle. Les sept points « lus, non exécutés » sont confirmés, avec des précisions qui changent l'implémentation :
 
-| Point | Résultat |
-| --- | --- |
-| Identifiant de site fourni | Accepté par `POST /api/websites`. Un doublon répond **500 sans corps** (pas une erreur exploitable) ; `GET /api/websites/:id` d'un site absent répond **401**, pas 404. C'est donc la lecture qui tranche après un échec de création. |
-| Rôle du compte `pdlm` dans l'équipe | `team-member` suffit pour créer, partager, remettre à zéro et supprimer ; `team-view-only` reçoit 401. Clés d'API actives hors `CLOUD_MODE`, en `Authorization: Bearer umami_…` ; `/api/me` les accepte, ce qui distingue une clé refusée d'un site absent. |
+| Point                                     | Résultat                                                                                                                                                                                                                                                                           |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identifiant de site fourni                | Accepté par `POST /api/websites`. Un doublon répond **500 sans corps** (pas une erreur exploitable) ; `GET /api/websites/:id` d'un site absent répond **401**, pas 404. C'est donc la lecture qui tranche après un échec de création.                                              |
+| Rôle du compte `pdlm` dans l'équipe       | `team-member` suffit pour créer, partager, remettre à zéro et supprimer ; `team-view-only` reçoit 401. Clés d'API actives hors `CLOUD_MODE`, en `Authorization: Bearer umami_…` ; `/api/me` les accepte, ce qui distingue une clé refusée d'un site absent.                        |
 | Vues d'un lien de partage `overview` seul | Avec l'en-tête `x-umami-share-context: 1` (celui de l'interface de partage) : statistiques, courbe des pages vues et métriques (pages, villes) lisibles ; sessions, détail d'une session, événements, données d'événements, temps réel, rapports et tout autre site refusés (401). |
-| Remise à zéro | Visites et sessions effacées ; site et lien de partage conservés. `DELETE /api/websites/:id` est **définitif** (partage compris) et recréer le même identifiant fonctionne ; un second `DELETE` répond 401. |
-| Base de géolocalisation | `/app/geo/GeoLite2-City.mmdb` (66 Mo) présente ; une IP tronquée transmise en `x-pdlm-ip` donne pays et ville. |
-| Tables et colonnes de la purge | Les huit tables existent, toutes avec `created_at` ; `relationMode = "prisma"` : aucune clé étrangère en base. |
-| Image | `ghcr.io/umami-software/umami:3.4.0@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367` (index amd64 + arm64). |
+| Remise à zéro                             | Visites et sessions effacées ; site et lien de partage conservés. `DELETE /api/websites/:id` est **définitif** (partage compris) et recréer le même identifiant fonctionne ; un second `DELETE` répond 401.                                                                        |
+| Base de géolocalisation                   | `/app/geo/GeoLite2-City.mmdb` (66 Mo) présente ; une IP tronquée transmise en `x-pdlm-ip` donne pays et ville.                                                                                                                                                                     |
+| Tables et colonnes de la purge            | Les huit tables existent, toutes avec `created_at` ; `relationMode = "prisma"` : aucune clé étrangère en base.                                                                                                                                                                     |
+| Image                                     | `ghcr.io/umami-software/umami:3.4.0@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367` (index amd64 + arm64).                                                                                                                                                |
 
 Constat supplémentaire : un champ `ip` dans le corps l'emporte bien sur l'en-tête d'IP (`8.8.8.8` a localisé la visite aux États-Unis malgré un en-tête tronqué français). Le filtrage du corps par le relais est donc indispensable, pas une précaution.
 
@@ -227,6 +227,27 @@ Constat supplémentaire : un champ `ip` dans le corps l'emporte bien sur l'en-t�
 - **`/api/batch` rejoint les chemins bloqués** sur `stats.<plateforme>` : c'est une seconde porte de collecte (I22).
 - **Le relais répond 204** (et non 404) sur le domaine de la plateforme : c'est le cas « commune introuvable » de l'étape 2. Le script et le formulaire d'opposition, eux, répondent 404.
 - Next n'ajoute `X-Forwarded-For` que s'il est absent (`??=`, `base-server.js`) : la valeur de droite est celle de Caddy en production, l'adresse locale en développement (écartée par le relais).
+
+**Relecture externe du plan (Astra, `openai/gpt-6-astra`, 23/09) : points vérifiés en plus**
+
+- **Jeton `x-umami-cache` d'une commune présenté pour une autre : aucune liaison.** Lu dans `src/app/api/send/route.ts` puis exécuté : l'identifiant de session est recalculé à partir du site, de l'IP, du navigateur et d'un sel mensuel ; un jeton de A présenté sous B produit une « dérive » et une session neuve sous B.
+- **Appartenance du compte `pdlm` à l'équipe.** Retiré de l'équipe, le compte garde `/api/me` à 200 mais `GET /api/teams/:id` et les sites passent à 401. Seul ce dernier appel distingue « site absent » de « droits perdus ».
+- **Messages d'erreur de Payload.** `isErrorPublic` : une `Error` simple n'est pas publique hors mode debug, et l'admin affiche un message générique. Il faut `APIError(message, statut, null, true)`. Les messages I6 existants de pdlm ont le même défaut (hors périmètre, signalé).
+
+**Amendements issus de cette relecture**
+
+- **Purge (I21) strictement tenue.** La limite est de 25 mois moins 2 jours, pour compenser la cadence quotidienne. Les sessions sont supprimées sur leur seule date : le sel mensuel empêche une session de recevoir des événements au-delà de son mois. La purge est aussi lancée par `restore.sh` avant toute remise en service.
+- **Chaque activation revérifie le site dans Umami** (appel idempotent). Elle répare le cas d'un site supprimé dans Umami alors que la transaction pdlm a été annulée. Sans `UMAMI_URL`, l'activation est refusée même si un site existe.
+- **« Supprimer l'historique » est transactionnel.** L'entrée de journal est écrite d'abord, Umami appelé ensuite, la validation n'a lieu qu'après sa confirmation. Sans réponse d'Umami (504), une entrée « non confirmé » garde la trace. À la suppression d'une commune, Umami est appelé en dernier.
+- **Formulaire d'opposition protégé contre les envois intersites** par les en-têtes `Origin` et `Sec-Fetch-Site`, toujours sans JavaScript.
+- **Corps du relais lu avec un compteur** : un envoi fragmenté est coupé à 4 Ko.
+- **Bouton « Supprimer l'historique » montré** au seul admin de la commune et à l'opérateur.
+
+**Constats écartés, avec leur raison**
+
+- **Deux partages créés par deux activations simultanées.** Ils seraient tous deux limités à la vue d'ensemble, donc sans risque.
+- **`X-Forwarded-For` forgé en développement.** La troncature s'applique quand même, I18 tient, et le cas ne concerne que le développement.
+- **Suppression d'une commune refusée quand Umami n'est plus installé.** Ce refus la rendrait impossible à supprimer ; un avertissement est journalisé à la place.
 
 Plan d'implémentation : `docs/superpowers/plans/2026-09-23-umami-collecte-cnil.md`.
 

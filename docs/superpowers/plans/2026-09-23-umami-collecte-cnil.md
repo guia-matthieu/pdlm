@@ -18,8 +18,9 @@
 - Variables lues par Compose seulement : `UMAMI_DB_PASSWORD`, `UMAMI_APP_SECRET`, `COMPOSE_PROFILES=mesure`. **Jamais `${X:?}`** dans `docker-compose.yml` pour ces variables : vérifié le 23/09, Compose refuse alors toute la pile même quand le profil `mesure` est inactif. Contrôle explicite dans le conteneur à la place.
 - `.env` et `.env.example` sont sous règle de refus : ne jamais les lire ni les écrire. Les lignes à ajouter sont données au user (tâche 14), qui les colle lui-même.
 - Cookie d'opposition : `pdlm_mesure=refus`, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` en production, `Max-Age=33696000` (390 jours, sous le plafond de 13 mois).
-- Journal (I12) : trois messages exacts, type `commune` : « Mesure d’audience activée — <nom> », « Mesure d’audience désactivée — <nom> », « Historique de mesure effacé — <nom> » (apostrophe typographique ’, tiret cadratin —).
+- Journal (I12) : trois messages exacts, type `commune` : « Mesure d’audience activée — <nom> », « Mesure d’audience désactivée — <nom> », « Historique de mesure effacé — <nom> », plus « Effacement de l’historique demandé, non confirmé par le service de mesure — <nom> » quand Umami ne répond pas (apostrophe typographique ’, tiret cadratin —).
 - Textes d'interface en français, apostrophe typographique ’, comme le reste du dépôt.
+- **Message d'erreur montré à l'agent : `throw new APIError(message, statut, null, true)`** (import `APIError` depuis `payload`). Vérifié dans `payload/dist/utilities/isErrorPublic.js` : une `Error` simple, sans statut, n'est pas publique hors mode debug, et l'admin et l'API de production affichent alors un message générique. Statuts : 400 pour une demande refusée, 503 quand Umami ne répond pas.
 - **Tout fichier de test qui appelle `fetch` avec `AbortSignal` commence par `// @vitest-environment node`** : la configuration Vitest globale est `jsdom`, dont l'`AbortSignal` est refusé par le `fetch` de Node.
 - Invariants I18 à I22 (spec) : pas de fichier d'invariants dans le dépôt, ils sont cités en commentaire au point du code qui les garantit, comme I6, I7, I12.
 - Commits : message en français, préfixe `Mesure d'audience — `, pied `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Ne jamais ajouter `src/payload-types.ts` ni les `.json` de migration **existants** s'ils ne diffèrent que par la mise en forme (voir « Avant de commencer »).
@@ -28,7 +29,7 @@
 
 1. **Enregistrement partiel d'une commune** (PATCH qui ne contient que `nom`, ou formulaire admin qui renvoie tout le groupe `mesure`) : `siteUmami` et `lienPartage` restent intacts et aucun appel à Umami n'est fait. Test : tâche 5, « un enregistrement sans le groupe mesure ne touche à rien ».
 2. **Valeur forgée par le client** dans `mesure.siteUmami` ou `mesure.lienPartage` : ignorée, la base garde la valeur écrite par le hook. Test : tâche 5, « siteUmami forgé par le client ignoré ».
-3. **Couper puis réactiver** : aucun nouveau site, aucun nouveau lien de partage ; un nouvel essai après un échec côté pdlm retombe sur le même site et le même partage. Tests : tâche 4 (« nouvel essai idempotent »), tâche 5 (« couper puis réactiver »).
+3. **Couper puis réactiver** : la réactivation revérifie le site dans Umami (appel idempotent) sans créer de doublon ; si le site a disparu d'Umami (suppression externe réussie puis transaction pdlm annulée), elle le recrée sous le même identifiant avec un nouveau partage. Tests : tâche 4 (« nouvel essai idempotent »), tâche 5 (« couper puis réactiver », « réactivation répare »).
 4. **Visiteur sur l'alias `www.`** du domaine d'une commune : la visite est comptée, sous `hostname` = l'hôte demandé. Test : tâche 7, « alias www ».
 5. **Umami lent ou arrêté** : le visiteur reçoit 204 en moins de 4 s, jamais d'attente sans fin ni d'erreur 500. Tests : tâche 7, « Umami lent » et « Umami arrêté ».
 
@@ -140,8 +141,10 @@ describe('tronquerIp', () => {
     expect(isIP(court ?? '')).toBe(6)
   })
 
-  it('IPv4 encapsulée dans IPv6 : règle IPv4', () => {
+  it('IPv4 encapsulée dans IPv6, notation pointée ou hexadécimale : règle IPv4', () => {
     expect(tronquerIp('::ffff:90.84.235.17')).toBe('90.84.235.0')
+    expect(tronquerIp('::ffff:5a54:eb11')).toBe('90.84.235.0')
+    expect(ipVisiteur('::ffff:a00:3')).toBeNull() // 10.0.0.3
   })
 
   it('valeur illisible : rien', () => {
@@ -166,8 +169,16 @@ import { isIP } from 'node:net'
 
 const V4_ENCAPSULEE = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i
 
+/** IPv4 encapsulée dans IPv6, en notation pointée (`::ffff:1.2.3.4`) ou hexadécimale (`::ffff:102:304`). */
 function sansEncapsulation(ip: string): string {
-  return ip.match(V4_ENCAPSULEE)?.[1] ?? ip
+  const pointee = ip.match(V4_ENCAPSULEE)?.[1]
+  if (pointee) return pointee
+  if (isIP(ip) !== 6) return ip
+  const g = groupesIpv6(ip)
+  if (!g || g.slice(0, 5).some((x) => x !== '0') || g[5] !== 'ffff') return ip
+  const haut = parseInt(g[6], 16)
+  const bas = parseInt(g[7], 16)
+  return `${haut >> 8}.${haut & 255}.${bas >> 8}.${bas & 255}`
 }
 
 /** Boucle locale, réseaux privés, lien local : jamais l'adresse d'un visiteur. */
@@ -479,6 +490,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   lireCookie(entete: string | null, nom: string): string | undefined
   estOppose(valeur: string | undefined): boolean
   enteteCookieOpposition(choix: 'refus' | 'accepte', production: boolean): string
+  soumissionIntersite(entetes: Headers, host: string): boolean   // host normalisé, sans port
   // etat.ts
   interface CommuneMesurable { mesure?: { active?: boolean | null; siteUmami?: string | null } | null }
   mesureInstallee(): boolean
@@ -496,6 +508,7 @@ import {
   enteteCookieOpposition,
   estOppose,
   lireCookie,
+  soumissionIntersite,
 } from '@/lib/mesure/opposition'
 
 describe('cookie d’opposition (I20)', () => {
@@ -519,6 +532,22 @@ describe('cookie d’opposition (I20)', () => {
     expect(enteteCookieOpposition('accepte', true)).toBe(
       'pdlm_mesure=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax; Secure',
     )
+  })
+})
+
+describe('formulaire soumis depuis un autre site', () => {
+  const h = (e: Record<string, string>) => new Headers(e)
+  it('refusé : autre origine, origine « null », Sec-Fetch-Site intersite', () => {
+    expect(soumissionIntersite(h({ origin: 'https://hostile.example' }), 'mairie.fr')).toBe(true)
+    expect(soumissionIntersite(h({ origin: 'null' }), 'mairie.fr')).toBe(true)
+    expect(soumissionIntersite(h({ 'sec-fetch-site': 'cross-site' }), 'mairie.fr')).toBe(true)
+    expect(soumissionIntersite(h({ 'sec-fetch-site': 'same-site' }), 'mairie.fr')).toBe(true)
+  })
+  it('accepté : même origine, ou en-têtes absents', () => {
+    expect(soumissionIntersite(h({ origin: 'https://mairie.fr' }), 'mairie.fr')).toBe(false)
+    expect(soumissionIntersite(h({ origin: 'http://localhost:3000' }), 'localhost')).toBe(false)
+    expect(soumissionIntersite(h({ 'sec-fetch-site': 'same-origin' }), 'mairie.fr')).toBe(false)
+    expect(soumissionIntersite(h({}), 'mairie.fr')).toBe(false)
   })
 })
 
@@ -585,6 +614,24 @@ export function enteteCookieOpposition(choix: 'refus' | 'accepte', production: b
     ? [`${COOKIE_OPPOSITION}=refus`, `Max-Age=${DUREE_OPPOSITION_S}`, ...attributs].join('; ')
     : [`${COOKIE_OPPOSITION}=`, 'Max-Age=0', ...attributs].join('; ')
 }
+
+/**
+ * Vrai si le formulaire d'opposition a été soumis depuis un autre site :
+ * `SameSite=Lax` n'empêche pas une réponse d'effacer le cookie. Sans
+ * JavaScript, le navigateur envoie quand même `Origin` (et `Sec-Fetch-Site`)
+ * sur un POST de formulaire. En-têtes absents (vieux client, curl) : accepté.
+ */
+export function soumissionIntersite(entetes: Headers, host: string): boolean {
+  const site = entetes.get('sec-fetch-site')
+  if (site && site !== 'same-origin' && site !== 'none') return true
+  const origine = entetes.get('origin')
+  if (origine === null) return false
+  try {
+    return new URL(origine).hostname.toLowerCase() !== host
+  } catch {
+    return true // « null » ou valeur illisible
+  }
+}
 ```
 
 `src/lib/mesure/etat.ts` :
@@ -610,7 +657,7 @@ export function siteMesure(commune: CommuneMesurable | null | undefined): string
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/unit/mesure-opposition.spec.ts`
-Expected: PASS (5 tests)
+Expected: PASS (7 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -641,8 +688,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     url: string; recues: RequeteRecue[]
     sites: Map<string, { teamId: string; name: string; domain: string }>
     partages: Map<string, Array<{ id: string; slug: string; name: string; parameters: unknown }>>
-    reglages: { panne: boolean; delaiEnvoiMs: number }
+    reglages: { panne: boolean; delaiEnvoiMs: number; horsEquipe: boolean }
     vider(): void; fermer(): Promise<void>
+  const SCRIPT_FAUX: string   // mini-script de mesure qui poste une page vue au relais (tests de bout en bout)
   }
   demarrerFauxUmami(port?: number): Promise<FauxUmami>
   configurerUmami(url: string): void   // pose UMAMI_URL, UMAMI_API_KEY, UMAMI_TEAM_ID, UMAMI_PUBLIC_URL
@@ -651,7 +699,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   uuidV5(nom: string, espace: string): string
   identifiantSite(communeId: number | string): string
   // src/lib/umami/client.ts
-  class UmamiIndisponible extends Error
+  class UmamiIndisponible extends Error { readonly sansReponse: boolean }  // true : réseau ou délai, l'action a peut-être eu lieu
   creerSiteCommune(c: { id: number; nom: string; domaine: string }): Promise<{ siteUmami: string; lienPartage: string }>
   effacerHistorique(siteUmami: string): Promise<void>
   supprimerSite(siteUmami: string): Promise<void>
@@ -659,18 +707,20 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 Comportements réels d'Umami 3.4.0, **vérifiés par exécution le 23/09**, que le faux serveur reproduit et que le client doit gérer :
 
-| Appel                                       | Réponse réelle                                                                                 |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `POST /api/websites` avec un `id` neuf      | 200, le site                                                                                   |
-| `POST /api/websites` avec un `id` déjà pris | **500, corps vide**                                                                            |
-| `GET /api/websites/:id` d'un site absent    | **401** (pas 404)                                                                              |
-| `DELETE /api/websites/:id`                  | 200, suppression **définitive** (le partage aussi) ; recréer le même `id` fonctionne           |
-| `DELETE` d'un site déjà supprimé            | 401                                                                                            |
-| `GET /api/me` avec la clé                   | 200 ; clé fausse : 401                                                                         |
-| `GET /api/websites/:id/shares`              | `{ data: [...], count, page, pageSize }`                                                       |
-| `POST /api/websites/:id/reset`              | 200 `{ok:true}` ; efface visites et sessions, garde le site et le partage                      |
-| Authentification                            | `Authorization: Bearer umami_…` (clé d'API, active hors `CLOUD_MODE`)                          |
-| Rôle d'équipe du compte `pdlm`              | `team-member` suffit pour créer, partager, remettre à zéro, supprimer ; `team-view-only` : 401 |
+| Appel                                                 | Réponse réelle                                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `POST /api/websites` avec un `id` neuf                | 200, le site                                                                                     |
+| `POST /api/websites` avec un `id` déjà pris           | **500, corps vide**                                                                              |
+| `GET /api/websites/:id` d'un site absent              | **401** (pas 404)                                                                                |
+| `DELETE /api/websites/:id`                            | 200, suppression **définitive** (le partage aussi) ; recréer le même `id` fonctionne             |
+| `DELETE` d'un site déjà supprimé                      | 401                                                                                              |
+| `GET /api/me` avec la clé                             | 200 ; clé fausse : 401 ; **compte retiré de l'équipe : encore 200**                              |
+| `GET /api/teams/:id`                                  | 200 pour un membre ; **401 une fois le compte retiré de l'équipe** (seule preuve d'appartenance) |
+| Site d'une autre équipe, ou compte retiré de l'équipe | 401, comme un site absent                                                                        |
+| `GET /api/websites/:id/shares`                        | `{ data: [...], count, page, pageSize }`                                                         |
+| `POST /api/websites/:id/reset`                        | 200 `{ok:true}` ; efface visites et sessions, garde le site et le partage                        |
+| Authentification                                      | `Authorization: Bearer umami_…` (clé d'API, active hors `CLOUD_MODE`)                            |
+| Rôle d'équipe du compte `pdlm`                        | `team-member` suffit pour créer, partager, remettre à zéro, supprimer ; `team-view-only` : 401   |
 
 - [ ] **Step 1: Write the fake server**
 
@@ -690,7 +740,9 @@ import type { AddressInfo } from 'node:net'
  * Faux serveur Umami : reproduit les réponses d'Umami 3.4.0 relevées par
  * exécution le 23/09 (voir la spec, « Points vérifiés par exécution ») et
  * enregistre tout ce qu'il reçoit. `reglages.panne` coupe la connexion comme
- * un conteneur arrêté ; `reglages.delaiEnvoiMs` ralentit /api/send.
+ * un conteneur arrêté ; `reglages.delaiEnvoiMs` ralentit /api/send ;
+ * `reglages.horsEquipe` imite un compte `pdlm` retiré de l'équipe (clé
+ * valide, mais équipe et sites en 401).
  */
 export const CLE_TEST = 'umami_clefauxumamipourlestests0000'
 export const EQUIPE_TEST = '820bdb78-5430-4fcf-8840-47971ea98a9e'
@@ -708,7 +760,7 @@ export interface FauxUmami {
   recues: RequeteRecue[]
   sites: Map<string, { teamId: string; name: string; domain: string }>
   partages: Map<string, Array<{ id: string; slug: string; name: string; parameters: unknown }>>
-  reglages: { panne: boolean; delaiEnvoiMs: number }
+  reglages: { panne: boolean; delaiEnvoiMs: number; horsEquipe: boolean }
   vider(): void
   fermer(): Promise<void>
 }
@@ -737,11 +789,27 @@ function json(res: ServerResponse, statut: number, corps?: unknown): void {
 
 const NON_AUTORISE = { error: { message: 'Unauthorized', code: 'unauthorized', status: 401 } }
 
+/**
+ * Script de mesure minimal : lit la balise comme le vrai (data-website-id,
+ * data-host-url) et poste une page vue au relais. Il éprouve la chaîne
+ * balise → relais → Umami dans les tests de bout en bout ; le vrai script
+ * d'Umami est éprouvé à la recette (tâche 15).
+ */
+export const SCRIPT_FAUX = `(function () {
+  var s = document.currentScript; if (!s) return;
+  fetch((s.getAttribute('data-host-url') || '') + '/api/send', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'event', payload: { website: s.getAttribute('data-website-id'),
+      hostname: location.hostname, url: location.href, referrer: document.referrer,
+      title: document.title, screen: screen.width + 'x' + screen.height, language: navigator.language } })
+  });
+})();`
+
 export async function demarrerFauxUmami(port = 0): Promise<FauxUmami> {
   const recues: RequeteRecue[] = []
   const sites: FauxUmami['sites'] = new Map()
   const partages: FauxUmami['partages'] = new Map()
-  const reglages = { panne: false, delaiEnvoiMs: 0 }
+  const reglages = { panne: false, delaiEnvoiMs: 0, horsEquipe: false }
 
   const serveur = createServer(async (req, res) => {
     const corps = await lireCorps(req)
@@ -755,7 +823,7 @@ export async function demarrerFauxUmami(port = 0): Promise<FauxUmami> {
 
     if (methode === 'GET' && chemin === '/script.js') {
       res.writeHead(200, { 'content-type': 'application/javascript' })
-      res.end('/* faux umami */')
+      res.end(SCRIPT_FAUX)
       return
     }
     if (methode === 'POST' && chemin === '/api/send') {
@@ -766,6 +834,11 @@ export async function demarrerFauxUmami(port = 0): Promise<FauxUmami> {
     if (req.headers.authorization !== `Bearer ${CLE_TEST}`) return json(res, 401, NON_AUTORISE)
     if (methode === 'GET' && chemin === '/api/me')
       return json(res, 200, { user: { username: 'pdlm' } })
+    if (methode === 'GET' && chemin === `/api/teams/${EQUIPE_TEST}`) {
+      return reglages.horsEquipe
+        ? json(res, 401, NON_AUTORISE)
+        : json(res, 200, { id: EQUIPE_TEST })
+    }
     if (methode === 'POST' && chemin === '/api/websites') {
       const d = JSON.parse(corps) as { id: string; name: string; domain: string; teamId: string }
       if (sites.has(d.id)) return json(res, 500) // 3.4.0 : identifiant déjà pris → 500 sans corps
@@ -776,7 +849,8 @@ export async function demarrerFauxUmami(port = 0): Promise<FauxUmami> {
     if (m) {
       const [, id, suite] = m
       const site = sites.get(id)
-      if (!site) return json(res, 401, NON_AUTORISE) // 3.4.0 : site absent → 401
+      // 3.4.0 : site absent, ou hors de portée du compte → 401
+      if (!site || reglages.horsEquipe) return json(res, 401, NON_AUTORISE)
       if (!suite && methode === 'GET') return json(res, 200, { id, ...site })
       if (!suite && methode === 'DELETE') {
         sites.delete(id)
@@ -896,6 +970,7 @@ beforeEach(() => {
   umami.sites.clear()
   umami.partages.clear()
   umami.reglages.panne = false
+  umami.reglages.horsEquipe = false
 })
 
 const appels = (methode: string, chemin: string) =>
@@ -966,6 +1041,21 @@ describe('effacerHistorique et supprimerSite', () => {
     await expect(supprimerSite(siteUmami)).rejects.toBeInstanceOf(UmamiIndisponible)
     expect(umami.sites.has(siteUmami)).toBe(true)
   })
+
+  it('compte retiré de l’équipe (clé valide, /api/me à 200) : la suppression échoue', async () => {
+    const { siteUmami } = await creerSiteCommune({ id: 23, nom: 'X', domaine: 'x.fr' })
+    umami.reglages.horsEquipe = true
+    await expect(supprimerSite(siteUmami)).rejects.toBeInstanceOf(UmamiIndisponible)
+    umami.reglages.horsEquipe = false
+    expect(umami.sites.has(siteUmami)).toBe(true)
+  })
+
+  it('Umami arrêté : erreur marquée « sans réponse »', async () => {
+    umami.reglages.panne = true
+    await expect(effacerHistorique('00000000-0000-5000-8000-000000000000')).rejects.toMatchObject({
+      sansReponse: true,
+    })
+  })
 })
 ```
 
@@ -1017,9 +1107,13 @@ import { identifiantSite } from './uuid'
  * technique (journaux du serveur) : l'appelant choisit celui montré à l'agent.
  */
 export class UmamiIndisponible extends Error {
-  constructor(detail: string) {
+  /** Vrai quand Umami n'a pas répondu (réseau, délai) : l'action a peut-être eu lieu. */
+  readonly sansReponse: boolean
+
+  constructor(detail: string, sansReponse = false) {
     super(`Umami : ${detail}`)
     this.name = 'UmamiIndisponible'
+    this.sansReponse = sansReponse
   }
 }
 
@@ -1058,7 +1152,10 @@ async function appeler(chemin: string, methode = 'GET', corps?: unknown): Promis
       signal: AbortSignal.timeout(5000),
     })
   } catch (erreur) {
-    throw new UmamiIndisponible(`${methode} ${chemin} sans réponse (${(erreur as Error).message})`)
+    throw new UmamiIndisponible(
+      `${methode} ${chemin} sans réponse (${(erreur as Error).message})`,
+      true,
+    )
   }
 }
 
@@ -1135,15 +1232,17 @@ export async function effacerHistorique(siteUmami: string): Promise<void> {
 
 /**
  * Supprime définitivement le site (et son partage). Umami répond 401 aussi
- * pour un site absent : si la clé est valide et le site introuvable, il est
- * déjà supprimé — sinon, c'est un vrai refus.
+ * bien pour un site absent que pour un compte qui a perdu ses droits.
+ * Vérifié le 23/09 : un compte retiré de l'équipe garde `/api/me` à 200 mais
+ * perd `GET /api/teams/:id`. Seul un membre de l'équipe qui ne voit pas le
+ * site prouve son absence ; sinon, c'est un vrai refus.
  */
 export async function supprimerSite(siteUmami: string): Promise<void> {
   const reponse = await appeler(`/api/websites/${siteUmami}`, 'DELETE')
   if (reponse.ok) return
   if (reponse.status === 401) {
-    const moi = await appeler('/api/me')
-    if (moi.ok && (await appeler(`/api/websites/${siteUmami}`)).status === 401) return
+    const equipe = await appeler(`/api/teams/${configUmami().equipe}`)
+    if (equipe.ok && (await appeler(`/api/websites/${siteUmami}`)).status === 401) return
   }
   throw new UmamiIndisponible(`suppression du site refusée (${reponse.status})`)
 }
@@ -1152,7 +1251,7 @@ export async function supprimerSite(siteUmami: string): Promise<void> {
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/unit/umami-uuid.spec.ts tests/unit/umami-client.spec.ts`
-Expected: PASS (2 + 8 tests)
+Expected: PASS (2 + 10 tests)
 
 - [ ] **Step 6: Commit**
 
@@ -1194,6 +1293,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     activee: 'Mesure d’audience activée'
     desactivee: 'Mesure d’audience désactivée'
     effacee: 'Historique de mesure effacé'
+    effacementNonConfirme: 'Effacement de l’historique demandé, non confirmé par le service de mesure'
   }
   export const preparerMesure: CollectionBeforeChangeHook
   export const journaliserMesure: CollectionAfterChangeHook
@@ -1298,11 +1398,11 @@ beforeAll(async () => {
   communeB = await mk('b')
   communeC = await mk('c')
   const mkUser = async (nom: string, tenants: User['tenants']) =>
-    (await payload.create({
+    await payload.create({
       collection: 'users',
       data: { email: `${nom}-${S}${DOMAINE_EMAIL}`, password: MDP_TEST, name: nom, tenants },
       overrideAccess: true,
-    }))
+    })
   adminA = await mkUser('admin-a', [{ tenant: communeA, roles: ['admin'] }])
   adminB = await mkUser('admin-b', [{ tenant: communeB, roles: ['admin'] }])
   redacteurA = await mkUser('redacteur-a', [{ tenant: communeA, roles: ['redacteur'] }])
@@ -1411,27 +1511,87 @@ describe('protection des champs écrits par le hook', () => {
     })
     expect(surA.mesure?.siteUmami).toBe(identifiantSite(communeA))
   })
+
+  it('mesure: null ou lienPartage seul sur une commune active : champs du hook conservés', async () => {
+    const avant = await payload.findByID({
+      collection: 'communes',
+      id: communeA,
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'communes',
+      id: communeA,
+      data: { mesure: null } as never,
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'communes',
+      id: communeA,
+      data: { mesure: { lienPartage: 'https://ailleurs/' } },
+      overrideAccess: true,
+    })
+    const apres = await payload.findByID({
+      collection: 'communes',
+      id: communeA,
+      overrideAccess: true,
+    })
+    expect(apres.mesure?.siteUmami).toBe(avant.mesure?.siteUmami)
+    expect(apres.mesure?.lienPartage).toBe(avant.mesure?.lienPartage)
+  })
 })
 
 describe('couper puis réactiver', () => {
-  it('aucun appel à Umami, l’historique reste, deux entrées de journal', async () => {
-    const coupe = await payload.update({
+  const couper = () =>
+    payload.update({
       collection: 'communes',
       id: communeA,
       data: { mesure: { active: false } },
       overrideAccess: true,
     })
-    expect(coupe.mesure?.siteUmami).toBe(identifiantSite(communeA))
-    await payload.update({
+  const reactiver = () =>
+    payload.update({
       collection: 'communes',
       id: communeA,
       data: { mesure: { active: true } },
       overrideAccess: true,
     })
+
+  it('couper n’appelle pas Umami ; réactiver revérifie sans rien créer ; deux entrées de journal', async () => {
+    const avant = await payload.findByID({
+      collection: 'communes',
+      id: communeA,
+      overrideAccess: true,
+    })
+    const coupe = await couper()
+    expect(coupe.mesure?.siteUmami).toBe(identifiantSite(communeA))
     expect(umami.recues).toHaveLength(0)
+    const reactive = await reactiver()
+    expect(reactive.mesure?.lienPartage).toBe(avant.mesure?.lienPartage)
+    expect(umami.sites.size).toBeGreaterThan(0)
+    expect(appels('POST', `/api/websites/${identifiantSite(communeA)}/shares`)).toHaveLength(0)
     const messages = await messagesJournal(communeA)
     expect(messages).toContain(`${MESSAGES_MESURE.desactivee} — Mesure a ${S}`)
     expect(messages.filter((m) => m.startsWith(MESSAGES_MESURE.activee))).toHaveLength(2)
+  })
+
+  it('réactivation répare un site disparu d’Umami (même identifiant, nouveau partage)', async () => {
+    const id = identifiantSite(communeA)
+    await couper()
+    umami.sites.delete(id)
+    umami.partages.delete(id)
+    const reactive = await reactiver()
+    expect(reactive.mesure?.siteUmami).toBe(id)
+    expect(umami.sites.has(id)).toBe(true)
+    expect(appels('POST', `/api/websites/${id}/shares`)).toHaveLength(1)
+    expect(reactive.mesure?.lienPartage).toBe(
+      `https://stats.pdlm.test/share/${umami.partages.get(id)?.[0].slug}`,
+    )
+  })
+
+  it('réactivation refusée quand Umami n’est plus installé, même avec un site existant', async () => {
+    await couper()
+    delete process.env.UMAMI_URL
+    await expect(reactiver()).rejects.toThrow(/non installée/)
   })
 })
 
@@ -1460,7 +1620,11 @@ describe('refus', () => {
         data: { mesure: { active: true } },
         overrideAccess: true,
       }),
-    ).rejects.toThrow(/ne répond pas ; la mesure reste coupée/)
+    ).rejects.toMatchObject({
+      status: 503,
+      isPublic: true,
+      message: expect.stringMatching(/ne répond pas ; la mesure reste coupée/),
+    })
     const b = await payload.findByID({ collection: 'communes', id: communeB, overrideAccess: true })
     expect(b.mesure?.active ?? false).toBe(false)
   })
@@ -1516,7 +1680,12 @@ export async function ecrire(
 `src/hooks/mesureAudience.ts` :
 
 ```ts
-import type { CollectionAfterChangeHook, CollectionBeforeChangeHook, PayloadRequest } from 'payload'
+import {
+  APIError,
+  type CollectionAfterChangeHook,
+  type CollectionBeforeChangeHook,
+  type PayloadRequest,
+} from 'payload'
 
 import { mesureInstallee } from '../lib/mesure/etat'
 import { creerSiteCommune } from '../lib/umami/client'
@@ -1527,6 +1696,8 @@ export const MESSAGES_MESURE = {
   activee: 'Mesure d’audience activée',
   desactivee: 'Mesure d’audience désactivée',
   effacee: 'Historique de mesure effacé',
+  effacementNonConfirme:
+    'Effacement de l’historique demandé, non confirmé par le service de mesure',
 } as const
 
 interface Mesure {
@@ -1556,9 +1727,15 @@ async function domaineInformatif(
 
 /**
  * `siteUmami` et `lienPartage` ne sont écrits que par ce hook : la valeur
- * reçue du client est toujours remplacée par celle de la base. Première
- * activation : création (ou reprise) du site Umami ; un échec refuse
- * l'enregistrement, la mesure reste coupée.
+ * reçue du client est toujours remplacée par celle de la base, y compris
+ * quand le client envoie `mesure: null`.
+ *
+ * Chaque passage de « coupée » à « active » vérifie le site dans Umami, même
+ * s'il existe déjà : l'appel est idempotent (identifiant déterministe,
+ * partage réutilisé) et répare le cas où le site a disparu d'Umami — par
+ * exemple une suppression de commune dont Umami a exécuté le DELETE avant que
+ * la transaction pdlm soit annulée. Un échec refuse l'enregistrement, la
+ * mesure reste coupée.
  */
 export const preparerMesure: CollectionBeforeChangeHook = async ({
   data,
@@ -1566,22 +1743,23 @@ export const preparerMesure: CollectionBeforeChangeHook = async ({
   operation,
   req,
 }) => {
-  if (!data?.mesure) return data
+  if (data?.mesure === undefined) return data
   const avant = mesureDe(originalDoc)
   const mesure: Mesure = {
-    ...data.mesure,
+    ...(data.mesure ?? {}),
     siteUmami: avant?.siteUmami ?? null,
     lienPartage: avant?.lienPartage ?? null,
   }
   data.mesure = mesure
-  if (mesure.active !== true || mesure.siteUmami) return data
+  const activation = mesure.active === true && avant?.active !== true
+  if (!activation) return data
 
   // À la création, la commune n'a pas encore d'identifiant (même piège que I6).
   if (operation === 'create') {
-    throw new Error('Activez la mesure d’audience une fois la commune créée.')
+    throw new APIError('Activez la mesure d’audience une fois la commune créée.', 400, null, true)
   }
   if (!mesureInstallee()) {
-    throw new Error('Mesure d’audience non installée sur cette plateforme.')
+    throw new APIError('Mesure d’audience non installée sur cette plateforme.', 400, null, true)
   }
   const id = Number(originalDoc.id)
   try {
@@ -1594,8 +1772,11 @@ export const preparerMesure: CollectionBeforeChangeHook = async ({
     mesure.lienPartage = site.lienPartage
   } catch (erreur) {
     req.payload.logger.error({ err: erreur }, 'Activation de la mesure d’audience impossible')
-    throw new Error(
+    throw new APIError(
       'Le service de mesure d’audience ne répond pas ; la mesure reste coupée. Réessayez plus tard.',
+      503,
+      null,
+      true,
     )
   }
   return data
@@ -1699,7 +1880,7 @@ Remplacer `afterChange: [journaliser('commune')],` par :
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/unit/hostnames-reserves.spec.ts tests/int/mesure-activation.int.spec.ts`
-Expected: PASS (2 + 10 tests). La base de test est créée par `push` : pas de migration nécessaire ici.
+Expected: PASS (2 + 13 tests). La base de test est créée par `push` : pas de migration nécessaire ici.
 
 - [ ] **Step 7: Generate migration, types**
 
@@ -1753,7 +1934,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```ts
   export const supprimerSiteMesure: CollectionAfterDeleteHook // src/hooks/mesureAudience.ts
   export const effacerHistoriqueMesure: Endpoint // POST /api/communes/:id/mesure/effacer
-  // Réponses JSON { message: string } : 200 effacé, 403 droits, 404 pas d'historique, 503 Umami
+  // Réponses JSON { message: string } : 200 effacé, 403 droits, 404 pas d'historique,
+  // 500 journal refusé, 503 Umami refuse, 504 Umami sans réponse (effacement incertain)
   ```
 
 - [ ] **Step 1: Write the failing test**
@@ -1762,7 +1944,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ```ts
 // @vitest-environment node
-import type { Payload, PayloadRequest } from 'payload'
+import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { effacerHistoriqueMesure } from '@/endpoints/effacerHistoriqueMesure'
@@ -1785,12 +1967,25 @@ let adminB: User
 let redacteurA: User
 let operateur: User
 
-const effacer = (user: unknown, id: number) =>
-  effacerHistoriqueMesure.handler({
-    user,
-    payload,
-    routeParams: { id: String(id) },
-  } as unknown as PayloadRequest)
+/** Requête Payload complète (transactions comprises), comme celle que reçoit le vrai point d'accès. */
+async function requete(
+  user: User | null,
+  id: number,
+  journalEnPanne = false,
+): Promise<PayloadRequest> {
+  const req = await createLocalReq({ user: user ?? undefined }, payload)
+  req.routeParams = { id: String(id) }
+  if (!user) req.user = null
+  if (journalEnPanne) {
+    req.payload = Object.create(payload, {
+      create: { value: () => Promise.reject(new Error('écriture du journal refusée')) },
+    }) as Payload
+  }
+  return req
+}
+
+const effacer = async (user: User | null, id: number, journalEnPanne = false) =>
+  effacerHistoriqueMesure.handler(await requete(user, id, journalEnPanne))
 
 async function creerCommuneMesuree(lettre: string): Promise<{ id: number; site: string }> {
   const { id } = await payload.create({
@@ -1820,11 +2015,16 @@ beforeAll(async () => {
     })
   ).id
   const mkUser = async (nom: string, data: Partial<User>) =>
-    (await payload.create({
+    await payload.create({
       collection: 'users',
-      data: { email: `${nom}-${S}${DOMAINE_EMAIL}`, password: MDP_TEST, name: nom, ...data } as User,
+      data: {
+        email: `${nom}-${S}${DOMAINE_EMAIL}`,
+        password: MDP_TEST,
+        name: nom,
+        ...data,
+      } as User,
       overrideAccess: true,
-    }))
+    })
   adminA = await mkUser('admin-a', { tenants: [{ tenant: communeA, roles: ['admin'] }] })
   adminB = await mkUser('admin-b', { tenants: [{ tenant: communeB, roles: ['admin'] }] })
   redacteurA = await mkUser('redacteur-a', {
@@ -1851,17 +2051,16 @@ afterAll(async () => {
 beforeEach(() => {
   configurerUmami(umami.url)
   umami.reglages.panne = false
+  umami.reglages.horsEquipe = false
   umami.vider()
 })
 
 const remisesAZero = () => umami.recues.filter((r) => r.chemin === `/api/websites/${siteA}/reset`)
 
-async function journalEffacement(commune: number): Promise<number> {
+async function journalEffacement(commune: number, message: string = MESSAGES_MESURE.effacee) {
   const res = await payload.count({
     collection: 'journal',
-    where: {
-      and: [{ commune: { equals: commune } }, { message: { like: MESSAGES_MESURE.effacee } }],
-    },
+    where: { and: [{ commune: { equals: commune } }, { message: { like: message } }] },
     overrideAccess: true,
   })
   return res.totalDocs
@@ -1887,13 +2086,29 @@ describe('« Supprimer l’historique »', () => {
     expect((await effacer(operateur, communeA)).status).toBe(200)
   })
 
-  it('Umami arrêté : 503, rien au journal', async () => {
+  it('Umami refuse : 503, rien au journal', async () => {
     const avant = await journalEffacement(communeA)
-    umami.reglages.panne = true
+    umami.reglages.horsEquipe = true
     const r = await effacer(operateur, communeA)
     expect(r.status).toBe(503)
     expect((await r.json()).message).toMatch(/rien n’a été effacé/)
     expect(await journalEffacement(communeA)).toBe(avant)
+  })
+
+  it('Umami ne répond pas : 504, état incertain annoncé et tracé', async () => {
+    const avant = await journalEffacement(communeA)
+    umami.reglages.panne = true
+    const r = await effacer(operateur, communeA)
+    expect(r.status).toBe(504)
+    expect((await r.json()).message).toMatch(/a peut-être eu lieu/)
+    expect(await journalEffacement(communeA)).toBe(avant)
+    expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementNonConfirme)).toBe(1)
+  })
+
+  it('journal en panne : Umami n’est pas appelé, rien n’est effacé', async () => {
+    const r = await effacer(operateur, communeA, true)
+    expect(r.status).toBe(500)
+    expect(remisesAZero()).toHaveLength(0)
   })
 
   it('commune sans site de mesure : 404', async () => {
@@ -1957,9 +2172,16 @@ Ajouter à `src/hooks/mesureAudience.ts` (compléter les imports : `CollectionAf
 ```ts
 /**
  * Suppression d'une commune : son site Umami est supprimé dans la
- * transaction. Si Umami ne répond pas, la suppression de la commune est
- * refusée. Si Umami a supprimé mais que la transaction échoue ensuite, la
- * prochaine activation recrée le même identifiant (vérifié : Umami l'accepte).
+ * transaction, en DERNIER (après le journal) : si Umami refuse, tout est
+ * annulé, journal compris ; si le journal échoue, Umami n'est jamais appelé.
+ * Reste un cas : Umami a supprimé, puis la validation de la transaction
+ * échoue — la commune garde son `siteUmami`, et la prochaine activation
+ * recrée le site sous le même identifiant (`preparerMesure` revérifie le site
+ * à chaque activation ; vérifié : Umami accepte de recréer l'identifiant).
+ *
+ * Sans UMAMI_URL, le site n'est pas supprimé et un avertissement est
+ * journalisé : refuser rendrait la commune impossible à supprimer tant que la
+ * mesure n'est pas réinstallée.
  */
 export const supprimerSiteMesure: CollectionAfterDeleteHook = async ({ doc, req }) => {
   const site = mesureDe(doc)?.siteUmami
@@ -1972,8 +2194,11 @@ export const supprimerSiteMesure: CollectionAfterDeleteHook = async ({ doc, req 
     await supprimerSite(site)
   } catch (erreur) {
     req.payload.logger.error({ err: erreur }, 'Suppression du site de mesure impossible')
-    throw new Error(
+    throw new APIError(
       'Le service de mesure d’audience ne répond pas ; la commune n’a pas été supprimée. Réessayez plus tard.',
+      503,
+      null,
+      true,
     )
   }
   return doc
@@ -1985,17 +2210,24 @@ export const supprimerSiteMesure: CollectionAfterDeleteHook = async ({ doc, req 
 `src/endpoints/effacerHistoriqueMesure.ts` :
 
 ```ts
-import type { Endpoint } from 'payload'
+import { commitTransaction, initTransaction, killTransaction, type Endpoint } from 'payload'
 
 import { aRoleSur, isOperateur } from '../access/roles'
 import { ecrire } from '../hooks/journaliser'
 import { MESSAGES_MESURE } from '../hooks/mesureAudience'
-import { effacerHistorique } from '../lib/umami/client'
+import { effacerHistorique, UmamiIndisponible } from '../lib/umami/client'
 
 /**
  * POST /api/communes/:id/mesure/effacer — réservé à l'admin de la commune et
- * à l'opérateur. L'entrée de journal n'est écrite qu'après la confirmation
- * d'Umami (I12).
+ * à l'opérateur.
+ *
+ * I12 face à une action externe : l'entrée de journal est écrite d'abord,
+ * dans une transaction ; Umami est appelé ensuite ; la transaction n'est
+ * validée qu'après sa confirmation. Un journal refusé empêche l'effacement ;
+ * un refus d'Umami annule l'entrée. Sans réponse d'Umami, l'effacement a
+ * peut-être eu lieu : une entrée « non confirmé » est écrite hors transaction
+ * pour qu'il reste une trace. Limite acceptée : Umami confirme puis la
+ * validation de la transaction échoue — effacement fait, sans entrée.
  */
 export const effacerHistoriqueMesure: Endpoint = {
   path: '/:id/mesure/effacer',
@@ -2018,26 +2250,51 @@ export const effacerHistoriqueMesure: Endpoint = {
         { status: 404 },
       )
     }
+    const transactionPropre = await initTransaction(req)
     try {
+      await ecrire(
+        req,
+        'commune',
+        `${MESSAGES_MESURE.effacee} — ${commune.nom}`,
+        commune.id,
+        commune.nom,
+      )
       await effacerHistorique(site)
+      if (transactionPropre) await commitTransaction(req)
+      return Response.json({ message: 'Historique effacé.' })
     } catch (erreur) {
+      if (transactionPropre) await killTransaction(req)
       req.payload.logger.error({ err: erreur }, 'Effacement de l’historique de mesure impossible')
+      if (erreur instanceof UmamiIndisponible && erreur.sansReponse) {
+        await ecrire(
+          req,
+          'commune',
+          `${MESSAGES_MESURE.effacementNonConfirme} — ${commune.nom}`,
+          commune.id,
+          commune.nom,
+        )
+        return Response.json(
+          {
+            message:
+              'Le service de mesure d’audience n’a pas confirmé l’effacement ; il a peut-être eu lieu. Réessayez : un nouvel effacement est sans effet s’il est déjà fait.',
+          },
+          { status: 504 },
+        )
+      }
+      if (erreur instanceof UmamiIndisponible) {
+        return Response.json(
+          {
+            message:
+              'Le service de mesure d’audience ne répond pas ; rien n’a été effacé. Réessayez plus tard.',
+          },
+          { status: 503 },
+        )
+      }
       return Response.json(
-        {
-          message:
-            'Le service de mesure d’audience ne répond pas ; rien n’a été effacé. Réessayez plus tard.',
-        },
-        { status: 503 },
+        { message: 'Le journal n’a pas pu être écrit ; rien n’a été effacé.' },
+        { status: 500 },
       )
     }
-    await ecrire(
-      req,
-      'commune',
-      `${MESSAGES_MESURE.effacee} — ${commune.nom}`,
-      commune.id,
-      commune.nom,
-    )
-    return Response.json({ message: 'Historique effacé.' })
   },
 }
 ```
@@ -2111,9 +2368,10 @@ export function EffacerHistorique() {
 
 - [ ] **Step 6: Wire into `src/collections/Communes.ts`**
 
-Imports :
+Imports (les deux lignes existantes qui importent `../access/roles` sont remplacées par la première ci-dessous) :
 
 ```ts
+import { aRoleSur, communesAvecRole, idDe, isOperateur } from '../access/roles'
 import { effacerHistoriqueMesure } from '../endpoints/effacerHistoriqueMesure'
 import { journaliserMesure, preparerMesure, supprimerSiteMesure } from '../hooks/mesureAudience'
 ```
@@ -2127,8 +2385,9 @@ Au niveau de la collection, après `access` :
 Remplacer `afterDelete: [journaliserSuppression('commune')],` par :
 
 ```ts
-    // Umami d'abord : s'il refuse, la transaction entière est annulée, journal compris.
-    afterDelete: [supprimerSiteMesure, journaliserSuppression('commune')],
+    // Umami en dernier : s'il refuse, tout est annulé, journal compris ; si le
+    // journal échoue, Umami n'est jamais appelé.
+    afterDelete: [journaliserSuppression('commune'), supprimerSiteMesure],
 ```
 
 Dans le groupe `mesure`, après `lienPartage` :
@@ -2138,7 +2397,10 @@ Dans le groupe `mesure`, après `lienPartage` :
           name: 'effacerHistorique',
           type: 'ui',
           admin: {
-            condition: (_data, siblingData) => Boolean(siblingData?.siteUmami),
+            // Montré seulement à qui peut effacer (le point d'accès revérifie).
+            condition: (data, siblingData, { user }) =>
+              Boolean(siblingData?.siteUmami) &&
+              (isOperateur(user) || aRoleSur(user, data?.id, 'admin')),
             components: { Field: '/components/admin/EffacerHistorique#EffacerHistorique' },
           },
         },
@@ -2156,7 +2418,7 @@ Expected: une ligne d'import et une entrée de table pour `EffacerHistorique`.
 - [ ] **Step 7: Run tests to verify they pass**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/int/mesure-historique.int.spec.ts && npm run test:int && npm run typecheck`
-Expected: PASS (8 tests) ; suite complète et typecheck verts.
+Expected: PASS (10 tests) ; suite complète et typecheck verts. Si `typecheck` refuse `user` dans `condition` (type `TypedUser` contre `UtilisateurAcces`), le convertir explicitement (`user as UtilisateurAcces`), sans changer la logique.
 
 - [ ] **Step 8: Check the button by hand**
 
@@ -2184,7 +2446,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `src/lib/mesure/relais.ts`, `src/app/(frontend)/mesure/api/send/route.ts`, `tests/helpers/communeTest.ts`, `tests/int/mesure-relais.int.spec.ts`
-- Modify: `src/lib/commune.ts` (extraction de `communeDuHost`)
+- Modify: `src/lib/commune.ts` (extraction de `communeDuHost`), `tests/unit/proxy.spec.ts` (frontière de confiance de `x-commune-host`)
 
 **Interfaces:**
 
@@ -2433,6 +2695,29 @@ describe('I19 / I20 — ce qui n’est pas transmis', () => {
     expect(envois()).toHaveLength(0)
   })
 
+  it('corps fragmenté sans Content-Length : coupé à la limite (413)', async () => {
+    let envoyes = 0
+    const flux = new ReadableStream<Uint8Array>({
+      pull(controleur) {
+        envoyes += 1
+        if (envoyes > 1000)
+          controleur.close() // ~2 Mo si rien ne coupait la lecture
+        else controleur.enqueue(new Uint8Array(2000).fill(120))
+      },
+    })
+    const r = await POST(
+      new Request('http://interne/mesure/api/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-commune-host': a.host },
+        body: flux,
+        duplex: 'half',
+      } as RequestInit),
+    )
+    expect(r.status).toBe(413)
+    expect(envoyes).toBeLessThan(10)
+    expect(envois()).toHaveLength(0)
+  })
+
   it('mesure non installée : 404', async () => {
     delete process.env.UMAMI_URL
     expect((await envoyer(a.host, PAGE_VUE)).status).toBe(404)
@@ -2528,6 +2813,31 @@ export const resolveCommune = cache(async (): Promise<Commune | null> => {
 
 Run: `npm run test:unit -- host` puis `npm run typecheck` — Expected: PASS (non-régression de la résolution).
 
+- [ ] **Step 4b: Prove the proxy overwrites a forged `x-commune-host` on the new paths**
+
+Les tests du relais appellent la route directement avec `x-commune-host` : ils supposent que le proxy (I7) a écrasé cet en-tête. Ce test le prouve pour les chemins `/mesure/…`. Ajouter à `tests/unit/proxy.spec.ts`, en suivant le style du fichier (fonction de requête existante, `proxy` importé) :
+
+```ts
+describe('I7 / I19 — chemins de la mesure d’audience', () => {
+  it.each(['/mesure/api/send', '/mesure/script.js', '/mesure/opposition'])(
+    '%s : un x-commune-host forgé par le client est écrasé par le host réel',
+    (chemin) => {
+      const reponse = proxy(
+        new NextRequest(`https://mairie-a.fr${chemin}`, {
+          method: 'POST',
+          headers: { host: 'mairie-a.fr', 'x-commune-host': 'mairie-b.fr' },
+        }),
+      )
+      // NextResponse.next({ request: { headers } }) transmet l'en-tête réécrit
+      // sous ce nom (next/dist/server/web/spec-extension/response.js).
+      expect(reponse.headers.get('x-middleware-request-x-commune-host')).toBe('mairie-a.fr')
+    },
+  )
+})
+```
+
+Run: `npm run test:unit -- proxy` — Expected: PASS. (Le `matcher` du proxy couvre tous les chemins sauf `_next/static`, `_next/image` et `favicon.ico` : `/mesure/…` y passe.)
+
 - [ ] **Step 5: Write the relay**
 
 `src/lib/mesure/relais.ts` :
@@ -2554,6 +2864,29 @@ function avertir(message: string): void {
 const rienTransmis = () => new Response(null, { status: 204 })
 
 /**
+ * Lit le corps en comptant les octets : un envoi fragmenté sans
+ * Content-Length est coupé dès la limite, sans tout charger en mémoire.
+ * Null : limite dépassée.
+ */
+async function lireBorne(requete: Request, max: number): Promise<string | null> {
+  if (!requete.body) return ''
+  const lecteur = requete.body.getReader()
+  const morceaux: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await lecteur.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) {
+      await lecteur.cancel().catch(() => undefined)
+      return null
+    }
+    morceaux.push(value)
+  }
+  return Buffer.concat(morceaux).toString('utf8')
+}
+
+/**
  * Relais de collecte (spec, section 3). Garanties :
  * I18 — aucune IP complète ni aucun champ hors liste blanche ne sort vers Umami ;
  * I19 — seule une commune mesurée est transmise, sous son propre site ;
@@ -2570,9 +2903,13 @@ export async function relayer(
   if (Number(requete.headers.get('content-length') ?? 0) > TAILLE_MAX_OCTETS) {
     return new Response(null, { status: 413 })
   }
-  const texte = await requete.text()
-  if (Buffer.byteLength(texte, 'utf8') > TAILLE_MAX_OCTETS)
-    return new Response(null, { status: 413 })
+  let texte: string | null
+  try {
+    texte = await lireBorne(requete, TAILLE_MAX_OCTETS)
+  } catch {
+    return new Response(null, { status: 400 }) // flux interrompu
+  }
+  if (texte === null) return new Response(null, { status: 413 })
 
   const site = siteMesure(commune)
   if (!site || estOppose(lireCookie(requete.headers.get('cookie'), COOKIE_OPPOSITION))) {
@@ -2638,13 +2975,13 @@ export async function POST(request: Request) {
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/int/mesure-relais.int.spec.ts && npm run test:int && npm run typecheck`
-Expected: PASS (11 tests), suite complète verte.
+Expected: PASS (12 tests), suite complète verte.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add src/lib/commune.ts src/lib/mesure/relais.ts "src/app/(frontend)/mesure/api/send/route.ts" \
-  tests/helpers/communeTest.ts tests/int/mesure-relais.int.spec.ts
+  tests/helpers/communeTest.ts tests/int/mesure-relais.int.spec.ts tests/unit/proxy.spec.ts
 git commit -m "Mesure d'audience — relais de collecte sur le domaine de la commune (I18, I19, I20)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -2679,7 +3016,12 @@ import { SLUGS_RESERVES } from '@/hooks/uniqueSlugParCommune'
 import { getPayloadClient } from '@/lib/payload'
 
 import { creerCommuneActive, supprimerCommuneTest } from '../helpers/communeTest'
-import { configurerUmami, demarrerFauxUmami, type FauxUmami } from '../helpers/fauxUmami'
+import {
+  configurerUmami,
+  demarrerFauxUmami,
+  SCRIPT_FAUX,
+  type FauxUmami,
+} from '../helpers/fauxUmami'
 
 let payload: Payload
 let umami: FauxUmami
@@ -2708,7 +3050,7 @@ describe('/mesure/script.js', () => {
   it('sert le script d’Umami, mis en cache une heure', async () => {
     const r = await script(commune.host)
     expect(r.status).toBe(200)
-    expect(await r.text()).toBe('/* faux umami */')
+    expect(await r.text()).toBe(SCRIPT_FAUX)
     expect(r.headers.get('cache-control')).toBe('public, max-age=3600')
     expect(r.headers.get('content-type')).toMatch(/javascript/)
     await script(commune.host)
@@ -2903,11 +3245,15 @@ import { creerCommuneActive, supprimerCommuneTest } from '../helpers/communeTest
 let payload: Payload
 let commune: { id: number; host: string }
 
-const choisir = (host: string, choix: string) =>
+const choisir = (host: string, choix: string, entetes: Record<string, string> = {}) =>
   POST(
     new Request('http://interne/mesure/opposition', {
       method: 'POST',
-      headers: { 'x-commune-host': host, 'content-type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'x-commune-host': host,
+        'content-type': 'application/x-www-form-urlencoded',
+        ...entetes,
+      },
       body: new URLSearchParams({ choix }).toString(),
     }),
   )
@@ -2935,6 +3281,26 @@ describe('POST /mesure/opposition (I20)', () => {
     expect(r.headers.get('set-cookie')).toMatch(/^pdlm_mesure=; Max-Age=0;/)
   })
 
+  it('formulaire soumis depuis un autre site : 403, cookie intact', async () => {
+    for (const entetes of [
+      { origin: 'https://site-hostile.example' },
+      { origin: 'null' },
+      { 'sec-fetch-site': 'cross-site' },
+    ]) {
+      const r = await choisir(commune.host, 'accepte', entetes)
+      expect(r.status, JSON.stringify(entetes)).toBe(403)
+      expect(r.headers.get('set-cookie')).toBeNull()
+    }
+  })
+
+  it('formulaire de la page elle-même : accepté', async () => {
+    const r = await choisir(commune.host, 'refus', {
+      origin: `https://${commune.host}`,
+      'sec-fetch-site': 'same-origin',
+    })
+    expect(r.status).toBe(303)
+  })
+
   it('choix invalide : 400 ; domaine de la plateforme : 404', async () => {
     expect((await choisir(commune.host, 'autre')).status).toBe(400)
     expect(
@@ -2954,15 +3320,20 @@ Expected: FAIL (route introuvable)
 `src/app/(frontend)/mesure/opposition/route.ts` :
 
 ```ts
-import { communeDuHost } from '@/lib/commune'
-import { enteteCookieOpposition } from '@/lib/mesure/opposition'
+import { communeDuHost, normaliserHost } from '@/lib/commune'
+import { enteteCookieOpposition, soumissionIntersite } from '@/lib/mesure/opposition'
 
 export const dynamic = 'force-dynamic'
 
 /** I20 — opposition sans JavaScript : formulaire classique, réponse 303. */
 export async function POST(request: Request) {
-  const commune = await communeDuHost(request.headers.get('x-commune-host') ?? '')
+  const host = normaliserHost(request.headers.get('x-commune-host') ?? '')
+  const commune = await communeDuHost(host)
   if (!commune) return new Response(null, { status: 404 })
+  // Un site tiers ne doit pas pouvoir lever l'opposition d'un visiteur.
+  if (soumissionIntersite(request.headers, host)) {
+    return new Response('Origine refusée', { status: 403 })
+  }
   const formulaire = await request.formData().catch(() => null)
   const choix = formulaire?.get('choix')
   if (choix !== 'refus' && choix !== 'accepte') {
@@ -2981,7 +3352,7 @@ export async function POST(request: Request) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/int/mesure-opposition.int.spec.ts`
-Expected: PASS (3 tests)
+Expected: PASS (5 tests)
 
 - [ ] **Step 5: Write the information page**
 
@@ -3213,6 +3584,8 @@ test.describe('Mesure d’audience', () => {
     if (jeton) await basculer(request, false)
   })
 
+  // Le faux Umami sert SCRIPT_FAUX, qui poste comme le vrai script : ce test prouve la chaîne
+  // balise → relais ; le vrai script d'Umami est éprouvé à la recette (tâche 15).
   test('une commune mesurée porte la balise, qui poste au relais du domaine', async ({ page }) => {
     const envoi = page.waitForRequest(
       (r) => r.url().endsWith('/mesure/api/send') && r.method() === 'POST',
@@ -3225,7 +3598,12 @@ test.describe('Mesure d’audience', () => {
     await envoi
   })
 
-  test('refuser par le formulaire retire la balise ; accepter la remet', async ({ page }) => {
+  test('sans JavaScript, refuser par le formulaire retire la balise ; accepter la remet', async ({
+    browser,
+  }) => {
+    // L'opposition doit fonctionner sans JavaScript (spec, section 4).
+    const contexte = await browser.newContext({ javaScriptEnabled: false })
+    const page = await contexte.newPage()
     await page.goto('/mesure-d-audience')
     await page.getByRole('button', { name: 'Refuser la mesure' }).click()
     await expect(page).toHaveURL(/\/mesure-d-audience$/)
@@ -3237,6 +3615,7 @@ test.describe('Mesure d’audience', () => {
     await page.getByRole('button', { name: 'Accepter la mesure' }).click()
     await page.goto('/')
     await expect(page.locator(BALISE)).toHaveCount(1)
+    await contexte.close()
   })
 
   test('la page est atteinte depuis le pied de page et utilisable au clavier', async ({ page }) => {
@@ -3396,6 +3775,8 @@ purge-mesure:
 
 Le fichier `scripts/purge-mesure.sql` est créé à la tâche 12 : jusque-là, ne pas démarrer `purge-mesure`.
 
+La commande enveloppée d'`umami` (contrôle du secret, puis `exec sh scripts/start-docker.sh`, la commande d'origine de l'image) a été vérifiée le 23/09 sur l'image épinglée : Umami démarre (`/api/heartbeat` → `{"ok":true}`) et un secret vide arrête le conteneur avec le code 1 et le message attendu. La tâche 15 la redémarre dans la pile de production.
+
 - [ ] **Step 2: Development compose**
 
 Dans `docker-compose.dev.yml`, ajouter :
@@ -3512,9 +3893,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 
 - Consumes : Umami de développement (tâche 11), base `umami`.
-- Produces : la purge, lancée par le service `purge-mesure` (tâche 11).
+- Produces : la purge, lancée par le service `purge-mesure` (tâche 11) et par `restore.sh` (tâche 13).
 
 Tables et colonnes relevées par exécution sur Umami 3.4.0 (23/09) ; `relationMode = "prisma"` : aucune clé étrangère en base, l'ordre des suppressions est logique, pas imposé.
+
+Deux choix, pour qu'I21 tienne **strictement** :
+
+- **Marge de 2 jours** : la purge tourne toutes les 24 h ; supprimer ce qui a plus de « 25 mois moins 2 jours » garantit qu'aucune ligne ne dépasse 25 mois entre deux passages.
+- **Sessions supprimées sur leur seule date**, qu'un événement récent s'y rattache ou non. En pratique ce cas n'arrive pas : l'identifiant de session d'Umami inclut un sel qui change chaque mois (`SALT_ROTATION=month`, lu dans `src/app/api/send/route.ts`) et le relais retire `timestamp`. Une session ne reçoit donc plus d'événement un mois après sa création. Si le cas survenait malgré tout, les événements concernés restent (moins de 25 mois) mais perdent leurs attributs de session : c'est le prix de la stricte conformité.
 
 - [ ] **Step 1: Write the failing test script**
 
@@ -3524,41 +3910,50 @@ Tables et colonnes relevées par exécution sur Umami 3.4.0 (23/09) ; `relationM
 #!/usr/bin/env bash
 # Test de scripts/purge-mesure.sql contre une vraie base Umami (I21).
 # Prérequis : docker compose -f docker-compose.dev.yml --profile mesure up -d
-# Crée un site factice, des lignes vieillies à 26 mois et des lignes
-# récentes, lance la purge, vérifie, puis efface le site factice.
+# Crée un site factice, des lignes de part et d'autre de la limite dans chaque
+# table purgée, lance la purge, vérifie, puis efface le site factice.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 psql_umami() { docker compose -f docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U umami -d umami -tA "$@"; }
 
 SITE=00000000-0000-4000-8000-00000000c0de
+TABLES="event_data session_data revenue heatmap_event session_replay session_replay_saved website_event session_link session"
 nettoyer() {
-  psql_umami -c "DELETE FROM event_data WHERE website_id='$SITE'; DELETE FROM session_data WHERE website_id='$SITE';
-    DELETE FROM website_event WHERE website_id='$SITE'; DELETE FROM session WHERE website_id='$SITE';
-    DELETE FROM website WHERE website_id='$SITE';" >/dev/null
+  for t in $TABLES website; do psql_umami -c "DELETE FROM $t WHERE website_id='$SITE'" >/dev/null; done
 }
 trap nettoyer EXIT
 nettoyer
 
+# VIEUX : au-delà de la limite (25 mois moins 1 jour) ; RECENT : en deçà (25 mois moins 3 jours).
+VIEUX="now() - interval '25 months' + interval '1 day'"
+RECENT="now() - interval '25 months' + interval '3 days'"
+SV=00000000-0000-4000-8000-0000000000a1   # session ancienne
+SR=00000000-0000-4000-8000-0000000000a2   # session récente
+EV=00000000-0000-4000-8000-0000000000e1   # événement ancien
+ER=00000000-0000-4000-8000-0000000000e2   # événement récent
+
 psql_umami <<SQL >/dev/null
 INSERT INTO website (website_id, name) VALUES ('$SITE', 'purge-test');
--- vieille session sans événement récent : doit disparaître
-INSERT INTO session (session_id, website_id, created_at) VALUES ('00000000-0000-4000-8000-000000000001', '$SITE', now() - interval '26 months');
-INSERT INTO website_event (event_id, website_id, session_id, visit_id, url_path, created_at)
-  VALUES ('00000000-0000-4000-8000-0000000000e1', '$SITE', '00000000-0000-4000-8000-000000000001', gen_random_uuid(), '/vieux', now() - interval '26 months');
-INSERT INTO event_data (event_data_id, website_id, website_event_id, data_key, data_type, created_at)
-  VALUES (gen_random_uuid(), '$SITE', '00000000-0000-4000-8000-0000000000e1', 'k', 1, now() - interval '26 months');
-INSERT INTO session_data (session_data_id, website_id, session_id, data_key, data_type, created_at)
-  VALUES (gen_random_uuid(), '$SITE', '00000000-0000-4000-8000-000000000001', 'k', 1, now() - interval '26 months');
--- vieille session avec un événement récent : doit rester (l'événement ancien part)
-INSERT INTO session (session_id, website_id, created_at) VALUES ('00000000-0000-4000-8000-000000000002', '$SITE', now() - interval '26 months');
+INSERT INTO session (session_id, website_id, created_at) VALUES ('$SV', '$SITE', $VIEUX), ('$SR', '$SITE', $RECENT);
 INSERT INTO website_event (event_id, website_id, session_id, visit_id, url_path, created_at) VALUES
-  (gen_random_uuid(), '$SITE', '00000000-0000-4000-8000-000000000002', gen_random_uuid(), '/vieux', now() - interval '26 months'),
-  (gen_random_uuid(), '$SITE', '00000000-0000-4000-8000-000000000002', gen_random_uuid(), '/recent', now() - interval '1 day');
--- session récente : doit rester
-INSERT INTO session (session_id, website_id, created_at) VALUES ('00000000-0000-4000-8000-000000000003', '$SITE', now() - interval '24 months');
-INSERT INTO website_event (event_id, website_id, session_id, visit_id, url_path, created_at)
-  VALUES (gen_random_uuid(), '$SITE', '00000000-0000-4000-8000-000000000003', gen_random_uuid(), '/limite', now() - interval '24 months');
+  ('$EV', '$SITE', '$SV', gen_random_uuid(), '/vieux', $VIEUX),
+  ('$ER', '$SITE', '$SR', gen_random_uuid(), '/recent', $RECENT);
+INSERT INTO event_data (event_data_id, website_id, website_event_id, data_key, data_type, created_at) VALUES
+  (gen_random_uuid(), '$SITE', '$EV', 'vieux', 1, $VIEUX), (gen_random_uuid(), '$SITE', '$ER', 'recent', 1, $RECENT);
+INSERT INTO session_data (session_data_id, website_id, session_id, data_key, data_type, created_at) VALUES
+  (gen_random_uuid(), '$SITE', '$SV', 'vieux', 1, $VIEUX), (gen_random_uuid(), '$SITE', '$SR', 'recent', 1, $RECENT);
+INSERT INTO revenue (revenue_id, website_id, session_id, event_id, event_name, currency, revenue, created_at) VALUES
+  (gen_random_uuid(), '$SITE', '$SV', '$EV', 'vieux', 'EUR', 1, $VIEUX), (gen_random_uuid(), '$SITE', '$SR', '$ER', 'recent', 'EUR', 1, $RECENT);
+INSERT INTO heatmap_event (heatmap_event_id, website_id, session_id, visit_id, url_path, event_type, created_at) VALUES
+  (gen_random_uuid(), '$SITE', '$SV', gen_random_uuid(), '/vieux', 1, $VIEUX), (gen_random_uuid(), '$SITE', '$SR', gen_random_uuid(), '/recent', 1, $RECENT);
+INSERT INTO session_replay (replay_id, website_id, session_id, visit_id, chunk_index, events, event_count, started_at, ended_at, created_at) VALUES
+  (gen_random_uuid(), '$SITE', '$SV', gen_random_uuid(), 0, '\x00', 0, $VIEUX, $VIEUX, $VIEUX),
+  (gen_random_uuid(), '$SITE', '$SR', gen_random_uuid(), 0, '\x00', 0, $RECENT, $RECENT, $RECENT);
+INSERT INTO session_replay_saved (saved_replay_id, name, website_id, visit_id, created_at) VALUES
+  (gen_random_uuid(), 'vieux', '$SITE', gen_random_uuid(), $VIEUX), (gen_random_uuid(), 'recent', '$SITE', gen_random_uuid(), $RECENT);
+INSERT INTO session_link (website_id, session_id, distinct_id, created_at) VALUES
+  ('$SITE', '$SV', 'vieux', $VIEUX), ('$SITE', '$SR', 'recent', $RECENT);
 SQL
 
 echo "--- purge ---"
@@ -3568,13 +3963,21 @@ attendu() { # $1=libellé $2=requête $3=valeur attendue
   local lu; lu=$(psql_umami -c "$2")
   if [ "$lu" = "$3" ]; then echo "OK   $1 ($lu)"; else echo "ÉCHEC $1 : lu $lu, attendu $3" >&2; exit 1; fi
 }
-attendu "événements de plus de 25 mois supprimés" "SELECT count(*) FROM website_event WHERE website_id='$SITE' AND url_path='/vieux'" 0
-attendu "événements récents gardés" "SELECT count(*) FROM website_event WHERE website_id='$SITE' AND url_path IN ('/recent','/limite')" 2
-attendu "données d'événement anciennes supprimées" "SELECT count(*) FROM event_data WHERE website_id='$SITE'" 0
-attendu "données de session anciennes supprimées" "SELECT count(*) FROM session_data WHERE website_id='$SITE'" 0
-attendu "vieille session sans événement supprimée" "SELECT count(*) FROM session WHERE session_id='00000000-0000-4000-8000-000000000001'" 0
-attendu "vieille session avec événement récent gardée" "SELECT count(*) FROM session WHERE session_id='00000000-0000-4000-8000-000000000002'" 1
-attendu "session récente gardée" "SELECT count(*) FROM session WHERE session_id='00000000-0000-4000-8000-000000000003'" 1
+for t in $TABLES; do
+  attendu "$t : seule la ligne récente reste" \
+    "SELECT count(*) FROM $t WHERE website_id='$SITE' AND created_at < now() - interval '25 months' + interval '2 days'" 0
+  attendu "$t : la ligne récente est gardée" \
+    "SELECT count(*) FROM $t WHERE website_id='$SITE' AND created_at >= now() - interval '25 months' + interval '2 days'" 1
+done
+
+# Atomicité : une purge qui échoue en cours de route ne supprime rien.
+psql_umami -c "INSERT INTO website_event (event_id, website_id, session_id, visit_id, url_path, created_at)
+  VALUES (gen_random_uuid(), '$SITE', '$SR', gen_random_uuid(), '/vieux2', $VIEUX)" >/dev/null
+if perl -pe 's/^COMMIT;$/SELECT 1\/0;\nCOMMIT;/' scripts/purge-mesure.sql \
+  | docker compose -f docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U umami -d umami -f - >/dev/null 2>&1; then
+  echo "ÉCHEC : la purge sabotée aurait dû échouer" >&2; exit 1
+fi
+attendu "purge interrompue : rien de supprimé" "SELECT count(*) FROM website_event WHERE website_id='$SITE' AND url_path='/vieux2'" 1
 echo "Purge conforme (I21)."
 ```
 
@@ -3593,36 +3996,35 @@ Expected: FAIL (`scripts/purge-mesure.sql` introuvable)
 
 ```sql
 -- pdlm — purge de la mesure d'audience (I21 : aucune donnée de plus de 25 mois).
--- Lancé par le service `purge-mesure` au démarrage puis toutes les 24 h, avec
--- le rôle `umami` et ON_ERROR_STOP. Tables relevées sur Umami 3.4.0.
+-- Lancé par le service `purge-mesure` au démarrage puis toutes les 24 h, et par
+-- restore.sh après une restauration, avec ON_ERROR_STOP. Tables relevées sur
+-- Umami 3.4.0. Limite : 25 mois moins 2 jours, pour qu'aucune ligne ne
+-- dépasse 25 mois entre deux passages quotidiens.
+SELECT now() - interval '25 months' + interval '2 days' AS limite \gset
+
 BEGIN;
 
 CREATE TEMP TABLE purge_bilan (nom text, lignes bigint) ON COMMIT DROP;
 
-WITH d AS (DELETE FROM event_data WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM event_data WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'event_data', count(*) FROM d;
-WITH d AS (DELETE FROM session_data WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM session_data WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'session_data', count(*) FROM d;
-WITH d AS (DELETE FROM revenue WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM revenue WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'revenue', count(*) FROM d;
-WITH d AS (DELETE FROM heatmap_event WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM heatmap_event WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'heatmap_event', count(*) FROM d;
-WITH d AS (DELETE FROM session_replay WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM session_replay WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'session_replay', count(*) FROM d;
-WITH d AS (DELETE FROM session_replay_saved WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM session_replay_saved WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'session_replay_saved', count(*) FROM d;
-WITH d AS (DELETE FROM website_event WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM website_event WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'website_event', count(*) FROM d;
-WITH d AS (DELETE FROM session_link WHERE created_at < now() - interval '25 months' RETURNING 1)
+WITH d AS (DELETE FROM session_link WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'session_link', count(*) FROM d;
--- Une session ancienne n'est supprimée que si plus rien ne s'y rattache.
-WITH d AS (
-  DELETE FROM session s
-  WHERE s.created_at < now() - interval '25 months'
-    AND NOT EXISTS (SELECT 1 FROM website_event e WHERE e.session_id = s.session_id)
-    AND NOT EXISTS (SELECT 1 FROM session_data sd WHERE sd.session_id = s.session_id)
-  RETURNING 1
-)
+-- Sessions sur leur seule date (voir le plan, tâche 12 : le sel mensuel d'Umami
+-- empêche une session de recevoir des événements au-delà de son mois).
+WITH d AS (DELETE FROM session WHERE created_at < :'limite' RETURNING 1)
 INSERT INTO purge_bilan SELECT 'session', count(*) FROM d;
 
 SELECT now() AS purge, nom, lignes FROM purge_bilan ORDER BY nom;
@@ -3633,7 +4035,7 @@ COMMIT;
 - [ ] **Step 4: Run it to verify it passes**
 
 Run: `./scripts/tester-purge-mesure.sh`
-Expected: sept lignes `OK`, puis « Purge conforme (I21). »
+Expected: dix-huit lignes `OK` (deux par table), puis « purge interrompue : rien de supprimé », puis « Purge conforme (I21). »
 
 - [ ] **Step 5: Commit**
 
@@ -3699,14 +4101,22 @@ Mettre à jour l'en-tête (« Le dossier reçoit : postgres.sql.gz + s3/ (conten
 
 - [ ] **Step 2: `restore.sh`**
 
-Après le contrôle `gunzip -t` de `postgres.sql.gz` :
+Tous les prérequis sont vérifiés **avant** de toucher à quoi que ce soit, base pdlm comprise. Après le contrôle `gunzip -t` de `postgres.sql.gz` :
 
 ```bash
+# Mesure d'audience : prérequis vérifiés avant la moindre écriture.
 if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
   gunzip -t "$DOSSIER_ABS/umami.sql.gz" 2>/dev/null || {
     echo "ÉCHEC : $DOSSIER/umami.sql.gz est illisible — restauration annulée." >&2
     exit 1
   }
+  docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -tAc \
+    "SELECT 1 FROM pg_roles WHERE rolname='umami'" | grep -q 1 || {
+    echo "ÉCHEC : rôle umami absent — restauration annulée. Lancer d'abord : docker compose --profile mesure up init-umami" >&2
+    exit 1
+  }
+  # Services de mesure qui tournent maintenant : ceux-là, et eux seuls, seront relancés.
+  MESURE_ACTIFS=$(docker compose --profile mesure ps --status running --services | grep -E '^(umami|purge-mesure)$' || true)
 fi
 ```
 
@@ -3715,27 +4125,31 @@ Après la restauration PostgreSQL (fin de l'étape 2) :
 ```bash
 if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
   echo "2/5 — Restauration de la mesure d'audience (base umami)…"
-  docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -tAc \
-    "SELECT 1 FROM pg_roles WHERE rolname='umami'" | grep -q 1 || {
-    echo "ÉCHEC : rôle umami absent. Lancer d'abord : docker compose --profile mesure up init-umami" >&2
-    exit 1
-  }
   # Umami et la purge tiennent des connexions : arrêtés le temps de la restauration.
-  docker compose --profile mesure stop umami purge-mesure >/dev/null 2>&1 || true
+  if [ -n "$MESURE_ACTIFS" ]; then docker compose --profile mesure stop $MESURE_ACTIFS >/dev/null; fi
   docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres \
     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='umami' AND pid <> pg_backend_pid();" \
     -c "DROP DATABASE IF EXISTS umami;" \
     -c "CREATE DATABASE umami OWNER umami;"
   gunzip -c "$DOSSIER_ABS/umami.sql.gz" \
     | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami
-  docker compose --profile mesure start umami purge-mesure >/dev/null 2>&1 || true
+  # I21 : une sauvegarde ancienne contient des visites devenues trop vieilles.
+  # Purge immédiate, avant toute remise en service ; un échec arrête le script.
+  echo "     purge des données de plus de 25 mois…"
+  docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami -f - \
+    <scripts/purge-mesure.sql >/dev/null
+  if [ -n "$MESURE_ACTIFS" ]; then docker compose --profile mesure start $MESURE_ACTIFS; fi
 fi
 ```
+
+Pas de `|| true` : si un service qui tournait ne redémarre pas, le script échoue et le dit. Un service qui ne tournait pas avant n'est pas démarré.
+
+Mettre à jour l'en-tête de `restore.sh` : « … et, si la sauvegarde contient umami.sql.gz, la base de mesure d'audience, purgée à 25 mois avant remise en service ».
 
 - [ ] **Step 3: Check syntax**
 
 Run: `bash -n scripts/backup.sh && bash -n scripts/restore.sh && echo syntaxe-ok`
-Expected: `syntaxe-ok`. L'aller-retour réel est fait à la tâche 15, sur une pile de type production.
+Expected: `syntaxe-ok`. L'aller-retour réel est fait à la tâche 15, sur une pile de type production, avec une restauration sur une pile neuve.
 
 - [ ] **Step 4: Commit**
 
@@ -3920,7 +4334,20 @@ ls backups/recette-umami        # postgres.sql.gz  s3  umami.sql.gz
 docker compose exec -T postgres psql -U postgres -d umami -tAc "SELECT count(*) FROM website_event"
 ```
 
-Expected: le même nombre de visites qu'avant la sauvegarde ; Umami et la purge redémarrés (`docker compose ps`).
+Expected: le même nombre de visites qu'avant la sauvegarde ; la ligne « purge des données de plus de 25 mois » affichée ; Umami et la purge redémarrés (`docker compose ps`).
+
+Restauration sur une pile **neuve**. `down -v` efface les volumes du projet Compose `pdlm-prod` (la pile locale de recette), jamais ceux de développement (`pdlm`). Vérifier le nom avec `docker compose ls` avant de lancer :
+
+```bash
+docker compose down -v
+docker compose up -d postgres minio
+docker compose --profile mesure up init-umami
+./scripts/restore.sh backups/recette-umami
+docker compose up -d
+docker compose exec -T postgres psql -U postgres -d umami -tAc "SELECT count(*) FROM website_event"
+```
+
+Expected: même nombre de visites ; tous les services sains. Sans l'étape `init-umami`, `restore.sh` doit s'arrêter **avant** de toucher à la base pdlm, avec le message « rôle umami absent ».
 
 - [ ] **Step 7: Mémoire**
 
