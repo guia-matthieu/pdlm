@@ -258,6 +258,19 @@ Constat supplémentaire : un champ `ip` dans le corps l'emporte bien sur l'en-t�
 
 Les vérifications par HTTP réel demandées (PATCH `mesure: null`, erreurs publiques dans l'admin, vrai point d'accès, frontière du proxy avec deux communes mesurées) sont ajoutées à la recette (tâche 15).
 
+**Relecture Astra, passe 3 (23/09, courte, sur le diff)** : REFUSÉ. N1, N3, n° 1, 4, 10, 11, 13 et 15 sont résolus.
+
+Retenus :
+- le journal final en panne après un effacement confirmé renvoie 200 avec un message explicite ;
+- un test prouve que l'entrée « demandé » est déjà validée quand Umami reçoit la remise à zéro ;
+- un test en navigateur réel vérifie qu'une page d'un autre site ne lève pas l'opposition ;
+- la recette ajoute un PATCH REST aux champs forgés et une opposition légitime à travers Caddy.
+
+**Désaccords maintenus, avec leur raison :**
+- **Rollback réel après un DELETE externe** (n° 6). Il faudrait une panne entre le DELETE d'Umami et la validation Payload. Le seul point d'injection est l'échec de la validation elle-même, qu'on ne sait pas provoquer proprement. Le chemin de réparation est testé.
+- **Schéma de l'origine** (N5, n° 8). Forger `http://<commune>` suppose de servir du contenu sur le domaine de la commune en HTTP, que Caddy redirige vers HTTPS : c'est un attaquant déjà sur le réseau, hors du modèle de menace. `Sec-Fetch-Site` couvre en plus les navigateurs actuels.
+- **Reprise automatique des demandes d'effacement incertaines** (n° 5). L'agent relance ; un second effacement est sans effet.
+
 Plan d'implémentation : `docs/superpowers/plans/2026-09-23-umami-collecte-cnil.md`.
 
 ## Risques connus et acceptés

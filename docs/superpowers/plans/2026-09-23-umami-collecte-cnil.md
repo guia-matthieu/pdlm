@@ -692,7 +692,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     url: string; recues: RequeteRecue[]
     sites: Map<string, { teamId: string; name: string; domain: string }>
     partages: Map<string, Array<{ id: string; slug: string; name: string; parameters: unknown }>>
-    reglages: { panne: boolean; delaiEnvoiMs: number; horsEquipe: boolean }
+    reglages: { panne: boolean; delaiEnvoiMs: number; horsEquipe: boolean; surReset?: () => Promise<void> }
     vider(): void; fermer(): Promise<void>
   const SCRIPT_FAUX: string   // mini-script de mesure qui poste une page vue au relais (tests de bout en bout)
   }
@@ -764,7 +764,13 @@ export interface FauxUmami {
   recues: RequeteRecue[]
   sites: Map<string, { teamId: string; name: string; domain: string }>
   partages: Map<string, Array<{ id: string; slug: string; name: string; parameters: unknown }>>
-  reglages: { panne: boolean; delaiEnvoiMs: number; horsEquipe: boolean }
+  reglages: {
+    panne: boolean
+    delaiEnvoiMs: number
+    horsEquipe: boolean
+    /** Appelé à réception d'une remise à zéro, avant de répondre. */
+    surReset?: () => Promise<void>
+  }
   vider(): void
   fermer(): Promise<void>
 }
@@ -813,7 +819,7 @@ export async function demarrerFauxUmami(port = 0): Promise<FauxUmami> {
   const recues: RequeteRecue[] = []
   const sites: FauxUmami['sites'] = new Map()
   const partages: FauxUmami['partages'] = new Map()
-  const reglages = { panne: false, delaiEnvoiMs: 0, horsEquipe: false }
+  const reglages: FauxUmami['reglages'] = { panne: false, delaiEnvoiMs: 0, horsEquipe: false }
 
   const serveur = createServer(async (req, res) => {
     const corps = await lireCorps(req)
@@ -861,7 +867,10 @@ export async function demarrerFauxUmami(port = 0): Promise<FauxUmami> {
         partages.delete(id)
         return json(res, 200, { ok: true })
       }
-      if (suite === '/reset' && methode === 'POST') return json(res, 200, { ok: true })
+      if (suite === '/reset' && methode === 'POST') {
+        await reglages.surReset?.()
+        return json(res, 200, { ok: true })
+      }
       if (suite === '/shares' && methode === 'GET') {
         const data = partages.get(id) ?? []
         return json(res, 200, { data, count: data.length, page: 1, pageSize: 10 })
@@ -1974,25 +1983,33 @@ let adminB: User
 let redacteurA: User
 let operateur: User
 
-/** Requête Payload complète (transactions comprises), comme celle que reçoit le vrai point d'accès. */
-async function requete(
-  user: User | null,
-  id: number,
-  journalEnPanne = false,
-): Promise<PayloadRequest> {
+/** Panne du journal : aucune, sur toute écriture, ou seulement après l'entrée « demandé ». */
+type PanneJournal = 'aucune' | 'toutes' | 'apresDemande'
+
+/** Requête Payload complète, comme celle que reçoit le vrai point d'accès. */
+async function requete(user: User | null, id: number, panne: PanneJournal): Promise<PayloadRequest> {
   const req = await createLocalReq({ user: user ?? undefined }, payload)
   req.routeParams = { id: String(id) }
   if (!user) req.user = null
-  if (journalEnPanne) {
+  if (panne !== 'aucune') {
+    let ecritures = 0
     req.payload = Object.create(payload, {
-      create: { value: () => Promise.reject(new Error('écriture du journal refusée')) },
+      create: {
+        value: (...args: Parameters<Payload['create']>) => {
+          ecritures += 1
+          if (panne === 'toutes' || ecritures > 1) {
+            return Promise.reject(new Error('écriture du journal refusée'))
+          }
+          return payload.create(...args)
+        },
+      },
     }) as Payload
   }
   return req
 }
 
-const effacer = async (user: User | null, id: number, journalEnPanne = false) =>
-  effacerHistoriqueMesure.handler(await requete(user, id, journalEnPanne))
+const effacer = async (user: User | null, id: number, panne: PanneJournal = 'aucune') =>
+  effacerHistoriqueMesure.handler(await requete(user, id, panne))
 
 async function creerCommuneMesuree(lettre: string): Promise<{ id: number; site: string }> {
   const { id } = await payload.create({
@@ -2117,8 +2134,32 @@ describe('« Supprimer l’historique »', () => {
     expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)).toBe(demandes + 1)
   })
 
+  it('l’entrée « demandé » est déjà validée quand Umami reçoit la remise à zéro', async () => {
+    let visibleAuReset = -1
+    umami.reglages.surReset = async () => {
+      // Lue par une autre requête que celle du point d'accès : elle doit déjà être validée.
+      visibleAuReset = await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)
+    }
+    const avant = await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)
+    try {
+      expect((await effacer(operateur, communeA)).status).toBe(200)
+    } finally {
+      umami.reglages.surReset = undefined
+    }
+    expect(visibleAuReset).toBe(avant + 1)
+  })
+
+  it('effacement confirmé mais journal final en panne : 200, message explicite, la demande reste', async () => {
+    const effacees = await journalEffacement(communeA)
+    const r = await effacer(operateur, communeA, 'apresDemande')
+    expect(r.status).toBe(200)
+    expect((await r.json()).message).toMatch(/effacé.*journal/)
+    expect(remisesAZero()).toHaveLength(1)
+    expect(await journalEffacement(communeA)).toBe(effacees)
+  })
+
   it('journal en panne : Umami n’est pas appelé, rien n’est effacé', async () => {
-    const r = await effacer(operateur, communeA, true)
+    const r = await effacer(operateur, communeA, 'toutes')
     expect(r.status).toBe(500)
     expect(remisesAZero()).toHaveLength(0)
   })
@@ -2327,7 +2368,16 @@ export const effacerHistoriqueMesure: Endpoint = {
       )
     }
 
-    await journaliser(MESSAGES_MESURE.effacee)
+    try {
+      await journaliser(MESSAGES_MESURE.effacee)
+    } catch (erreur) {
+      // L'effacement a eu lieu : le dire, même si le journal ne garde que la demande.
+      req.payload.logger.error({ err: erreur }, 'Effacement confirmé, journal final impossible')
+      return Response.json({
+        message:
+          'Historique effacé par le service de mesure ; la confirmation n’a pas pu être écrite au journal, qui garde la demande.',
+      })
+    }
     return Response.json({ message: 'Historique effacé.' })
   },
 }
@@ -2453,7 +2503,7 @@ Expected: une ligne d'import et une entrée de table pour `EffacerHistorique`.
 - [ ] **Step 7: Run tests to verify they pass**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/int/mesure-historique.int.spec.ts && npm run test:int && npm run typecheck`
-Expected: PASS (11 tests) ; suite complète et typecheck verts. Si `typecheck` refuse `user` dans `condition` (type `TypedUser` contre `UtilisateurAcces`), le convertir explicitement (`user as UtilisateurAcces`), sans changer la logique.
+Expected: PASS (13 tests) ; suite complète et typecheck verts. Si `typecheck` refuse `user` dans `condition` (type `TypedUser` contre `UtilisateurAcces`), le convertir explicitement (`user as UtilisateurAcces`), sans changer la logique.
 
 - [ ] **Step 8: Check the button by hand**
 
@@ -3634,6 +3684,37 @@ test.describe('Mesure d’audience', () => {
     await envoi
   })
 
+  test('un formulaire d’un autre site ne lève pas l’opposition (navigateur réel)', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await page.goto('/mesure-d-audience')
+    await page.getByRole('button', { name: 'Refuser la mesure' }).click()
+    await expect(page.getByRole('status')).toContainText('Vous vous êtes opposé')
+
+    // Page hostile servie par interception, hors de la CSP de pdlm (sinon
+    // `form-action 'self'` bloquerait l'envoi et le test passerait pour une
+    // mauvaise raison). Elle soumet d'elle-même le formulaire vers pdlm.
+    await page.route('http://hostile.test/', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: `<form method="post" action="${baseURL}/mesure/opposition">
+          <input name="choix" value="accepte"></form>
+          <script>document.forms[0].submit()</script>`,
+      }),
+    )
+    const reponse = page.waitForResponse((r) => r.url().endsWith('/mesure/opposition'))
+    await page.goto('http://hostile.test/')
+    expect((await reponse).status()).toBe(403)
+    const cookies = await context.cookies(baseURL)
+    expect(cookies.find((c) => c.name === 'pdlm_mesure')?.value).toBe('refus')
+
+    // Remise dans l'état initial pour les autres tests
+    await page.goto('/mesure-d-audience')
+    await page.getByRole('button', { name: 'Accepter la mesure' }).click()
+  })
+
   test.describe('sans JavaScript', () => {
     // L'opposition doit fonctionner sans JavaScript (spec, section 4).
     // `test.use` garde la baseURL de la configuration (un browser.newContext() nu la perdrait).
@@ -4448,12 +4529,19 @@ curl -s -o /dev/null -w '%{http_code}\n' --resolve "$HOST_A:80:127.0.0.1" "http:
   -d '{"type":"event","payload":{"url":"/preuve-proxy"}}'
 docker compose exec -T postgres psql -U postgres -d umami -tAc \
   "SELECT website_id FROM website_event WHERE url_path='/preuve-proxy'"
+# champs du hook forgés par PATCH REST (groupe partiel) → ignorés
+curl -s -X PATCH "http://localhost/api/communes/$A" -H "Authorization: JWT $JWT" \
+  -H 'Content-Type: application/json' -d '{"mesure":{"siteUmami":"FORGE","lienPartage":"FORGE"}}' \
+  | jq '.doc.mesure'
+# opposition légitime à travers Caddy : request.url porte bien l'hôte public (pas de 403 à tort)
+curl -s -o /dev/null -w '%{http_code}\n' -X POST --resolve "$HOST_A:80:127.0.0.1" "http://$HOST_A/mesure/opposition" \
+  -H "Origin: http://$HOST_A" -d 'choix=refus'
 # opposition envoyée depuis une autre origine → 403, cookie intact
 curl -s -o /dev/null -w '%{http_code}\n' -X POST --resolve "$HOST_A:80:127.0.0.1" "http://$HOST_A/mesure/opposition" \
   -H 'Origin: https://site-hostile.example' -d 'choix=accepte'
 ```
 
-Expected : `active` et `siteUmami` inchangés ; message « Le service de mesure d’audience ne répond pas ; la mesure reste coupée… » (statut 503) ; « Historique effacé. » puis, au journal, « … demandé » et « Historique de mesure effacé » ; la visite `/preuve-proxy` enregistrée sous le site de A uniquement ; 403. Dans l'admin, avec les trois profils (opérateur, admin de la commune, rédacteur) : le bouton « Supprimer l’historique » n'apparaît que pour les deux premiers, et le message d'erreur d'activation s'affiche en clair.
+Expected : `active` et `siteUmami` inchangés (deux fois : `null`, puis champs forgés) ; opposition légitime : 303 ; message « Le service de mesure d’audience ne répond pas ; la mesure reste coupée… » (statut 503) ; « Historique effacé. » puis, au journal, « … demandé » et « Historique de mesure effacé » ; la visite `/preuve-proxy` enregistrée sous le site de A uniquement ; 403. Dans l'admin, avec les trois profils (opérateur, admin de la commune, rédacteur) : le bouton « Supprimer l’historique » n'apparaît que pour les deux premiers, et le message d'erreur d'activation s'affiche en clair.
 
 - [ ] **Step 9: Commit the README results**
 
