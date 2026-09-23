@@ -4,7 +4,7 @@ import { communesAvecRole, isOperateur } from '../access/roles'
 import { idDe } from '../access/roles'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
 import { slugifier } from '../hooks/formatSlug'
-import { journaliserMesure, preparerMesure } from '../hooks/mesureAudience'
+import { ignorerMesureNulle, journaliserMesure, preparerMesure } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
 import { validerUrlEditoriale } from '../lib/url'
 
@@ -50,6 +50,7 @@ export const Communes: CollectionConfig = {
     delete: ({ req }) => isOperateur(req.user),
   },
   hooks: {
+    beforeOperation: [ignorerMesureNulle],
     beforeChange: [
       async ({ data, req, originalDoc }) => {
         // Slug toujours cohérent avec le nom (généré une fois, figé ensuite — I8)

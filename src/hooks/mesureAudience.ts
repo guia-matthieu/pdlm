@@ -2,6 +2,7 @@ import {
   APIError,
   type CollectionAfterChangeHook,
   type CollectionBeforeChangeHook,
+  type CollectionBeforeOperationHook,
   type PayloadRequest,
 } from 'payload'
 
@@ -41,6 +42,27 @@ async function domaineInformatif(
     req,
   })
   return res.docs[0]?.hostname ?? `${slug}.${process.env.PLATFORM_DOMAIN ?? 'localhost'}`
+}
+
+/**
+ * Payload 3.90.1 : le parcours `beforeValidate` d'un champ `group` teste
+ * `typeof siblingData[field.name] !== 'object'` pour décider de remplacer une
+ * valeur absente par `{}` — or `typeof null === 'object'`, donc ce garde-fou
+ * ne se déclenche pas pour `null`. Le parcours descend alors dans le groupe
+ * avec `siblingData: null` et plante (`Cannot read properties of null`) en
+ * tentant de lire ses champs enfants, avant même que `preparerMesure`
+ * (beforeChange, plus tard dans le pipeline) ne s'exécute. Comme `mesure:
+ * null` n'est de toute façon pas une demande de coupure dans notre modèle
+ * (cf. `preparerMesure`), le plus simple et le plus sûr est de le retirer ici
+ * — au tout début de l'opération, avant que Payload n'y touche — ce qui
+ * revient à « rien envoyé pour ce groupe ».
+ */
+export const ignorerMesureNulle: CollectionBeforeOperationHook = ({ args, operation }) => {
+  if (operation === 'create' || operation === 'update') {
+    const data = (args as { data?: Record<string, unknown> }).data
+    if (data && data.mesure === null) delete data.mesure
+  }
+  return args
 }
 
 /**
