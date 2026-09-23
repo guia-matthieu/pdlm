@@ -3,7 +3,9 @@
 #
 # ATTENTION : écrase la base et le bucket actuels. Procédure avec arrêt
 # applicatif (fenêtre de maintenance), migrations non appliquées par ce script
-# (la base restaurée contient déjà le schéma de la sauvegarde).
+# (la base restaurée contient déjà le schéma de la sauvegarde) — et, si la
+# sauvegarde contient umami.sql.gz, la base de mesure d'audience, purgée à
+# 25 mois avant remise en service.
 #
 # Usage : ./scripts/restore.sh <dossier-de-sauvegarde>
 
@@ -40,6 +42,21 @@ gunzip -t "$DOSSIER_ABS/postgres.sql.gz" 2>/dev/null || {
   exit 1
 }
 
+# Mesure d'audience : prérequis vérifiés avant la moindre écriture.
+if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
+  gunzip -t "$DOSSIER_ABS/umami.sql.gz" 2>/dev/null || {
+    echo "ÉCHEC : $DOSSIER/umami.sql.gz est illisible — restauration annulée." >&2
+    exit 1
+  }
+  docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -tAc \
+    "SELECT 1 FROM pg_roles WHERE rolname='umami'" | grep -q 1 || {
+    echo "ÉCHEC : rôle umami absent — restauration annulée. Lancer d'abord : docker compose --profile mesure up init-umami" >&2
+    exit 1
+  }
+  # Services de mesure qui tournent maintenant : ceux-là, et eux seuls, seront relancés.
+  MESURE_ACTIFS=$(docker compose --profile mesure ps --status running --services | grep -E '^(umami|purge-mesure)$' || true)
+fi
+
 redemarrer_app() {
   echo "Redémarrage de l'application…"
   docker compose start app >/dev/null 2>&1 || true
@@ -56,6 +73,25 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres \
   -c "CREATE DATABASE $POSTGRES_DB;"
 gunzip -c "$DOSSIER_ABS/postgres.sql.gz" \
   | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+
+if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
+  echo "2/5 — Restauration de la mesure d'audience (base umami)…"
+  # Umami et la purge tiennent des connexions : arrêtés le temps de la restauration.
+  if [ -n "$MESURE_ACTIFS" ]; then docker compose --profile mesure stop $MESURE_ACTIFS >/dev/null; fi
+  docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres \
+    -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='umami' AND pid <> pg_backend_pid();" \
+    -c "DROP DATABASE IF EXISTS umami;" \
+    -c "CREATE DATABASE umami OWNER umami;"
+  gunzip -c "$DOSSIER_ABS/umami.sql.gz" \
+    | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami
+  # I21 : une sauvegarde ancienne contient des visites devenues trop vieilles.
+  # Purge immédiate, avant toute remise en service ; un échec arrête le script.
+  echo "     purge des données de plus de 25 mois…"
+  docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami -f - \
+    <scripts/purge-mesure.sql >/dev/null
+  # --wait : attend la santé (Umami) ou le démarrage (purge) ; échoue sinon.
+  if [ -n "$MESURE_ACTIFS" ]; then docker compose --profile mesure up -d --wait $MESURE_ACTIFS; fi
+fi
 
 echo "3/5 — Restauration du bucket S3…"
 # `--remove` : sans lui, les fichiers ajoutés après la sauvegarde survivaient
