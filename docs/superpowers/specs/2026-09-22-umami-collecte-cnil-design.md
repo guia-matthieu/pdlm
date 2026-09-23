@@ -247,9 +247,10 @@ Constat supplémentaire : un champ `ip` dans le corps l'emporte bien sur l'en-t�
 
 - **Deux partages créés par deux activations simultanées.** Ils seraient tous deux limités à la vue d'ensemble, donc sans risque.
 - **`X-Forwarded-For` forgé en développement.** La troncature s'applique quand même, I18 tient, et le cas ne concerne que le développement.
-- *(Écarté en passe 1, retenu en passe 2)* Suppression d'une commune sans `UMAMI_URL` : **refusée**, sauf désinstallation déclarée (`UMAMI_DESINSTALLE=1`). Une variable perdue au redéploiement ne prouve pas que les données ont disparu.
+- _(Écarté en passe 1, retenu en passe 2)_ Suppression d'une commune sans `UMAMI_URL` : **refusée**, sauf désinstallation déclarée (`UMAMI_DESINSTALLE=1`). Une variable perdue au redéploiement ne prouve pas que les données ont disparu.
 
 **Relecture Astra, passe 2 (23/09)** : 3 constats résolus, 4 rejets acceptés (dont les deux vérifiés par exécution), 1 rejet contesté puis retenu (n° 10 ci-dessus), 5 défauts nouveaux :
+
 - purge en fin de mois : corrigée ;
 - trace de l'effacement : corrigée par l'entrée « demandé » durable ;
 - contexte Playwright sans `baseURL` : corrigé par `test.use` ;
@@ -261,12 +262,14 @@ Les vérifications par HTTP réel demandées (PATCH `mesure: null`, erreurs publ
 **Relecture Astra, passe 3 (23/09, courte, sur le diff)** : REFUSÉ. N1, N3, n° 1, 4, 10, 11, 13 et 15 sont résolus.
 
 Retenus :
+
 - le journal final en panne après un effacement confirmé renvoie 200 avec un message explicite ;
 - un test prouve que l'entrée « demandé » est déjà validée quand Umami reçoit la remise à zéro ;
 - un test en navigateur réel vérifie qu'une page d'un autre site ne lève pas l'opposition ;
 - la recette ajoute un PATCH REST aux champs forgés et une opposition légitime à travers Caddy.
 
 **Désaccords maintenus, avec leur raison :**
+
 - **Rollback réel après un DELETE externe** (n° 6). Il faudrait une panne entre le DELETE d'Umami et la validation Payload. Le seul point d'injection est l'échec de la validation elle-même, qu'on ne sait pas provoquer proprement. Le chemin de réparation est testé.
 - **Schéma de l'origine** (N5, n° 8). Forger `http://<commune>` suppose de servir du contenu sur le domaine de la commune en HTTP, que Caddy redirige vers HTTPS : c'est un attaquant déjà sur le réseau, hors du modèle de menace. `Sec-Fetch-Site` couvre en plus les navigateurs actuels.
 - **Reprise automatique des demandes d'effacement incertaines** (n° 5). L'agent relance ; un second effacement est sans effet.

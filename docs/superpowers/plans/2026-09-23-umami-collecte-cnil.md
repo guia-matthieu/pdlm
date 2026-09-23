@@ -546,7 +546,7 @@ describe('formulaire soumis depuis un autre site', () => {
   })
   it('accepté : même origine, ou en-têtes absents', () => {
     expect(soumissionIntersite(h({ origin: 'https://mairie.fr' }), 'mairie.fr')).toBe(false)
-    expect(soumissionIntersite(h({ origin: 'http://localhost:3000' }), 'localhost')).toBe(false)
+    expect(soumissionIntersite(h({ origin: 'http://localhost:3000' }), 'localhost:3000')).toBe(false)
     expect(soumissionIntersite(h({ 'sec-fetch-site': 'same-origin' }), 'mairie.fr')).toBe(false)
     expect(soumissionIntersite(h({}), 'mairie.fr')).toBe(false)
   })
@@ -1987,7 +1987,11 @@ let operateur: User
 type PanneJournal = 'aucune' | 'toutes' | 'apresDemande'
 
 /** Requête Payload complète, comme celle que reçoit le vrai point d'accès. */
-async function requete(user: User | null, id: number, panne: PanneJournal): Promise<PayloadRequest> {
+async function requete(
+  user: User | null,
+  id: number,
+  panne: PanneJournal,
+): Promise<PayloadRequest> {
   const req = await createLocalReq({ user: user ?? undefined }, payload)
   req.routeParams = { id: String(id) }
   if (!user) req.user = null
@@ -2419,7 +2423,9 @@ export function EffacerHistorique() {
       setEtape(reponse.ok ? 'fait' : 'erreur')
     } catch {
       // La demande a pu partir : ne jamais affirmer que rien n'a été effacé.
-      setMessage('Le serveur n’a pas répondu ; l’effacement a peut-être eu lieu. Consultez le journal ou réessayez.')
+      setMessage(
+        'Le serveur n’a pas répondu ; l’effacement a peut-être eu lieu. Consultez le journal ou réessayez.',
+      )
       setEtape('erreur')
     }
   }
@@ -4346,15 +4352,15 @@ Expected: `ghcr.io/umami-software/umami:3.4.0@sha256:85909afc…`
 
 Dans la table « Variables d'environnement », ajouter :
 
-| Variable            | Rôle                                                                                |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| `COMPOSE_PROFILES`  | `mesure` pour installer la mesure d'audience (Umami)                                |
-| `UMAMI_DB_PASSWORD` | mot de passe du rôle Postgres `umami` (`openssl rand -hex 32`)                      |
-| `UMAMI_APP_SECRET`  | secret d'Umami (`openssl rand -hex 32`)                                             |
-| `UMAMI_URL`         | adresse interne d'Umami (`http://umami:3000`) ; **vide = pas de mesure d'audience** |
-| `UMAMI_API_KEY`     | clé d'API du compte technique `pdlm`                                                |
-| `UMAMI_TEAM_ID`     | identifiant de l'équipe de l'EPCI dans Umami                                        |
-| `UMAMI_PUBLIC_URL`  | `https://stats.<plateforme>` (interface, liens de partage ; réservé, I6)            |
+| Variable            | Rôle                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `COMPOSE_PROFILES`  | `mesure` pour installer la mesure d'audience (Umami)                                                                                             |
+| `UMAMI_DB_PASSWORD` | mot de passe du rôle Postgres `umami` (`openssl rand -hex 32`)                                                                                   |
+| `UMAMI_APP_SECRET`  | secret d'Umami (`openssl rand -hex 32`)                                                                                                          |
+| `UMAMI_URL`         | adresse interne d'Umami (`http://umami:3000`) ; **vide = pas de mesure d'audience**                                                              |
+| `UMAMI_API_KEY`     | clé d'API du compte technique `pdlm`                                                                                                             |
+| `UMAMI_TEAM_ID`     | identifiant de l'équipe de l'EPCI dans Umami                                                                                                     |
+| `UMAMI_PUBLIC_URL`  | `https://stats.<plateforme>` (interface, liens de partage ; réservé, I6)                                                                         |
 | `UMAMI_DESINSTALLE` | `1` seulement après une désinstallation délibérée (base `umami` supprimée) : autorise la suppression d'une commune qui a un historique de mesure |
 
 Ajouter une section `## Mesure d'audience` après « Ajouter une commune » (et son entrée dans le Sommaire), avec :
