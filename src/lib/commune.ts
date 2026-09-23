@@ -74,12 +74,11 @@ export function candidatCommune(hostBrut: string): CandidatCommune | null {
 }
 
 /**
- * Résolution host → commune (D5). Mémoïsée par requête via React.cache.
- * Lit uniquement le header `x-commune-host` écrasé par le proxy (I7).
+ * Résolution host → commune (D5), sans mémoïsation : pour les route handlers
+ * qui lisent `x-commune-host` sur la requête. Le host doit venir de cet
+ * en-tête, écrasé par le proxy (I7) — jamais de `Host` directement.
  */
-export const resolveCommune = cache(async (): Promise<Commune | null> => {
-  const entetes = await headers()
-  const hostBrut = entetes.get('x-commune-host') ?? ''
+export async function communeDuHost(hostBrut: string): Promise<Commune | null> {
   const candidat = candidatCommune(hostBrut)
   if (!candidat) return null
 
@@ -126,4 +125,10 @@ export const resolveCommune = cache(async (): Promise<Commune | null> => {
   }
 
   return null
+}
+
+/** Résolution host → commune (D5). Mémoïsée par requête via React.cache. */
+export const resolveCommune = cache(async (): Promise<Commune | null> => {
+  const entetes = await headers()
+  return communeDuHost(entetes.get('x-commune-host') ?? '')
 })

@@ -40,3 +40,20 @@ describe('proxy — /admin sur un domaine communal (I7)', () => {
     expect(reponse.headers.get('x-middleware-next')).toBe('1')
   })
 })
+
+describe('I7 / I19 — chemins de la mesure d’audience', () => {
+  it.each(['/mesure/api/send', '/mesure/script.js', '/mesure/opposition'])(
+    '%s : un x-commune-host forgé par le client est écrasé par le host réel',
+    (chemin) => {
+      const reponse = proxy(
+        new NextRequest(`https://mairie-a.fr${chemin}`, {
+          method: 'POST',
+          headers: { host: 'mairie-a.fr', 'x-commune-host': 'mairie-b.fr' },
+        }),
+      )
+      // NextResponse.next({ request: { headers } }) transmet l'en-tête réécrit
+      // sous ce nom (next/dist/server/web/spec-extension/response.js).
+      expect(reponse.headers.get('x-middleware-request-x-commune-host')).toBe('mairie-a.fr')
+    },
+  )
+})
