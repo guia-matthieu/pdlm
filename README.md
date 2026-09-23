@@ -17,6 +17,7 @@ Construit avec [Payload 3](https://payloadcms.com/) sur [Next.js 16](https://nex
 - [Variables d'environnement](#variables-denvironnement)
 - [Rôles et permissions](#rôles-et-permissions)
 - [Ajouter une commune](#ajouter-une-commune)
+- [Mesure d'audience](#mesure-daudience)
 - [Politique de fichiers](#politique-de-fichiers)
 - [Accessibilité (RGAA)](#accessibilité-rgaa)
 - [Sauvegarde et restauration](#sauvegarde-et-restauration)
@@ -56,6 +57,13 @@ sous-domaine `*.localhost` (résolution loopback, aucune configuration DNS
 requise) : `http://saint-ex.localhost:3000`. L'admin reste sur le domaine nu
 (`http://localhost:3000/admin`).
 
+Pour activer la mesure d'audience en développement (voir
+[Mesure d'audience](#mesure-daudience)) :
+`docker compose -f docker-compose.dev.yml --profile mesure up -d`, puis dans
+`.env` : `UMAMI_URL=http://127.0.0.1:3002` et `UMAMI_API_KEY`,
+`UMAMI_TEAM_ID`, `UMAMI_PUBLIC_URL=http://127.0.0.1:3002` obtenus comme en
+production.
+
 ## Démarrage — production
 
 ```bash
@@ -82,19 +90,27 @@ healthcheck Docker de l'application).
 Voir `.env.example` pour le gabarit complet. Les valeurs par défaut ci-dessous
 ne s'appliquent qu'à la pile de développement.
 
-| Variable                                                      | Rôle                                                                                        | Obligatoire en prod      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------ |
-| `DATABASE_URI`                                                | Chaîne de connexion PostgreSQL                                                              | oui (généré par Compose) |
-| `PAYLOAD_SECRET`                                              | Secret de signature (sessions, jetons) — aléatoire, jamais réutilisé                        | **oui**                  |
-| `ADMIN_URL`                                                   | Origine de l'interface d'administration (CORS/CSRF)                                         | **oui**                  |
-| `PLATFORM_DOMAIN`                                             | Domaine racine de la plateforme (résolution des sous-domaines communaux)                    | **oui**                  |
-| `DEFAULT_COMMUNE_SLUG`                                        | Commune servie sur un host local nu — **développement uniquement**, ignoré en production    | non                      |
-| `S3_ENABLED`                                                  | Active le stockage S3/MinIO (sinon disque local)                                            | oui (`true`)             |
-| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`                       | Connexion au stockage objet                                                                 | oui                      |
-| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`                    | Identifiants S3 — en Compose, généré depuis `S3_APP_PASSWORD`                               | oui                      |
-| `NEXT_PUBLIC_S3_PUBLIC_URL`                                   | Hostname du stockage, réservé pour qu'aucune commune ne puisse le revendiquer comme domaine | oui                      |
-| `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `S3_APP_PASSWORD` | Secrets d'infrastructure (Compose)                                                          | **oui**                  |
-| `CADDY_FILE`                                                  | Fichier Caddy à charger (`Caddyfile.dev` par défaut, démo sans TLS)                         | oui (`./Caddyfile`)      |
+| Variable                                                      | Rôle                                                                                                                                             | Obligatoire en prod      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `DATABASE_URI`                                                | Chaîne de connexion PostgreSQL                                                                                                                   | oui (généré par Compose) |
+| `PAYLOAD_SECRET`                                              | Secret de signature (sessions, jetons) — aléatoire, jamais réutilisé                                                                             | **oui**                  |
+| `ADMIN_URL`                                                   | Origine de l'interface d'administration (CORS/CSRF)                                                                                              | **oui**                  |
+| `PLATFORM_DOMAIN`                                             | Domaine racine de la plateforme (résolution des sous-domaines communaux)                                                                         | **oui**                  |
+| `DEFAULT_COMMUNE_SLUG`                                        | Commune servie sur un host local nu — **développement uniquement**, ignoré en production                                                         | non                      |
+| `S3_ENABLED`                                                  | Active le stockage S3/MinIO (sinon disque local)                                                                                                 | oui (`true`)             |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`                       | Connexion au stockage objet                                                                                                                      | oui                      |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`                    | Identifiants S3 — en Compose, généré depuis `S3_APP_PASSWORD`                                                                                    | oui                      |
+| `NEXT_PUBLIC_S3_PUBLIC_URL`                                   | Hostname du stockage, réservé pour qu'aucune commune ne puisse le revendiquer comme domaine                                                      | oui                      |
+| `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `S3_APP_PASSWORD` | Secrets d'infrastructure (Compose)                                                                                                               | **oui**                  |
+| `CADDY_FILE`                                                  | Fichier Caddy à charger (`Caddyfile.dev` par défaut, démo sans TLS)                                                                              | oui (`./Caddyfile`)      |
+| `COMPOSE_PROFILES`                                            | `mesure` pour installer la mesure d'audience (Umami)                                                                                             | non                      |
+| `UMAMI_DB_PASSWORD`                                           | mot de passe du rôle Postgres `umami` (`openssl rand -hex 32`)                                                                                   | oui si `mesure`          |
+| `UMAMI_APP_SECRET`                                            | secret d'Umami (`openssl rand -hex 32`)                                                                                                          | oui si `mesure`          |
+| `UMAMI_URL`                                                   | adresse interne d'Umami (`http://umami:3000`) ; **vide = pas de mesure d'audience**                                                              | oui si `mesure`          |
+| `UMAMI_API_KEY`                                               | clé d'API du compte technique `pdlm`                                                                                                             | oui si `mesure`          |
+| `UMAMI_TEAM_ID`                                               | identifiant de l'équipe de l'EPCI dans Umami                                                                                                     | oui si `mesure`          |
+| `UMAMI_PUBLIC_URL`                                            | `https://stats.<plateforme>` (interface, liens de partage ; réservé, I6)                                                                         | oui si `mesure`          |
+| `UMAMI_DESINSTALLE`                                           | `1` seulement après une désinstallation délibérée (base `umami` supprimée) : autorise la suppression d'une commune qui a un historique de mesure | non                      |
 
 `.env` n'est jamais versionné (`.gitignore`, `.dockerignore`). En production,
 `PAYLOAD_SECRET`, `POSTGRES_PASSWORD`, `S3_APP_PASSWORD` et
@@ -141,6 +157,76 @@ l'utilisateur détient effectivement le rôle requis.
 5. Admin → _Communes_ → activer la commune (`actif`). Une commune inactive
    renvoie 404 sur son site public sans supprimer ses données.
 6. Créer les comptes `admin`/`redacteur` de la commune (Admin → _Utilisateurs_).
+
+## Mesure d'audience
+
+La mesure d'audience s'appuie sur [Umami](https://umami.is/), sans cookie ni
+bandeau de consentement : elle relève de l'exemption de la CNIL pour les
+outils de mesure d'audience strictement nécessaires au fonctionnement du
+site. La collecte passe par un relais de pdlm posé sur le domaine de chaque
+commune, jamais par un appel direct au serveur Umami depuis le navigateur.
+Elle est coupée par défaut pour chaque commune, activée au cas par cas depuis
+son admin. Voir la spec :
+[`docs/superpowers/specs/2026-09-22-umami-collecte-cnil-design.md`](docs/superpowers/specs/2026-09-22-umami-collecte-cnil-design.md).
+
+**Installation, une fois par plateforme :**
+
+1. Dans `.env` : `COMPOSE_PROFILES=mesure`, `UMAMI_DB_PASSWORD`,
+   `UMAMI_APP_SECRET`, `UMAMI_URL=http://umami:3000`, `UMAMI_PUBLIC_URL` ; puis
+   `docker compose up -d`.
+2. DNS `stats.<plateforme>` vers le serveur, et décommenter le bloc `stats.…`
+   du `Caddyfile`.
+3. Dans Umami (`https://stats.<plateforme>`) : se connecter en `admin` /
+   `umami` et **changer ce mot de passe** ; créer l'utilisateur `pdlm` (rôle
+   « utilisateur ») et, connecté en `pdlm`, sa clé d'API (_Paramètres → Clés
+   d'API_ ; la clé n'est montrée qu'une fois) → `UMAMI_API_KEY` ; en `admin`,
+   créer l'équipe au nom de l'EPCI et y ajouter `pdlm` avec le rôle **membre**
+   (le rôle « lecture seule » ne peut pas créer de site) → `UMAMI_TEAM_ID` ;
+   ajouter les agents de l'EPCI à l'équipe en **lecture seule**.
+4. `docker compose up -d app` pour que pdlm lise les variables.
+
+**Règles :**
+
+- ne jamais créer de tableau (« board ») réunissant plusieurs communes
+  (finalité propre à chaque éditeur, spec) ;
+- **ne jamais changer `UMAMI_TEAM_ID` ni retirer `pdlm` de l'équipe** une fois
+  une commune activée : pdlm prouve qu'un site est déjà supprimé par
+  « membre de l'équipe et site introuvable » ; un site resté dans une autre
+  équipe passerait pour supprimé ;
+- **désinstaller** : couper la mesure de toutes les communes, supprimer la
+  base `umami`, retirer `COMPOSE_PROFILES=mesure` et `UMAMI_URL`, puis poser
+  `UMAMI_DESINSTALLE=1`. Sans cette dernière variable, pdlm refuse de
+  supprimer une commune qui a un historique de mesure (une `UMAMI_URL`
+  perdue au redéploiement ne doit pas laisser de données orphelines).
+
+**Activer pour une commune :** admin de la commune, fiche commune →
+« Mesure d'audience » ; transmettre le « Lien de partage » au maire.
+
+**Couper, effacer :** couper n'efface rien (purge à 25 mois) ;
+« Supprimer l'historique » efface tout, définitivement.
+
+**Conservation :** purge quotidienne (service `purge-mesure`) ; tester avec
+`./scripts/tester-purge-mesure.sh` (pile de développement, profil `mesure`).
+Une sauvegarde de plus de 25 mois contient des données de mesure à
+supprimer.
+
+**Recette à faire au premier déploiement :**
+
+1. Une page vue arrive dans Umami avec pays et ville renseignés (IP publique
+   réelle).
+2. Caddy transmet, jusqu'au relais, une adresse `X-Forwarded-For` cohérente.
+3. Les chemins internes d'Umami (`/api/send`, `/api/batch`, `/api/record`,
+   `/script.js`, `/recorder.js`, `/p/*`, `/q/*`) répondent 404 sur
+   `stats.<plateforme>` ; l'interface (`/login`) reste accessible.
+4. La purge quotidienne (`purge-mesure`) tourne sans erreur dans la pile.
+5. Sauvegarde puis restauration sur une pile neuve : même nombre de visites
+   après restauration, Umami et la purge repartent sains.
+6. Effacement de l'historique depuis l'admin, cloisonnement entre communes et
+   opposition/CSRF vérifiés par des appels HTTP réels sur le serveur
+   construit (pas seulement via les fonctions).
+
+**Coût mémoire :** conteneur Umami mesuré en développement, au repos :
+146,9 Mio.
 
 ## Politique de fichiers
 
@@ -194,6 +280,9 @@ garantis cohérents l'un avec l'autre. `restore.sh` refuse de continuer si
 l'archive `postgres.sql.gz` est illisible, **avant** de toucher à la base
 existante.
 
+Si la mesure d'audience est installée, `umami.sql.gz` est sauvegardé et
+restauré avec la base ; une sauvegarde sans ce fichier se restaure toujours.
+
 ## Tests
 
 ```bash
@@ -207,6 +296,9 @@ npm run test          # unit + int + e2e
 
 La CI (`.github/workflows/ci.yml`) ajoute `npm audit --audit-level=high` et un
 scan Trivy des images déployées.
+
+Les tests E2E doivent tourner contre une base dédiée, ex. :
+`DATABASE_URI=postgres://postgres:postgres@127.0.0.1:5432/pdlm_e2e npm run seed && … npm run test:e2e`.
 
 ## Licence AGPL-3.0 — notice pour les opérateurs
 

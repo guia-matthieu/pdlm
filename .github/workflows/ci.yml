@@ -187,7 +187,7 @@ jobs:
             app/node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-x64/bin/esbuild
 
   trivy-images-tierces:
-    name: Trivy — images tierces (postgres, caddy, minio) — remontée seule
+    name: Trivy — images tierces (postgres, caddy, minio, umami) — remontée seule
     runs-on: ubuntu-latest
     # Non bloquant (I13) : ces images ne sont pas construites par ce dépôt —
     # aucun correctif possible ici, seulement un changement de version/digest
@@ -229,6 +229,21 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.minio.outputs.image }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Résoudre le digest umami épinglé
+        id: umami
+        run: |
+          DIGEST=$(grep -oP 'ghcr\.io/umami-software/umami:[^@\s]+@sha256:[a-f0-9]+' docker-compose.yml | head -1)
+          echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: umami (digest épinglé)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.umami.outputs.image }}
           scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: true
