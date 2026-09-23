@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 import 'dotenv/config'
 
+import { CLE_TEST, EQUIPE_TEST } from './tests/helpers/fauxUmami'
+
 /**
  * Port configurable : en local, 3000 est souvent déjà pris par un autre projet.
  * `reuseExistingServer` ne doit jamais être vrai en CI — sinon Playwright
@@ -47,6 +49,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], channel: 'chromium' },
     },
   ],
+  globalSetup: './tests/e2e/global-setup.ts',
   webServer: {
     // npm, comme le lockfile du dépôt : `pnpm` n'est pas installé ici.
     command: `npm run dev -- --port ${PORT}`,
@@ -63,5 +66,14 @@ export default defineConfig({
     timeout: 180_000,
     stdout: 'pipe',
     stderr: 'pipe',
+    // Mesure d'audience contre le faux Umami de global-setup.ts. Un serveur
+    // réutilisé (reuseExistingServer, en local) ne reçoit PAS ces variables :
+    // mesure.e2e.spec.ts se signale alors au lieu d'échouer sans explication.
+    env: {
+      UMAMI_URL: 'http://127.0.0.1:3998',
+      UMAMI_API_KEY: CLE_TEST,
+      UMAMI_TEAM_ID: EQUIPE_TEST,
+      UMAMI_PUBLIC_URL: 'http://stats.localhost',
+    },
   },
 })
