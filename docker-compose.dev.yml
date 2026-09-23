@@ -106,6 +106,10 @@ services:
       DISABLE_UPDATES: '1'
       CLIENT_IP_HEADER: x-pdlm-ip
       SKIP_LOCATION_HEADERS: '1'
+    # Interface en français par défaut (voir scripts/umami-demarrer.sh).
+    volumes:
+      - ./scripts/umami-demarrer.sh:/pdlm/umami-demarrer.sh:ro
+    command: ['sh', '/pdlm/umami-demarrer.sh']
     ports:
       - '127.0.0.1:3002:3000'
     healthcheck:

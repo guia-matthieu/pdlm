@@ -186,10 +186,10 @@ services:
       # en-têtes du client ignorée.
       CLIENT_IP_HEADER: x-pdlm-ip
       SKIP_LOCATION_HEADERS: '1'
-    command:
-      - sh
-      - -c
-      - '[ -n "$$APP_SECRET" ] || { echo "UMAMI_APP_SECRET requis dans .env" >&2; exit 1; }; exec sh scripts/start-docker.sh'
+    # Contrôle du secret, interface en français, puis commande d'origine de l'image.
+    volumes:
+      - ./scripts/umami-demarrer.sh:/pdlm/umami-demarrer.sh:ro
+    command: ['sh', '/pdlm/umami-demarrer.sh']
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/heartbeat']
       interval: 10s

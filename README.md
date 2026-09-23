@@ -233,6 +233,8 @@ supprimer.
 **Coût mémoire :** conteneur Umami mesuré en développement, au repos :
 146,9 Mio.
 
+**Langue** : l'interface d'Umami et les liens de partage s'ouvrent en français. L'image officielle fige l'anglais à la construction ; `scripts/umami-demarrer.sh` remplace la langue par défaut au démarrage du conteneur (chacun peut en changer dans son profil). Après une montée de version d'Umami, si le conteneur refuse de démarrer avec « Langue par défaut d'Umami introuvable », mettre ce script à jour.
+
 ## Politique de fichiers
 
 - **Médias** (`media`) : images uniquement — `jpeg`, `png`, `webp`, `avif`
