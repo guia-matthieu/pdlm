@@ -35,6 +35,8 @@ export interface FauxUmami {
     panne: boolean
     delaiEnvoiMs: number
     horsEquipe: boolean
+    /** Si défini, /api/send répond ce statut avec un corps vide (panne simulée côté Umami). */
+    statutEnvoi?: number
     /** Appelé à réception d'une remise à zéro, avant de répondre. */
     surReset?: () => Promise<void>
   }
@@ -105,7 +107,13 @@ export async function demarrerFauxUmami(port = 0): Promise<FauxUmami> {
     }
     if (methode === 'POST' && chemin === '/api/send') {
       await new Promise((r) => setTimeout(r, reglages.delaiEnvoiMs))
-      if (!res.destroyed) json(res, 200, { cache: 'jeton-faux', sessionId: 's', visitId: 'v' })
+      if (res.destroyed) return
+      if (reglages.statutEnvoi !== undefined) {
+        res.writeHead(reglages.statutEnvoi)
+        res.end()
+        return
+      }
+      json(res, 200, { cache: 'jeton-faux', sessionId: 's', visitId: 'v' })
       return
     }
     if (req.headers.authorization !== `Bearer ${CLE_TEST}`) return json(res, 401, NON_AUTORISE)

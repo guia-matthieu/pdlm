@@ -67,6 +67,15 @@ describe('candidatCommune', () => {
     expect(candidatCommune('valvert.localhost:3000')).toBeNull()
     Object.assign(process.env, { NODE_ENV: precedent })
   })
+
+  it('stats.<plateforme> (interface Umami) → null, jamais une commune de slug « stats »', () => {
+    expect(candidatCommune('stats.plateforme.test')).toBeNull()
+
+    const precedent = process.env.NODE_ENV
+    Object.assign(process.env, { NODE_ENV: 'development' })
+    expect(candidatCommune('stats.localhost:3000')).toBeNull()
+    Object.assign(process.env, { NODE_ENV: precedent })
+  })
 })
 
 describe('estDomainePlateforme (I7)', () => {

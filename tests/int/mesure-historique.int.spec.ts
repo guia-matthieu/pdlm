@@ -182,6 +182,13 @@ describe('« Supprimer l’historique »', () => {
     expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementRefuse)).toBe(1)
   })
 
+  it('Umami refuse ET l’écriture « refusé » échoue : 503 quand même (pas d’exception non rattrapée)', async () => {
+    umami.reglages.horsEquipe = true
+    const r = await effacer(operateur, communeA, 'apresDemande')
+    expect(r.status).toBe(503)
+    expect((await r.json()).message).toMatch(/rien n’a été effacé/)
+  })
+
   it('Umami ne répond pas : 504, état incertain annoncé ; la demande reste au journal', async () => {
     const effacees = await journalEffacement(communeA)
     const demandes = await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)

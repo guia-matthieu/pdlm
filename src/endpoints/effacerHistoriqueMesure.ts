@@ -63,7 +63,9 @@ export const effacerHistoriqueMesure: Endpoint = {
           { status: 504 },
         )
       }
-      await journaliser(MESSAGES_MESURE.effacementRefuse)
+      await journaliser(MESSAGES_MESURE.effacementRefuse).catch((e) =>
+        req.payload.logger.error({ err: e }, 'Journal « refusé » impossible'),
+      )
       return Response.json(
         {
           message:

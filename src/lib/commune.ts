@@ -56,7 +56,14 @@ export function candidatCommune(hostBrut: string): CandidatCommune | null {
     }
     if (host.endsWith(`.${plateforme}`)) {
       const slug = host.slice(0, -1 * (plateforme.length + 1))
-      if (slug !== '' && slug !== 'admin' && slug !== 'www' && !slug.includes('.')) {
+      // `stats.<plateforme>` : interface Umami (README, Mesure d'audience) — jamais une commune.
+      if (
+        slug !== '' &&
+        slug !== 'admin' &&
+        slug !== 'www' &&
+        slug !== 'stats' &&
+        !slug.includes('.')
+      ) {
         return { slugPlateforme: slug }
       }
       return null
@@ -67,7 +74,7 @@ export function candidatCommune(hostBrut: string): CandidatCommune | null {
     // *.localhost résout en loopback : traité comme sous-domaine de plateforme
     if (process.env.NODE_ENV === 'production') return null
     const slug = host.slice(0, -'.localhost'.length)
-    return slug && slug !== 'www' ? { slugPlateforme: slug } : null
+    return slug && slug !== 'www' && slug !== 'stats' ? { slugPlateforme: slug } : null
   }
 
   return { domaine: sansWww(host) }

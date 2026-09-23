@@ -66,6 +66,7 @@ beforeEach(() => {
   configurerUmami(umami.url)
   umami.reglages.panne = false
   umami.reglages.delaiEnvoiMs = 0
+  umami.reglages.statutEnvoi = undefined
   umami.vider()
 })
 
@@ -114,6 +115,33 @@ describe('I18 — ce qui sort vers Umami', () => {
     expect(recu.entetes['x-pdlm-ip']).toBe('90.84.235.0')
     expect(recu.entetes['user-agent']).toBe('Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0')
     expect(recu.entetes['x-umami-cache']).toBe('jeton-precedent')
+
+    // I18, contrôle positif : chaque en-tête reçu par Umami appartient soit à
+    // la liste blanche transmise par le relais (src/lib/mesure/relais.ts),
+    // soit aux en-têtes fixes posés par undici (fetch de Node) lui-même —
+    // relevés par exécution directe contre un serveur local (aucun ne vient
+    // du visiteur). Une simple liste d'interdits (ci-dessous, gardée en
+    // complément) laisserait passer un en-tête du visiteur non prévu qu'on
+    // aurait simplement oublié d'y ajouter.
+    const AUTORISES = new Set([
+      'content-type',
+      'user-agent',
+      'x-pdlm-ip',
+      'x-umami-cache',
+      'host',
+      'connection',
+      'content-length',
+      'accept',
+      'accept-language',
+      'accept-encoding',
+      'sec-fetch-mode',
+    ])
+    for (const cle of Object.keys(recu.entetes)) {
+      expect(AUTORISES.has(cle), cle).toBe(true)
+    }
+
+    // Contrôle complémentaire (ancienne liste d'interdits) : en-têtes du
+    // visiteur qui ne doivent jamais sortir tels quels vers Umami.
     for (const interdit of [
       'x-forwarded-for',
       'cf-ipcity',
@@ -211,5 +239,10 @@ describe('Umami lent ou arrêté', () => {
     const r = await envoyer(a.host, PAGE_VUE)
     expect(r.status).toBe(204)
     expect(Date.now() - debut).toBeLessThan(4000)
+  })
+
+  it('Umami répond 5xx : 204 au visiteur (jamais son 500 tel quel)', async () => {
+    umami.reglages.statutEnvoi = 500
+    expect((await envoyer(a.host, PAGE_VUE)).status).toBe(204)
   })
 })

@@ -96,6 +96,12 @@ export async function relayer(
       body: JSON.stringify(visite),
       signal: AbortSignal.timeout(DELAI_UMAMI_MS),
     })
+    // Un 5xx d'Umami n'est jamais renvoyé tel quel au visiteur (jamais de 500) :
+    // même traitement qu'une panne franche.
+    if (reponse.status >= 500) {
+      avertir(`Umami a répondu ${reponse.status} : visites non comptées`)
+      return rienTransmis()
+    }
     return new Response(await reponse.text(), {
       status: reponse.status,
       headers: { 'content-type': reponse.headers.get('content-type') ?? 'application/json' },
