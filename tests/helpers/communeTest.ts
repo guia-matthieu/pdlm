@@ -24,12 +24,31 @@ export async function creerCommuneActive(
   return { id, host }
 }
 
-/** Domaines d'abord : une commune encore rattachée ne se supprime pas (décision f). */
+/**
+ * Commune désactivée d'abord : I6 interdit de retirer le dernier domaine
+ * canonique d'une commune active (`Domaines.ts`, `beforeDelete`). Domaines
+ * ensuite, commune enfin — une commune encore rattachée ne se supprime pas
+ * (décision f). La suppression en masse (`where`) avale les erreurs par
+ * document au lieu de les relancer (`deleteOperation`, contrairement à
+ * `deleteByIDOperation`) : on vérifie donc explicitement qu'il ne reste
+ * aucun domaine avant de supprimer la commune elle-même.
+ */
 export async function supprimerCommuneTest(payload: Payload, id: number): Promise<void> {
+  await payload.update({ collection: 'communes', id, data: { actif: false }, overrideAccess: true })
   await payload.delete({
     collection: 'domaines',
     where: { commune: { equals: id } },
     overrideAccess: true,
   })
+  const restants = await payload.count({
+    collection: 'domaines',
+    where: { commune: { equals: id } },
+    overrideAccess: true,
+  })
+  if (restants.totalDocs > 0) {
+    throw new Error(
+      `supprimerCommuneTest : ${restants.totalDocs} domaine(s) encore rattaché(s) à la commune ${id} (suppression en masse silencieusement refusée).`,
+    )
+  }
   await payload.delete({ collection: 'communes', id, overrideAccess: true })
 }
