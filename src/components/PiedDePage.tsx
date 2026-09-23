@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import type { Commune } from '@/payload-types'
+import { siteMesure } from '@/lib/mesure/etat'
 
 /** Pied de page : coordonnées de la commune + liens légaux obligatoires. */
 export function PiedDePage({ commune }: { commune: Commune }) {
@@ -72,6 +73,11 @@ export function PiedDePage({ commune }: { commune: Commune }) {
             <li>
               <Link href="/accessibilite">Accessibilité</Link>
             </li>
+            {siteMesure(commune) && (
+              <li>
+                <Link href="/mesure-d-audience">Mesure d’audience</Link>
+              </li>
+            )}
           </ul>
         </div>
       </div>

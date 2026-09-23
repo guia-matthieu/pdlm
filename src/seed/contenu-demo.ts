@@ -139,7 +139,7 @@ export async function seedContenuDemo(
       {
         blockType: 'texteRiche',
         contenu: texteRich(
-          'Le site ne dépose aucun traceur (cookie) et n’utilise aucun outil de mesure d’audience.',
+          'Le site ne dépose aucun cookie de mesure d’audience. Si la commune mesure la fréquentation de ses pages, elle le fait sans cookie et de façon anonyme : la page « Mesure d’audience » (/mesure-d-audience) détaille ce qui est collecté et permet de s’y opposer.',
           'Données personnelles : seules les données strictement nécessaires au fonctionnement du site sont traitées (comptes des agents municipaux, contenus publiés). Durées de conservation : les documents publiés précisent leur durée de conservation ; les comptes sont conservés pendant la durée des fonctions ; les sauvegardes sont conservées [durée à compléter].',
           'Vous disposez d’un droit d’accès, de rectification et d’effacement en écrivant à la mairie : [courriel à compléter]. En cas de désaccord, vous pouvez saisir la CNIL (cnil.fr).',
         ),
