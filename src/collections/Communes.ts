@@ -4,6 +4,7 @@ import { communesAvecRole, isOperateur } from '../access/roles'
 import { idDe } from '../access/roles'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
 import { slugifier } from '../hooks/formatSlug'
+import { journaliserMesure, preparerMesure } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
 import { validerUrlEditoriale } from '../lib/url'
 
@@ -20,6 +21,8 @@ export function hostnamesReserves(): string[] {
   }
   liste.add(stockage.hostname)
   if (admin) liste.add(admin.hostname)
+  // I6 élargi : l'interface Umami (stats.<plateforme>) n'est pas un domaine communal.
+  if (process.env.UMAMI_PUBLIC_URL) liste.add(new URL(process.env.UMAMI_PUBLIC_URL).hostname)
   return [...liste]
 }
 
@@ -88,6 +91,7 @@ export const Communes: CollectionConfig = {
         }),
         ({ originalDoc }) => idDe(originalDoc) ?? null,
       ),
+      preparerMesure,
     ],
     // Décision (f) : domaines.commune_id et users_tenants.tenant_id sont
     // NOT NULL avec une FK ON DELETE set null — supprimer une commune encore
@@ -117,7 +121,7 @@ export const Communes: CollectionConfig = {
         }
       },
     ],
-    afterChange: [journaliser('commune')],
+    afterChange: [journaliser('commune'), journaliserMesure],
     afterDelete: [journaliserSuppression('commune')],
   },
   fields: [
@@ -224,6 +228,45 @@ export const Communes: CollectionConfig = {
           label: 'Couleur d’accent (hex)',
           validate: (v: string | null | undefined) =>
             !v || /^#[0-9a-fA-F]{6}$/.test(v) || 'Format attendu : #RRGGBB',
+        },
+      ],
+    },
+    {
+      name: 'mesure',
+      type: 'group',
+      label: 'Mesure d’audience',
+      admin: {
+        description:
+          'Sans cookie ni bandeau, dans l’exemption de la CNIL. Page d’information publique : /mesure-d-audience.',
+      },
+      fields: [
+        {
+          name: 'active',
+          type: 'checkbox',
+          defaultValue: false,
+          label: 'Mesurer l’audience du site public',
+          admin: {
+            // Lu au démarrage du serveur : sans UMAMI_URL, la fonction n'existe pas.
+            readOnly: !process.env.UMAMI_URL,
+            description: process.env.UMAMI_URL
+              ? 'Couper n’efface rien : l’historique reste jusqu’à sa purge à 25 mois.'
+              : 'Mesure d’audience non installée sur cette plateforme',
+          },
+        },
+        {
+          name: 'siteUmami',
+          type: 'text',
+          label: 'Identifiant du site de mesure',
+          admin: { readOnly: true },
+        },
+        {
+          name: 'lienPartage',
+          type: 'text',
+          label: 'Lien de partage',
+          admin: {
+            readOnly: true,
+            description: 'À transmettre au maire : vue d’ensemble, sans le détail des visites',
+          },
         },
       ],
     },

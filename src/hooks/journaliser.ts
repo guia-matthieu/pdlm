@@ -17,7 +17,8 @@ import { idDe } from '../access/roles'
  */
 export type TypeJournal = 'commune' | 'utilisateur' | 'domaine'
 
-async function ecrire(
+/** Écrit une entrée de journal dans la transaction de `req` (I12). Exportée pour les messages propres à la mesure d'audience. */
+export async function ecrire(
   req: Parameters<CollectionAfterChangeHook>[0]['req'],
   type: TypeJournal,
   message: string,

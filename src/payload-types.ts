@@ -59,195 +59,208 @@ export type SupportedTimezones =
   | 'Pacific/Guam'
   | 'Pacific/Noumea'
   | 'Pacific/Auckland'
-  | 'Pacific/Fiji';
+  | 'Pacific/Fiji'
 
 export interface Config {
   auth: {
-    users: UserAuthOperations;
-  };
-  blocks: {};
+    users: UserAuthOperations
+  }
+  blocks: {}
   collections: {
-    communes: Commune;
-    domaines: Domaine;
-    journal: Journal;
-    users: User;
-    media: Media;
-    pages: Page;
-    actualites: Actualite;
-    evenements: Evenement;
-    documents: Document;
-    alertes: Alerte;
-    menus: Menu;
-    'payload-kv': PayloadKv;
-    'payload-locked-documents': PayloadLockedDocument;
-    'payload-preferences': PayloadPreference;
-    'payload-migrations': PayloadMigration;
-  };
-  collectionsJoins: {};
+    communes: Commune
+    domaines: Domaine
+    journal: Journal
+    users: User
+    media: Media
+    pages: Page
+    actualites: Actualite
+    evenements: Evenement
+    documents: Document
+    alertes: Alerte
+    menus: Menu
+    'payload-kv': PayloadKv
+    'payload-locked-documents': PayloadLockedDocument
+    'payload-preferences': PayloadPreference
+    'payload-migrations': PayloadMigration
+  }
+  collectionsJoins: {}
   collectionsSelect: {
-    communes: CommunesSelect<false> | CommunesSelect<true>;
-    domaines: DomainesSelect<false> | DomainesSelect<true>;
-    journal: JournalSelect<false> | JournalSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
-    pages: PagesSelect<false> | PagesSelect<true>;
-    actualites: ActualitesSelect<false> | ActualitesSelect<true>;
-    evenements: EvenementsSelect<false> | EvenementsSelect<true>;
-    documents: DocumentsSelect<false> | DocumentsSelect<true>;
-    alertes: AlertesSelect<false> | AlertesSelect<true>;
-    menus: MenusSelect<false> | MenusSelect<true>;
-    'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
-    'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
-    'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
-    'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
-  };
+    communes: CommunesSelect<false> | CommunesSelect<true>
+    domaines: DomainesSelect<false> | DomainesSelect<true>
+    journal: JournalSelect<false> | JournalSelect<true>
+    users: UsersSelect<false> | UsersSelect<true>
+    media: MediaSelect<false> | MediaSelect<true>
+    pages: PagesSelect<false> | PagesSelect<true>
+    actualites: ActualitesSelect<false> | ActualitesSelect<true>
+    evenements: EvenementsSelect<false> | EvenementsSelect<true>
+    documents: DocumentsSelect<false> | DocumentsSelect<true>
+    alertes: AlertesSelect<false> | AlertesSelect<true>
+    menus: MenusSelect<false> | MenusSelect<true>
+    'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>
+    'payload-locked-documents':
+      PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>
+    'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>
+    'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>
+  }
   db: {
-    defaultIDType: number;
-  };
-  fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
-  locale: null;
+    defaultIDType: number
+  }
+  fallbackLocale: null
+  globals: {}
+  globalsSelect: {}
+  locale: null
   widgets: {
-    collections: CollectionsWidget;
-  };
-  user: User;
+    collections: CollectionsWidget
+  }
+  user: User
   jobs: {
-    tasks: unknown;
-    workflows: unknown;
-  };
+    tasks: unknown
+    workflows: unknown
+  }
 }
 export interface UserAuthOperations {
   forgotPassword: {
-    email: string;
-    password: string;
-  };
+    email: string
+    password: string
+  }
   login: {
-    email: string;
-    password: string;
-  };
+    email: string
+    password: string
+  }
   registerFirstUser: {
-    email: string;
-    password: string;
-  };
+    email: string
+    password: string
+  }
   unlock: {
-    email: string;
-    password: string;
-  };
+    email: string
+    password: string
+  }
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "communes".
  */
 export interface Commune {
-  id: number;
+  id: number
   /**
    * Ex. : Saint-Exupéry-les-Bains
    */
-  nom: string;
+  nom: string
   /**
    * Identifiant URL (sous-domaine de la plateforme = slug exact — choisir un slug court). Modifiable par l’opérateur uniquement.
    */
-  slug: string;
+  slug: string
   /**
    * Désactiver met le site public en 404 sans supprimer les données (préféré à la suppression).
    */
-  actif?: boolean | null;
-  logo?: (number | null) | Media;
+  actif?: boolean | null
+  logo?: (number | null) | Media
   coordonnees?: {
-    adresse?: string | null;
-    codePostal?: string | null;
-    ville?: string | null;
-    telephone?: string | null;
-    email?: string | null;
-  };
+    adresse?: string | null
+    codePostal?: string | null
+    ville?: string | null
+    telephone?: string | null
+    email?: string | null
+  }
   /**
    * Horaires de la mairie (texte libre en v0.1).
    */
-  horaires?: string | null;
+  horaires?: string | null
   reseaux?: {
-    facebook?: string | null;
-    instagram?: string | null;
-    youtube?: string | null;
-  };
+    facebook?: string | null
+    instagram?: string | null
+    youtube?: string | null
+  }
   apparence?: {
     /**
      * Contraste RGAA : vérifier un rapport suffisant avec le texte blanc (voir README).
      */
-    couleurPrincipale?: string | null;
-    couleurAccent?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
+    couleurPrincipale?: string | null
+    couleurAccent?: string | null
+  }
+  /**
+   * Sans cookie ni bandeau, dans l’exemption de la CNIL. Page d’information publique : /mesure-d-audience.
+   */
+  mesure?: {
+    /**
+     * Mesure d’audience non installée sur cette plateforme
+     */
+    active?: boolean | null
+    siteUmami?: string | null
+    /**
+     * À transmettre au maire : vue d’ensemble, sans le détail des visites
+     */
+    lienPartage?: string | null
+  }
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
 export interface Media {
-  id: number;
-  tenant?: (number | null) | Commune;
+  id: number
+  tenant?: (number | null) | Commune
   /**
    * Obligatoire pour l’accessibilité (RGAA).
    */
-  alt: string;
-  prefix?: string | null;
-  _objectKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
+  alt: string
+  updatedAt: string
+  createdAt: string
+  url?: string | null
+  thumbnailURL?: string | null
+  filename?: string | null
+  mimeType?: string | null
+  filesize?: number | null
+  width?: number | null
+  height?: number | null
+  focalX?: number | null
+  focalY?: number | null
   sizes?: {
     thumbnail?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
+      url?: string | null
+      width?: number | null
+      height?: number | null
+      mimeType?: string | null
+      filesize?: number | null
+      filename?: string | null
+    }
     card?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
+      url?: string | null
+      width?: number | null
+      height?: number | null
+      mimeType?: string | null
+      filesize?: number | null
+      filename?: string | null
+    }
     hero?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-  };
+      url?: string | null
+      width?: number | null
+      height?: number | null
+      mimeType?: string | null
+      filesize?: number | null
+      filename?: string | null
+    }
+  }
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "domaines".
  */
 export interface Domaine {
-  id: number;
+  id: number
   /**
    * Domaine exact, sans https:// ni www (le www est un alias explicite à ajouter séparément). Ex. : mairie-saintx.fr
    */
-  hostname: string;
-  commune: number | Commune;
+  hostname: string
+  commune: number | Commune
   /**
    * Un seul par commune — utilisé pour les URLs canoniques et le sitemap. Requis pour activer une commune.
    */
-  canonique?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
+  canonique?: boolean | null
+  updatedAt: string
+  createdAt: string
 }
 /**
  * Journal d’audit des changements de rôles, d’affectations et de domaines. Lecture seule.
@@ -256,803 +269,804 @@ export interface Domaine {
  * via the `definition` "journal".
  */
 export interface Journal {
-  id: number;
-  type: 'commune' | 'utilisateur' | 'domaine';
-  message: string;
-  commune?: (number | null) | Commune;
-  utilisateur?: (number | null) | User;
+  id: number
+  type: 'commune' | 'utilisateur' | 'domaine'
+  message: string
+  commune?: (number | null) | Commune
+  utilisateur?: (number | null) | User
   /**
    * Email de l’auteur au moment de l’action — figé ici pour survivre à la suppression du compte (FK `utilisateur` en SET NULL).
    */
-  auteurEmail?: string | null;
+  auteurEmail?: string | null
   /**
    * Nom de la commune au moment de l’action — figé ici pour survivre à la suppression de la commune (FK `commune` en SET NULL).
    */
-  communeNom?: string | null;
-  updatedAt: string;
-  createdAt: string;
+  communeNom?: string | null
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
-  id: number;
-  name?: string | null;
+  id: number
+  name?: string | null
   /**
    * « Opérateur » : staff de l’organisation hébergeuse (accès à toutes les communes). Les rôles par commune se règlent dans le tableau « Communes » ci-dessous.
    */
-  role?: 'operateur' | null;
+  role?: 'operateur' | null
   tenants?:
     | {
-        tenant: number | Commune;
-        roles?: ('admin' | 'redacteur')[] | null;
-        id?: string | null;
+        tenant: number | Commune
+        roles?: ('admin' | 'redacteur')[] | null
+        id?: string | null
       }[]
-    | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  resetPasswordRequestedAt?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
+    | null
+  updatedAt: string
+  createdAt: string
+  email: string
+  resetPasswordToken?: string | null
+  resetPasswordExpiration?: string | null
+  salt?: string | null
+  hash?: string | null
+  resetPasswordRequestedAt?: string | null
+  loginAttempts?: number | null
+  lockUntil?: string | null
   sessions?:
     | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
+        id: string
+        createdAt?: string | null
+        expiresAt: string
       }[]
-    | null;
-  password?: string | null;
-  collection: 'users';
+    | null
+  password?: string | null
+  collection: 'users'
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
  */
 export interface Page {
-  id: number;
-  tenant?: (number | null) | Commune;
-  titre: string;
+  id: number
+  tenant?: (number | null) | Commune
+  titre: string
   /**
    * Généré depuis le titre. Unicité garantie dans la commune.
    */
-  slug: string;
+  slug: string
   blocs: (
     | {
-        titre: string;
-        sousTitre?: string | null;
-        image?: (number | null) | Media;
+        titre: string
+        sousTitre?: string | null
+        image?: (number | null) | Media
         cta?: {
-          label?: string | null;
-          url?: string | null;
-        };
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'hero';
+          label?: string | null
+          url?: string | null
+        }
+        id?: string | null
+        blockName?: string | null
+        blockType: 'hero'
       }
     | {
         contenu: {
           root: {
-            type: string;
+            type: string
             children: {
-              type: any;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        };
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'texteRiche';
+              type: any
+              version: number
+              [k: string]: unknown
+            }[]
+            direction: ('ltr' | 'rtl') | null
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | ''
+            indent: number
+            version: number
+          }
+          [k: string]: unknown
+        }
+        id?: string | null
+        blockName?: string | null
+        blockType: 'texteRiche'
       }
     | {
-        media: number | Media;
-        legende?: string | null;
-        largeur?: ('pleine' | 'large') | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'image';
+        media: number | Media
+        legende?: string | null
+        largeur?: ('pleine' | 'large') | null
+        id?: string | null
+        blockName?: string | null
+        blockType: 'image'
       }
     | {
         images: {
-          media: number | Media;
-          legende?: string | null;
-          id?: string | null;
-        }[];
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'galerie';
+          media: number | Media
+          legende?: string | null
+          id?: string | null
+        }[]
+        id?: string | null
+        blockName?: string | null
+        blockType: 'galerie'
       }
     | {
         elements: {
-          titre: string;
+          titre: string
           contenu: {
             root: {
-              type: string;
+              type: string
               children: {
-                type: any;
-                version: number;
-                [k: string]: unknown;
-              }[];
-              direction: ('ltr' | 'rtl') | null;
-              format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-              indent: number;
-              version: number;
-            };
-            [k: string]: unknown;
-          };
-          id?: string | null;
-        }[];
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'accordeon';
+                type: any
+                version: number
+                [k: string]: unknown
+              }[]
+              direction: ('ltr' | 'rtl') | null
+              format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | ''
+              indent: number
+              version: number
+            }
+            [k: string]: unknown
+          }
+          id?: string | null
+        }[]
+        id?: string | null
+        blockName?: string | null
+        blockType: 'accordeon'
       }
     | {
         boutons: {
-          label: string;
-          url: string;
-          variante?: ('primaire' | 'secondaire') | null;
-          id?: string | null;
-        }[];
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'boutons';
+          label: string
+          url: string
+          variante?: ('primaire' | 'secondaire') | null
+          id?: string | null
+        }[]
+        id?: string | null
+        blockName?: string | null
+        blockType: 'boutons'
       }
     | {
-        titre?: string | null;
-        texte?: string | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'contact';
+        titre?: string | null
+        texte?: string | null
+        id?: string | null
+        blockName?: string | null
+        blockType: 'contact'
       }
-  )[];
+  )[]
   /**
    * Facultatif — titre de la page dans les moteurs de recherche.
    */
-  metaTitle?: string | null;
-  metaDescription?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
+  metaTitle?: string | null
+  metaDescription?: string | null
+  updatedAt: string
+  createdAt: string
+  _status?: ('draft' | 'published') | null
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "actualites".
  */
 export interface Actualite {
-  id: number;
-  tenant?: (number | null) | Commune;
-  titre: string;
-  slug: string;
-  resume: string;
-  image?: (number | null) | Media;
+  id: number
+  tenant?: (number | null) | Commune
+  titre: string
+  slug: string
+  resume: string
+  image?: (number | null) | Media
   contenu: {
     root: {
-      type: string;
+      type: string
       children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  };
-  datePublication?: string | null;
-  auteur?: (number | null) | User;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
+        type: any
+        version: number
+        [k: string]: unknown
+      }[]
+      direction: ('ltr' | 'rtl') | null
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | ''
+      indent: number
+      version: number
+    }
+    [k: string]: unknown
+  }
+  datePublication?: string | null
+  auteur?: (number | null) | User
+  updatedAt: string
+  createdAt: string
+  _status?: ('draft' | 'published') | null
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "evenements".
  */
 export interface Evenement {
-  id: number;
-  tenant?: (number | null) | Commune;
-  titre: string;
-  dateDebut: string;
-  dateFin: string;
-  lieu?: string | null;
+  id: number
+  tenant?: (number | null) | Commune
+  titre: string
+  dateDebut: string
+  dateFin: string
+  lieu?: string | null
   description?: {
     root: {
-      type: string;
+      type: string
       children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
+        type: any
+        version: number
+        [k: string]: unknown
+      }[]
+      direction: ('ltr' | 'rtl') | null
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | ''
+      indent: number
+      version: number
+    }
+    [k: string]: unknown
+  } | null
   inscription?: {
-    actif?: boolean | null;
-    lien?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
+    actif?: boolean | null
+    lien?: string | null
+  }
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "documents".
  */
 export interface Document {
-  id: number;
-  tenant?: (number | null) | Commune;
-  titre: string;
-  categorie: 'deliberations' | 'arretes' | 'budget' | 'urbanisme' | 'autres';
-  dateDocument?: string | null;
+  id: number
+  tenant?: (number | null) | Commune
+  titre: string
+  categorie: 'deliberations' | 'arretes' | 'budget' | 'urbanisme' | 'autres'
+  dateDocument?: string | null
   /**
    * Ex. : « 5 ans » — information reprise dans la politique de confidentialité de la commune.
    */
-  dureeConservation?: string | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
+  dureeConservation?: string | null
+  updatedAt: string
+  createdAt: string
+  url?: string | null
+  thumbnailURL?: string | null
+  filename?: string | null
+  mimeType?: string | null
+  filesize?: number | null
+  width?: number | null
+  height?: number | null
+  focalX?: number | null
+  focalY?: number | null
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "alertes".
  */
 export interface Alerte {
-  id: number;
-  tenant?: (number | null) | Commune;
-  niveau: 'info' | 'vigilance' | 'urgence';
-  message: string;
-  dateDebut: string;
-  dateFin: string;
-  updatedAt: string;
-  createdAt: string;
+  id: number
+  tenant?: (number | null) | Commune
+  niveau: 'info' | 'vigilance' | 'urgence'
+  message: string
+  dateDebut: string
+  dateFin: string
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "menus".
  */
 export interface Menu {
-  id: number;
-  tenant?: (number | null) | Commune;
-  nom: string;
+  id: number
+  tenant?: (number | null) | Commune
+  nom: string
   items: {
-    label: string;
-    page?: (number | null) | Page;
-    url?: string | null;
+    label: string
+    page?: (number | null) | Page
+    url?: string | null
     /**
      * Un seul niveau d’imbrication.
      */
     enfants?:
       | {
-          label: string;
-          page?: (number | null) | Page;
-          url?: string | null;
-          id?: string | null;
+          label: string
+          page?: (number | null) | Page
+          url?: string | null
+          id?: string | null
         }[]
-      | null;
-    id?: string | null;
-  }[];
-  updatedAt: string;
-  createdAt: string;
+      | null
+    id?: string | null
+  }[]
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
-  id: number;
-  key: string;
+  id: number
+  key: string
   data:
     | {
-        [k: string]: unknown;
+        [k: string]: unknown
       }
     | unknown[]
     | string
     | number
     | boolean
-    | null;
+    | null
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
-  id: number;
+  id: number
   document?:
     | ({
-        relationTo: 'communes';
-        value: number | Commune;
+        relationTo: 'communes'
+        value: number | Commune
       } | null)
     | ({
-        relationTo: 'domaines';
-        value: number | Domaine;
+        relationTo: 'domaines'
+        value: number | Domaine
       } | null)
     | ({
-        relationTo: 'journal';
-        value: number | Journal;
+        relationTo: 'journal'
+        value: number | Journal
       } | null)
     | ({
-        relationTo: 'users';
-        value: number | User;
+        relationTo: 'users'
+        value: number | User
       } | null)
     | ({
-        relationTo: 'media';
-        value: number | Media;
+        relationTo: 'media'
+        value: number | Media
       } | null)
     | ({
-        relationTo: 'pages';
-        value: number | Page;
+        relationTo: 'pages'
+        value: number | Page
       } | null)
     | ({
-        relationTo: 'actualites';
-        value: number | Actualite;
+        relationTo: 'actualites'
+        value: number | Actualite
       } | null)
     | ({
-        relationTo: 'evenements';
-        value: number | Evenement;
+        relationTo: 'evenements'
+        value: number | Evenement
       } | null)
     | ({
-        relationTo: 'documents';
-        value: number | Document;
+        relationTo: 'documents'
+        value: number | Document
       } | null)
     | ({
-        relationTo: 'alertes';
-        value: number | Alerte;
+        relationTo: 'alertes'
+        value: number | Alerte
       } | null)
     | ({
-        relationTo: 'menus';
-        value: number | Menu;
-      } | null);
-  globalSlug?: string | null;
+        relationTo: 'menus'
+        value: number | Menu
+      } | null)
+  globalSlug?: string | null
   user: {
-    relationTo: 'users';
-    value: number | User;
-  };
-  updatedAt: string;
-  createdAt: string;
+    relationTo: 'users'
+    value: number | User
+  }
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-preferences".
  */
 export interface PayloadPreference {
-  id: number;
+  id: number
   user: {
-    relationTo: 'users';
-    value: number | User;
-  };
-  key?: string | null;
+    relationTo: 'users'
+    value: number | User
+  }
+  key?: string | null
   value?:
     | {
-        [k: string]: unknown;
+        [k: string]: unknown
       }
     | unknown[]
     | string
     | number
     | boolean
-    | null;
-  updatedAt: string;
-  createdAt: string;
+    | null
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-migrations".
  */
 export interface PayloadMigration {
-  id: number;
-  name?: string | null;
-  batch?: number | null;
-  updatedAt: string;
-  createdAt: string;
+  id: number
+  name?: string | null
+  batch?: number | null
+  updatedAt: string
+  createdAt: string
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "communes_select".
  */
 export interface CommunesSelect<T extends boolean = true> {
-  nom?: T;
-  slug?: T;
-  actif?: T;
-  logo?: T;
+  nom?: T
+  slug?: T
+  actif?: T
+  logo?: T
   coordonnees?:
     | T
     | {
-        adresse?: T;
-        codePostal?: T;
-        ville?: T;
-        telephone?: T;
-        email?: T;
-      };
-  horaires?: T;
+        adresse?: T
+        codePostal?: T
+        ville?: T
+        telephone?: T
+        email?: T
+      }
+  horaires?: T
   reseaux?:
     | T
     | {
-        facebook?: T;
-        instagram?: T;
-        youtube?: T;
-      };
+        facebook?: T
+        instagram?: T
+        youtube?: T
+      }
   apparence?:
     | T
     | {
-        couleurPrincipale?: T;
-        couleurAccent?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
+        couleurPrincipale?: T
+        couleurAccent?: T
+      }
+  mesure?:
+    | T
+    | {
+        active?: T
+        siteUmami?: T
+        lienPartage?: T
+      }
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "domaines_select".
  */
 export interface DomainesSelect<T extends boolean = true> {
-  hostname?: T;
-  commune?: T;
-  canonique?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  hostname?: T
+  commune?: T
+  canonique?: T
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "journal_select".
  */
 export interface JournalSelect<T extends boolean = true> {
-  type?: T;
-  message?: T;
-  commune?: T;
-  utilisateur?: T;
-  auteurEmail?: T;
-  communeNom?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  type?: T
+  message?: T
+  commune?: T
+  utilisateur?: T
+  auteurEmail?: T
+  communeNom?: T
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
-  name?: T;
-  role?: T;
+  name?: T
+  role?: T
   tenants?:
     | T
     | {
-        tenant?: T;
-        roles?: T;
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  resetPasswordRequestedAt?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
+        tenant?: T
+        roles?: T
+        id?: T
+      }
+  updatedAt?: T
+  createdAt?: T
+  email?: T
+  resetPasswordToken?: T
+  resetPasswordExpiration?: T
+  salt?: T
+  hash?: T
+  resetPasswordRequestedAt?: T
+  loginAttempts?: T
+  lockUntil?: T
   sessions?:
     | T
     | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
+        id?: T
+        createdAt?: T
+        expiresAt?: T
+      }
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
-  tenant?: T;
-  alt?: T;
-  prefix?: T;
-  _objectKey?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
+  tenant?: T
+  alt?: T
+  updatedAt?: T
+  createdAt?: T
+  url?: T
+  thumbnailURL?: T
+  filename?: T
+  mimeType?: T
+  filesize?: T
+  width?: T
+  height?: T
+  focalX?: T
+  focalY?: T
   sizes?:
     | T
     | {
         thumbnail?:
           | T
           | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
+              url?: T
+              width?: T
+              height?: T
+              mimeType?: T
+              filesize?: T
+              filename?: T
+            }
         card?:
           | T
           | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
+              url?: T
+              width?: T
+              height?: T
+              mimeType?: T
+              filesize?: T
+              filename?: T
+            }
         hero?:
           | T
           | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-      };
+              url?: T
+              width?: T
+              height?: T
+              mimeType?: T
+              filesize?: T
+              filename?: T
+            }
+      }
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages_select".
  */
 export interface PagesSelect<T extends boolean = true> {
-  tenant?: T;
-  titre?: T;
-  slug?: T;
+  tenant?: T
+  titre?: T
+  slug?: T
   blocs?:
     | T
     | {
         hero?:
           | T
           | {
-              titre?: T;
-              sousTitre?: T;
-              image?: T;
+              titre?: T
+              sousTitre?: T
+              image?: T
               cta?:
                 | T
                 | {
-                    label?: T;
-                    url?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
+                    label?: T
+                    url?: T
+                  }
+              id?: T
+              blockName?: T
+            }
         texteRiche?:
           | T
           | {
-              contenu?: T;
-              id?: T;
-              blockName?: T;
-            };
+              contenu?: T
+              id?: T
+              blockName?: T
+            }
         image?:
           | T
           | {
-              media?: T;
-              legende?: T;
-              largeur?: T;
-              id?: T;
-              blockName?: T;
-            };
+              media?: T
+              legende?: T
+              largeur?: T
+              id?: T
+              blockName?: T
+            }
         galerie?:
           | T
           | {
               images?:
                 | T
                 | {
-                    media?: T;
-                    legende?: T;
-                    id?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
+                    media?: T
+                    legende?: T
+                    id?: T
+                  }
+              id?: T
+              blockName?: T
+            }
         accordeon?:
           | T
           | {
               elements?:
                 | T
                 | {
-                    titre?: T;
-                    contenu?: T;
-                    id?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
+                    titre?: T
+                    contenu?: T
+                    id?: T
+                  }
+              id?: T
+              blockName?: T
+            }
         boutons?:
           | T
           | {
               boutons?:
                 | T
                 | {
-                    label?: T;
-                    url?: T;
-                    variante?: T;
-                    id?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
+                    label?: T
+                    url?: T
+                    variante?: T
+                    id?: T
+                  }
+              id?: T
+              blockName?: T
+            }
         contact?:
           | T
           | {
-              titre?: T;
-              texte?: T;
-              id?: T;
-              blockName?: T;
-            };
-      };
-  metaTitle?: T;
-  metaDescription?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
+              titre?: T
+              texte?: T
+              id?: T
+              blockName?: T
+            }
+      }
+  metaTitle?: T
+  metaDescription?: T
+  updatedAt?: T
+  createdAt?: T
+  _status?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "actualites_select".
  */
 export interface ActualitesSelect<T extends boolean = true> {
-  tenant?: T;
-  titre?: T;
-  slug?: T;
-  resume?: T;
-  image?: T;
-  contenu?: T;
-  datePublication?: T;
-  auteur?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
+  tenant?: T
+  titre?: T
+  slug?: T
+  resume?: T
+  image?: T
+  contenu?: T
+  datePublication?: T
+  auteur?: T
+  updatedAt?: T
+  createdAt?: T
+  _status?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "evenements_select".
  */
 export interface EvenementsSelect<T extends boolean = true> {
-  tenant?: T;
-  titre?: T;
-  dateDebut?: T;
-  dateFin?: T;
-  lieu?: T;
-  description?: T;
+  tenant?: T
+  titre?: T
+  dateDebut?: T
+  dateFin?: T
+  lieu?: T
+  description?: T
   inscription?:
     | T
     | {
-        actif?: T;
-        lien?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
+        actif?: T
+        lien?: T
+      }
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "documents_select".
  */
 export interface DocumentsSelect<T extends boolean = true> {
-  tenant?: T;
-  titre?: T;
-  categorie?: T;
-  dateDocument?: T;
-  dureeConservation?: T;
-  prefix?: T;
-  _objectKey?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
+  tenant?: T
+  titre?: T
+  categorie?: T
+  dateDocument?: T
+  dureeConservation?: T
+  updatedAt?: T
+  createdAt?: T
+  url?: T
+  thumbnailURL?: T
+  filename?: T
+  mimeType?: T
+  filesize?: T
+  width?: T
+  height?: T
+  focalX?: T
+  focalY?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "alertes_select".
  */
 export interface AlertesSelect<T extends boolean = true> {
-  tenant?: T;
-  niveau?: T;
-  message?: T;
-  dateDebut?: T;
-  dateFin?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  tenant?: T
+  niveau?: T
+  message?: T
+  dateDebut?: T
+  dateFin?: T
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "menus_select".
  */
 export interface MenusSelect<T extends boolean = true> {
-  tenant?: T;
-  nom?: T;
+  tenant?: T
+  nom?: T
   items?:
     | T
     | {
-        label?: T;
-        page?: T;
-        url?: T;
+        label?: T
+        page?: T
+        url?: T
         enfants?:
           | T
           | {
-              label?: T;
-              page?: T;
-              url?: T;
-              id?: T;
-            };
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
+              label?: T
+              page?: T
+              url?: T
+              id?: T
+            }
+        id?: T
+      }
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
-  key?: T;
-  data?: T;
+  key?: T
+  data?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents_select".
  */
 export interface PayloadLockedDocumentsSelect<T extends boolean = true> {
-  document?: T;
-  globalSlug?: T;
-  user?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  document?: T
+  globalSlug?: T
+  user?: T
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-preferences_select".
  */
 export interface PayloadPreferencesSelect<T extends boolean = true> {
-  user?: T;
-  key?: T;
-  value?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  user?: T
+  key?: T
+  value?: T
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-migrations_select".
  */
 export interface PayloadMigrationsSelect<T extends boolean = true> {
-  name?: T;
-  batch?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  name?: T
+  batch?: T
+  updatedAt?: T
+  createdAt?: T
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1060,18 +1074,17 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
  */
 export interface CollectionsWidget {
   data?: {
-    [k: string]: unknown;
-  };
-  width: 'full';
+    [k: string]: unknown
+  }
+  width: 'full'
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "auth".
  */
 export interface Auth {
-  [k: string]: unknown;
+  [k: string]: unknown
 }
-
 
 declare module 'payload' {
   export interface GeneratedTypes extends Config {}
