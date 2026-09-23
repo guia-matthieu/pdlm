@@ -546,7 +546,9 @@ describe('formulaire soumis depuis un autre site', () => {
   })
   it('accepté : même origine, ou en-têtes absents', () => {
     expect(soumissionIntersite(h({ origin: 'https://mairie.fr' }), 'mairie.fr')).toBe(false)
-    expect(soumissionIntersite(h({ origin: 'http://localhost:3000' }), 'localhost:3000')).toBe(false)
+    expect(soumissionIntersite(h({ origin: 'http://localhost:3000' }), 'localhost:3000')).toBe(
+      false,
+    )
     expect(soumissionIntersite(h({ 'sec-fetch-site': 'same-origin' }), 'mairie.fr')).toBe(false)
     expect(soumissionIntersite(h({}), 'mairie.fr')).toBe(false)
   })
