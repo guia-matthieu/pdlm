@@ -65,7 +65,7 @@ verifier_dump "$DOSSIER_ABS/postgres.sql.gz" PostgreSQL
 # d'être arrêté : un pg_dump est cohérent pour une base à lui seul.
 if docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -tAc \
   "SELECT 1 FROM pg_database WHERE datname='umami'" | grep -q 1; then
-  echo "2/4 — Dump de la mesure d'audience → $DOSSIER/umami.sql.gz"
+  echo "2b/4 — Dump de la mesure d'audience → $DOSSIER/umami.sql.gz"
   docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" umami \
     | gzip >"$DOSSIER_ABS/umami.sql.gz"
   verifier_dump "$DOSSIER_ABS/umami.sql.gz" "de la mesure d'audience"

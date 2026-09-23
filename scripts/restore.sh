@@ -75,7 +75,7 @@ gunzip -c "$DOSSIER_ABS/postgres.sql.gz" \
   | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 
 if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
-  echo "2/5 — Restauration de la mesure d'audience (base umami)…"
+  echo "2b/5 — Restauration de la mesure d'audience (base umami)…"
   # Umami et la purge tiennent des connexions : arrêtés le temps de la restauration.
   if [ -n "$MESURE_ACTIFS" ]; then docker compose --profile mesure stop $MESURE_ACTIFS >/dev/null; fi
   docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres \

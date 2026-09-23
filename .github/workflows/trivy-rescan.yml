@@ -59,6 +59,7 @@ jobs:
             app/node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-x64/bin/esbuild
 
       - name: postgres:17-alpine
+        if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: postgres:17-alpine
@@ -68,6 +69,7 @@ jobs:
           exit-code: '1'
 
       - name: caddy:2-alpine
+        if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: caddy:2-alpine
@@ -78,11 +80,13 @@ jobs:
 
       - name: Résoudre le digest minio épinglé
         id: minio
+        if: always()
         run: |
           DIGEST=$(grep -oP 'quay\.io/minio/minio@sha256:[a-f0-9]+' docker-compose.yml | head -1)
           echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: minio (digest épinglé)
+        if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.minio.outputs.image }}
@@ -93,11 +97,13 @@ jobs:
 
       - name: Résoudre le digest umami épinglé
         id: umami
+        if: always()
         run: |
           DIGEST=$(grep -oP 'ghcr\.io/umami-software/umami:[^@\s]+@sha256:[a-f0-9]+' docker-compose.yml | head -1)
           echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: umami (digest épinglé)
+        if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.umami.outputs.image }}

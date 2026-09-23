@@ -174,15 +174,18 @@ son admin. Voir la spec :
 1. Dans `.env` : `COMPOSE_PROFILES=mesure`, `UMAMI_DB_PASSWORD`,
    `UMAMI_APP_SECRET`, `UMAMI_URL=http://umami:3000`, `UMAMI_PUBLIC_URL` ; puis
    `docker compose up -d`.
-2. DNS `stats.<plateforme>` vers le serveur, et décommenter le bloc `stats.…`
-   du `Caddyfile`.
-3. Dans Umami (`https://stats.<plateforme>`) : se connecter en `admin` /
-   `umami` et **changer ce mot de passe** ; créer l'utilisateur `pdlm` (rôle
-   « utilisateur ») et, connecté en `pdlm`, sa clé d'API (_Paramètres → Clés
-   d'API_ ; la clé n'est montrée qu'une fois) → `UMAMI_API_KEY` ; en `admin`,
-   créer l'équipe au nom de l'EPCI et y ajouter `pdlm` avec le rôle **membre**
-   (le rôle « lecture seule » ne peut pas créer de site) → `UMAMI_TEAM_ID` ;
-   ajouter les agents de l'EPCI à l'équipe en **lecture seule**.
+2. Avant d'ouvrir `stats.<plateforme>` au public, se connecter à Umami en
+   `admin` / `umami` et **changer ce mot de passe** — par exemple via un
+   tunnel SSH vers 127.0.0.1 sur l'hôte (`ssh -L 3002:<ip du conteneur umami>:3000`)
+   ou `docker compose exec umami sh`. Seulement ensuite : DNS `stats.<plateforme>`
+   vers le serveur, et décommenter le bloc `stats.…` du `Caddyfile`.
+3. Dans Umami (`https://stats.<plateforme>`, mot de passe déjà changé) :
+   créer l'utilisateur `pdlm` (rôle « utilisateur ») et, connecté en `pdlm`,
+   sa clé d'API (_Paramètres → Clés d'API_ ; la clé n'est montrée qu'une
+   fois) → `UMAMI_API_KEY` ; en `admin`, créer l'équipe au nom de l'EPCI et y
+   ajouter `pdlm` avec le rôle **membre** (le rôle « lecture seule » ne peut
+   pas créer de site) → `UMAMI_TEAM_ID` ; ajouter les agents de l'EPCI à
+   l'équipe en **lecture seule**.
 4. `docker compose up -d app` pour que pdlm lise les variables.
 
 **Règles :**
@@ -217,7 +220,9 @@ supprimer.
 2. Caddy transmet, jusqu'au relais, une adresse `X-Forwarded-For` cohérente.
 3. Les chemins internes d'Umami (`/api/send`, `/api/batch`, `/api/record`,
    `/script.js`, `/recorder.js`, `/p/*`, `/q/*`) répondent 404 sur
-   `stats.<plateforme>` ; l'interface (`/login`) reste accessible.
+   `stats.<plateforme>` ; l'interface (`/login`) reste accessible. Vérifier
+   aussi les variantes `/api/send/`, `//api/send` et `/API/SEND` (404
+   attendu).
 4. La purge quotidienne (`purge-mesure`) tourne sans erreur dans la pile.
 5. Sauvegarde puis restauration sur une pile neuve : même nombre de visites
    après restauration, Umami et la purge repartent sains.
