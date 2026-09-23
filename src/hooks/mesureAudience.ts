@@ -1,13 +1,14 @@
 import {
   APIError,
   type CollectionAfterChangeHook,
+  type CollectionAfterDeleteHook,
   type CollectionBeforeChangeHook,
   type CollectionBeforeOperationHook,
   type PayloadRequest,
 } from 'payload'
 
 import { mesureInstallee } from '../lib/mesure/etat'
-import { creerSiteCommune } from '../lib/umami/client'
+import { creerSiteCommune, supprimerSite } from '../lib/umami/client'
 import { ecrire } from './journaliser'
 
 /** I12 élargi : messages explicites, au lieu du seul « Modification — <commune> ». */
@@ -141,6 +142,49 @@ export const journaliserMesure: CollectionAfterChangeHook = async ({
       `${apres ? MESSAGES_MESURE.activee : MESSAGES_MESURE.desactivee} — ${nom}`,
       Number(doc.id),
       nom,
+    )
+  }
+  return doc
+}
+
+/**
+ * Suppression d'une commune : son site Umami est supprimé dans la
+ * transaction, en DERNIER (après le journal) : si Umami refuse, tout est
+ * annulé, journal compris ; si le journal échoue, Umami n'est jamais appelé.
+ * Reste un cas : Umami a supprimé, puis la validation de la transaction
+ * échoue — la commune garde son `siteUmami`, et la prochaine activation
+ * recrée le site sous le même identifiant (`preparerMesure` revérifie le site
+ * à chaque activation ; vérifié : Umami accepte de recréer l'identifiant).
+ *
+ * Sans UMAMI_URL, la suppression est refusée : une variable perdue au
+ * redéploiement ne prouve pas que les données de mesure ont disparu. Seule une
+ * désinstallation déclarée (`UMAMI_DESINSTALLE=1`, après suppression de la
+ * base `umami`, README) laisse passer, avec un avertissement.
+ */
+export const supprimerSiteMesure: CollectionAfterDeleteHook = async ({ doc, req }) => {
+  const site = mesureDe(doc)?.siteUmami
+  if (!site) return doc
+  if (!mesureInstallee()) {
+    if (process.env.UMAMI_DESINSTALLE === '1') {
+      req.payload.logger.warn(`Mesure d’audience désinstallée : site Umami ${site} non supprimé`)
+      return doc
+    }
+    throw new APIError(
+      'Cette commune a un historique de mesure d’audience, mais le service de mesure n’est pas configuré (UMAMI_URL) : la commune n’a pas été supprimée.',
+      400,
+      null,
+      true,
+    )
+  }
+  try {
+    await supprimerSite(site)
+  } catch (erreur) {
+    req.payload.logger.error({ err: erreur }, 'Suppression du site de mesure impossible')
+    throw new APIError(
+      'Le service de mesure d’audience ne répond pas ; la commune n’a pas été supprimée. Réessayez plus tard.',
+      503,
+      null,
+      true,
     )
   }
   return doc

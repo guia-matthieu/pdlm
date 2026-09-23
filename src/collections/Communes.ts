@@ -1,10 +1,15 @@
 import type { CollectionConfig } from 'payload'
 
-import { communesAvecRole, isOperateur } from '../access/roles'
-import { idDe } from '../access/roles'
+import { aRoleSur, communesAvecRole, idDe, isOperateur } from '../access/roles'
+import { effacerHistoriqueMesure } from '../endpoints/effacerHistoriqueMesure'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
 import { slugifier } from '../hooks/formatSlug'
-import { ignorerMesureNulle, journaliserMesure, preparerMesure } from '../hooks/mesureAudience'
+import {
+  ignorerMesureNulle,
+  journaliserMesure,
+  preparerMesure,
+  supprimerSiteMesure,
+} from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
 import { validerUrlEditoriale } from '../lib/url'
 
@@ -49,6 +54,7 @@ export const Communes: CollectionConfig = {
     },
     delete: ({ req }) => isOperateur(req.user),
   },
+  endpoints: [effacerHistoriqueMesure],
   hooks: {
     beforeOperation: [ignorerMesureNulle],
     beforeChange: [
@@ -123,7 +129,9 @@ export const Communes: CollectionConfig = {
       },
     ],
     afterChange: [journaliser('commune'), journaliserMesure],
-    afterDelete: [journaliserSuppression('commune')],
+    // Umami en dernier : s'il refuse, tout est annulé, journal compris ; si le
+    // journal échoue, Umami n'est jamais appelé.
+    afterDelete: [journaliserSuppression('commune'), supprimerSiteMesure],
   },
   fields: [
     {
@@ -267,6 +275,17 @@ export const Communes: CollectionConfig = {
           admin: {
             readOnly: true,
             description: 'À transmettre au maire : vue d’ensemble, sans le détail des visites',
+          },
+        },
+        {
+          name: 'effacerHistorique',
+          type: 'ui',
+          admin: {
+            // Montré seulement à qui peut effacer (le point d'accès revérifie).
+            condition: (data, siblingData, { user }) =>
+              Boolean(siblingData?.siteUmami) &&
+              (isOperateur(user) || aRoleSur(user, data?.id, 'admin')),
+            components: { Field: '/components/admin/EffacerHistorique#EffacerHistorique' },
           },
         },
       ],
