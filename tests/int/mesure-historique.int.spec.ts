@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { effacerHistoriqueMesure } from '@/endpoints/effacerHistoriqueMesure'
 import { MESSAGES_MESURE } from '@/hooks/mesureAudience'
@@ -25,34 +25,50 @@ let operateur: User
 /** Panne du journal : aucune, sur toute écriture, ou seulement après l'entrée « demandé ». */
 type PanneJournal = 'aucune' | 'toutes' | 'apresDemande'
 
-/** Requête Payload complète, comme celle que reçoit le vrai point d'accès. */
+/**
+ * Requête Payload complète, comme celle que reçoit le vrai point d'accès. La
+ * panne du journal est simulée par un espion posé sur l'instance Payload
+ * réelle (et non plus sur `req.payload`) : l'endpoint appelle
+ * `req.payload.findByID(..., req)` avant d'écrire au journal, et Payload
+ * (`createLocalReq`) réaffecte `req.payload` au singleton réel à cet appel —
+ * un `req.payload` truqué ne survivait donc pas jusqu'à l'écriture. Espionner
+ * l'instance elle-même évite le problème.
+ */
 async function requete(
   user: User | null,
   id: number,
   panne: PanneJournal,
-): Promise<PayloadRequest> {
+): Promise<{ req: PayloadRequest; spy?: ReturnType<typeof vi.spyOn> }> {
   const req = await createLocalReq({ user: user ?? undefined }, payload)
   req.routeParams = { id: String(id) }
   if (!user) req.user = null
-  if (panne !== 'aucune') {
-    let ecritures = 0
-    req.payload = Object.create(payload, {
-      create: {
-        value: (...args: Parameters<Payload['create']>) => {
-          ecritures += 1
-          if (panne === 'toutes' || ecritures > 1) {
-            return Promise.reject(new Error('écriture du journal refusée'))
-          }
-          return payload.create(...args)
-        },
-      },
-    }) as Payload
-  }
-  return req
+  if (panne === 'aucune') return { req }
+
+  const original = payload.create.bind(payload)
+  let ecritures = 0
+  const spy = vi
+    .spyOn(payload, 'create')
+    .mockImplementation((...args: Parameters<Payload['create']>) => {
+      const [options] = args
+      if (options.collection === 'journal') {
+        ecritures += 1
+        if (panne === 'toutes' || ecritures > 1) {
+          return Promise.reject(new Error('écriture du journal refusée'))
+        }
+      }
+      return original(...args)
+    })
+  return { req, spy }
 }
 
-const effacer = async (user: User | null, id: number, panne: PanneJournal = 'aucune') =>
-  effacerHistoriqueMesure.handler(await requete(user, id, panne))
+const effacer = async (user: User | null, id: number, panne: PanneJournal = 'aucune') => {
+  const { req, spy } = await requete(user, id, panne)
+  try {
+    return await effacerHistoriqueMesure.handler(req)
+  } finally {
+    spy?.mockRestore()
+  }
+}
 
 async function creerCommuneMesuree(lettre: string): Promise<{ id: number; site: string }> {
   const { id } = await payload.create({
