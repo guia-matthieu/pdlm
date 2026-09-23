@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const commune = await communeDuHost(host)
   if (!commune) return new Response(null, { status: 404 })
   // Un site tiers ne doit pas pouvoir lever l'opposition d'un visiteur.
-  if (soumissionIntersite(request.headers, new URL(request.url).host)) {
+  if (soumissionIntersite(request.headers, (request.headers.get('host') ?? '').toLowerCase())) {
     return new Response('Origine refusée', { status: 403 })
   }
   const formulaire = await request.formData().catch(() => null)

@@ -30,10 +30,14 @@ export function enteteCookieOpposition(choix: 'refus' | 'accepte', production: b
  * Vrai si le formulaire d'opposition a été soumis depuis une autre origine :
  * `SameSite=Lax` n'empêche pas une réponse d'effacer le cookie. Sans
  * JavaScript, le navigateur envoie quand même `Origin` (et `Sec-Fetch-Site`)
- * sur un POST de formulaire. `hoteAttendu` : hôte ET port de la requête
- * (`new URL(request.url).host`). Le schéma n'est pas comparé : derrière Caddy,
- * Next peut voir `http` quand le navigateur voit `https`, et le HTTP est
- * redirigé vers HTTPS par Caddy. En-têtes absents (vieux client, curl) : accepté.
+ * sur un POST de formulaire. `hoteAttendu` : l'en-tête `Host` de la requête
+ * (hôte ET port), transmis tel quel par Caddy jusqu'au serveur — jamais
+ * `new URL(request.url).host`, que Next reconstruit depuis le hostname/port
+ * d'écoute du serveur (`0.0.0.0:3000` en standalone), pas depuis `Host`. Un
+ * formulaire intersite ne peut pas forger l'en-tête `Host` reçu par le
+ * serveur. Le schéma n'est pas comparé : derrière Caddy, Next peut voir
+ * `http` quand le navigateur voit `https`, et le HTTP est redirigé vers
+ * HTTPS par Caddy. En-têtes absents (vieux client, curl) : accepté.
  */
 export function soumissionIntersite(entetes: Headers, hoteAttendu: string): boolean {
   const site = entetes.get('sec-fetch-site')

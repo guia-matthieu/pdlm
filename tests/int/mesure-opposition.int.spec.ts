@@ -15,6 +15,7 @@ const choisir = (host: string, choix: string, entetes: Record<string, string> = 
     new Request(`https://${host}/mesure/opposition`, {
       method: 'POST',
       headers: {
+        host,
         'x-commune-host': host,
         'content-type': 'application/x-www-form-urlencoded',
         ...entetes,
@@ -65,6 +66,27 @@ describe('POST /mesure/opposition (I20)', () => {
       origin: `https://${commune.host}`,
       'sec-fetch-site': 'same-origin',
     })
+    expect(r.status).toBe(303)
+  })
+
+  it('production (request.url expose le hostname du serveur, pas le Host du visiteur) : accepté', async () => {
+    // Régression : Next reconstruit request.url depuis le hostname/port d'écoute
+    // du serveur (0.0.0.0:3000 en standalone), jamais depuis l'en-tête Host.
+    // Comparer à new URL(request.url).host rejetait donc toute opposition
+    // légitime en production (I20 cassé).
+    const r = await POST(
+      new Request('http://0.0.0.0:3000/mesure/opposition', {
+        method: 'POST',
+        headers: {
+          host: commune.host,
+          origin: `https://${commune.host}`,
+          'sec-fetch-site': 'same-origin',
+          'x-commune-host': commune.host,
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ choix: 'refus' }).toString(),
+      }),
+    )
     expect(r.status).toBe(303)
   })
 
