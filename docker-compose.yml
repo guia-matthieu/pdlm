@@ -123,6 +123,11 @@ services:
       ADMIN_URL: ${ADMIN_URL:-http://localhost}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost}
       NODE_ENV: production
+      # Mesure d'audience (profil « mesure ») : sans UMAMI_URL, la fonction n'existe pas.
+      UMAMI_URL: ${UMAMI_URL:-}
+      UMAMI_API_KEY: ${UMAMI_API_KEY:-}
+      UMAMI_TEAM_ID: ${UMAMI_TEAM_ID:-}
+      UMAMI_PUBLIC_URL: ${UMAMI_PUBLIC_URL:-}
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/health']
       interval: 15s
@@ -130,6 +135,94 @@ services:
       retries: 5
       start_period: 30s
     # Aucun port publié : Caddy est l'unique point d'entrée
+
+  # --- Mesure d'audience (profil « mesure », COMPOSE_PROFILES=mesure dans .env) ---
+  # Jamais ${X:?} ici : Compose refuse alors toute la pile, même profil
+  # inactif (vérifié le 23/09). Les variables manquantes sont refusées par
+  # les conteneurs eux-mêmes.
+
+  init-umami:
+    # Rôle et base `umami`, idempotent. Les scripts d'initialisation de
+    # Postgres ne tournent que sur un volume vide : sans ce service, une
+    # installation existante n'aurait jamais la base.
+    image: postgres:17-alpine
+    profiles: [mesure]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-pdlm}
+      UMAMI_DB_PASSWORD: ${UMAMI_DB_PASSWORD:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        [ -n "$$UMAMI_DB_PASSWORD" ] || { echo "UMAMI_DB_PASSWORD requis dans .env" >&2; exit 1; }
+        psql -v ON_ERROR_STOP=1 -v mdp="$$UMAMI_DB_PASSWORD" <<'SQL'
+        SELECT 'CREATE ROLE umami LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'umami')\gexec
+        ALTER ROLE umami WITH LOGIN PASSWORD :'mdp';
+        SELECT 'CREATE DATABASE umami OWNER umami' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'umami')\gexec
+        SQL
+        echo "rôle et base umami : prêts"
+
+  umami:
+    # Épinglé par digest (reproductibilité + scan Trivy) — Umami 3.4.0.
+    image: ghcr.io/umami-software/umami:3.4.0@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367
+    profiles: [mesure]
+    restart: unless-stopped
+    depends_on:
+      init-umami:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:-}@postgres:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:-}
+      DISABLE_TELEMETRY: '1'
+      DISABLE_UPDATES: '1'
+      # IP déjà tronquée par le relais de pdlm (I18) ; géolocalisation par
+      # en-têtes du client ignorée.
+      CLIENT_IP_HEADER: x-pdlm-ip
+      SKIP_LOCATION_HEADERS: '1'
+    command:
+      - sh
+      - -c
+      - '[ -n "$$APP_SECRET" ] || { echo "UMAMI_APP_SECRET requis dans .env" >&2; exit 1; }; exec sh scripts/start-docker.sh'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/heartbeat']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # I22 : aucun port publié ; la collecte ne passe que par le relais de pdlm.
+
+  purge-mesure:
+    # I21 : aucune donnée de mesure de plus de 25 mois. Pas de tâche dans
+    # l'application : pdlm n'a pas, et ne doit pas avoir, les identifiants de
+    # la base `umami`.
+    image: postgres:17-alpine
+    profiles: [mesure]
+    restart: unless-stopped
+    depends_on:
+      umami:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: umami
+      PGDATABASE: umami
+      PGPASSWORD: ${UMAMI_DB_PASSWORD:-}
+    volumes:
+      - ./scripts/purge-mesure.sql:/purge-mesure.sql:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          psql -v ON_ERROR_STOP=1 -f /purge-mesure.sql || echo "ÉCHEC de la purge de la mesure d'audience (I21)" >&2
+          sleep 86400
+        done
 
   caddy:
     image: caddy:2-alpine

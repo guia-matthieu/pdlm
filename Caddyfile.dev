@@ -1,5 +1,13 @@
 # pdlm — Caddyfile de démonstration locale (HTTP :80, tous hosts)
 # Usage : docker compose up (CADDY_FILE par défaut) — puis http://saint-ex.localhost/
+
+# Interface Umami de la pile locale de type production (profil « mesure »).
+http://stats.localhost {
+	@collecte path /api/send /api/batch /api/record /script.js /recorder.js /p/* /q/*
+	respond @collecte 404
+	reverse_proxy umami:3000
+}
+
 :80 {
 	reverse_proxy app:3000
 }

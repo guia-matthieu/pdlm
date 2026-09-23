@@ -8,6 +8,16 @@ pdlm.example.fr, www.pdlm.example.fr {
 	reverse_proxy app:3000
 }
 
+# Interface de mesure d'audience (profil « mesure »), une seule pour toute la
+# plateforme. I22 : les chemins de collecte, de rejeu, de pixels et de liens
+# sont fermés — la collecte ne passe que par le relais de pdlm, qui filtre et
+# tronque. `/api/batch` est une seconde porte de collecte (relevé le 23/09).
+# stats.pdlm.example.fr {
+# 	@collecte path /api/send /api/batch /api/record /script.js /recorder.js /p/* /q/*
+# 	respond @collecte 404
+# 	reverse_proxy umami:3000
+# }
+
 # — Domaines des communes : un bloc par commune (hostname + alias www) —
 # mairie-saintx.fr, www.mairie-saintx.fr {
 # 	reverse_proxy app:3000

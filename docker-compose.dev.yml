@@ -69,6 +69,52 @@ services:
         printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::pdlm/*"]}]}' > /tmp/anon-policy.json
         mc anonymous set-json /tmp/anon-policy.json local/pdlm
 
+  # Mesure d'audience : docker compose -f docker-compose.dev.yml --profile mesure up -d
+  # puis, dans .env : UMAMI_URL=http://127.0.0.1:3002 (+ clé et équipe, README).
+  init-umami:
+    image: postgres:17-alpine
+    profiles: [mesure]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: pdlm
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        psql -v ON_ERROR_STOP=1 <<'SQL'
+        SELECT 'CREATE ROLE umami LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'umami')\gexec
+        ALTER ROLE umami WITH LOGIN PASSWORD 'umami';
+        SELECT 'CREATE DATABASE umami OWNER umami' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'umami')\gexec
+        SQL
+
+  umami:
+    image: ghcr.io/umami-software/umami:3.4.0@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367
+    profiles: [mesure]
+    depends_on:
+      init-umami:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://umami:umami@postgres:5432/umami
+      APP_SECRET: umami-dev-secret-sans-valeur
+      DISABLE_TELEMETRY: '1'
+      DISABLE_UPDATES: '1'
+      CLIENT_IP_HEADER: x-pdlm-ip
+      SKIP_LOCATION_HEADERS: '1'
+    ports:
+      - '127.0.0.1:3002:3000'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/heartbeat']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
 volumes:
   pgdata_dev:
   minio_dev:
