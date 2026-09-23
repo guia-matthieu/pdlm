@@ -19,11 +19,21 @@ import {
 
 let umami: FauxUmami
 
+const VARIABLES_UMAMI = ['UMAMI_URL', 'UMAMI_API_KEY', 'UMAMI_TEAM_ID', 'UMAMI_PUBLIC_URL'] as const
+const avant = Object.fromEntries(VARIABLES_UMAMI.map((cle) => [cle, process.env[cle]])) as Record<
+  (typeof VARIABLES_UMAMI)[number],
+  string | undefined
+>
+
 beforeAll(async () => {
   umami = await demarrerFauxUmami()
 })
 afterAll(async () => {
   await umami.fermer()
+  for (const cle of VARIABLES_UMAMI) {
+    if (avant[cle] === undefined) delete process.env[cle]
+    else process.env[cle] = avant[cle]
+  }
 })
 beforeEach(() => {
   configurerUmami(umami.url)
@@ -99,7 +109,9 @@ describe('effacerHistorique et supprimerSite', () => {
   it('clé refusée : la suppression échoue au lieu de passer pour « déjà absent »', async () => {
     const { siteUmami } = await creerSiteCommune({ id: 22, nom: 'X', domaine: 'x.fr' })
     process.env.UMAMI_API_KEY = 'umami_mauvaisecle00000000000000000000'
-    await expect(supprimerSite(siteUmami)).rejects.toBeInstanceOf(UmamiIndisponible)
+    const promesse = supprimerSite(siteUmami)
+    await expect(promesse).rejects.toBeInstanceOf(UmamiIndisponible)
+    await expect(promesse).rejects.toMatchObject({ sansReponse: false })
     expect(umami.sites.has(siteUmami)).toBe(true)
   })
 
