@@ -236,10 +236,10 @@ Constat supplémentaire : un champ `ip` dans le corps l'emporte bien sur l'en-t�
 
 **Amendements issus de cette relecture**
 
-- **Purge (I21) strictement tenue.** La limite est de 25 mois moins 2 jours, pour compenser la cadence quotidienne. Les sessions sont supprimées sur leur seule date : le sel mensuel empêche une session de recevoir des événements au-delà de son mois. La purge est aussi lancée par `restore.sh` avant toute remise en service.
+- **Purge (I21) strictement tenue.** La limite est `(maintenant + 2 jours) − 25 mois` : la date est avancée **avant** de retrancher les mois, sinon le saut de fin de mois (28/02 → 1/03) laisse une ligne dépasser 25 mois avant la purge suivante (relevé en passe 2, vérifié en SQL). Les sessions sont supprimées sur leur seule date : le sel mensuel empêche une session de recevoir des événements au-delà de son mois. La purge est aussi lancée par `restore.sh` avant toute remise en service.
 - **Chaque activation revérifie le site dans Umami** (appel idempotent). Elle répare le cas d'un site supprimé dans Umami alors que la transaction pdlm a été annulée. Sans `UMAMI_URL`, l'activation est refusée même si un site existe.
-- **« Supprimer l'historique » est transactionnel.** L'entrée de journal est écrite d'abord, Umami appelé ensuite, la validation n'a lieu qu'après sa confirmation. Sans réponse d'Umami (504), une entrée « non confirmé » garde la trace. À la suppression d'une commune, Umami est appelé en dernier.
-- **Formulaire d'opposition protégé contre les envois intersites** par les en-têtes `Origin` et `Sec-Fetch-Site`, toujours sans JavaScript.
+- **« Supprimer l'historique » laisse une trace durable avant l'action externe.** L'entrée « Effacement … demandé » est écrite et validée avant l'appel à Umami, puis l'entrée « effacé » ou « refusé » suit. Une demande sans suite signale un état incertain (504, panne, réponse perdue). Un journal refusé empêche l'effacement. À la suppression d'une commune, Umami est appelé en dernier.
+- **Formulaire d'opposition protégé contre les envois intersites** par `Sec-Fetch-Site` et `Origin` (hôte **et port** comparés), toujours sans JavaScript.
 - **Corps du relais lu avec un compteur** : un envoi fragmenté est coupé à 4 Ko.
 - **Bouton « Supprimer l'historique » montré** au seul admin de la commune et à l'opérateur.
 
@@ -247,7 +247,16 @@ Constat supplémentaire : un champ `ip` dans le corps l'emporte bien sur l'en-t�
 
 - **Deux partages créés par deux activations simultanées.** Ils seraient tous deux limités à la vue d'ensemble, donc sans risque.
 - **`X-Forwarded-For` forgé en développement.** La troncature s'applique quand même, I18 tient, et le cas ne concerne que le développement.
-- **Suppression d'une commune refusée quand Umami n'est plus installé.** Ce refus la rendrait impossible à supprimer ; un avertissement est journalisé à la place.
+- *(Écarté en passe 1, retenu en passe 2)* Suppression d'une commune sans `UMAMI_URL` : **refusée**, sauf désinstallation déclarée (`UMAMI_DESINSTALLE=1`). Une variable perdue au redéploiement ne prouve pas que les données ont disparu.
+
+**Relecture Astra, passe 2 (23/09)** : 3 constats résolus, 4 rejets acceptés (dont les deux vérifiés par exécution), 1 rejet contesté puis retenu (n° 10 ci-dessus), 5 défauts nouveaux :
+- purge en fin de mois : corrigée ;
+- trace de l'effacement : corrigée par l'entrée « demandé » durable ;
+- contexte Playwright sans `baseURL` : corrigé par `test.use` ;
+- contrôle d'origine sans le port : corrigé ;
+- preuve d'absence d'un site placé dans une autre équipe : **écartée par une règle d'exploitation**. Ne jamais changer `UMAMI_TEAM_ID` ni retirer `pdlm` de l'équipe après une activation (README), car aucune réponse de l'API ne permet de trancher autrement.
+
+Les vérifications par HTTP réel demandées (PATCH `mesure: null`, erreurs publiques dans l'admin, vrai point d'accès, frontière du proxy avec deux communes mesurées) sont ajoutées à la recette (tâche 15).
 
 Plan d'implémentation : `docs/superpowers/plans/2026-09-23-umami-collecte-cnil.md`.
 

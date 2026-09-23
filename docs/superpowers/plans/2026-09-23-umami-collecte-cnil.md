@@ -18,7 +18,7 @@
 - Variables lues par Compose seulement : `UMAMI_DB_PASSWORD`, `UMAMI_APP_SECRET`, `COMPOSE_PROFILES=mesure`. **Jamais `${X:?}`** dans `docker-compose.yml` pour ces variables : vérifié le 23/09, Compose refuse alors toute la pile même quand le profil `mesure` est inactif. Contrôle explicite dans le conteneur à la place.
 - `.env` et `.env.example` sont sous règle de refus : ne jamais les lire ni les écrire. Les lignes à ajouter sont données au user (tâche 14), qui les colle lui-même.
 - Cookie d'opposition : `pdlm_mesure=refus`, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` en production, `Max-Age=33696000` (390 jours, sous le plafond de 13 mois).
-- Journal (I12) : trois messages exacts, type `commune` : « Mesure d’audience activée — <nom> », « Mesure d’audience désactivée — <nom> », « Historique de mesure effacé — <nom> », plus « Effacement de l’historique demandé, non confirmé par le service de mesure — <nom> » quand Umami ne répond pas (apostrophe typographique ’, tiret cadratin —).
+- Journal (I12) : trois messages exacts, type `commune` : « Mesure d’audience activée — <nom> », « Mesure d’audience désactivée — <nom> », « Historique de mesure effacé — <nom> », plus, autour d'un effacement, « Effacement de l’historique de mesure demandé — <nom> » (écrit et validé AVANT l'appel à Umami) et « Effacement de l’historique de mesure refusé par le service de mesure — <nom> » (apostrophe typographique ’, tiret cadratin —).
 - Textes d'interface en français, apostrophe typographique ’, comme le reste du dépôt.
 - **Message d'erreur montré à l'agent : `throw new APIError(message, statut, null, true)`** (import `APIError` depuis `payload`). Vérifié dans `payload/dist/utilities/isErrorPublic.js` : une `Error` simple, sans statut, n'est pas publique hors mode debug, et l'admin et l'API de production affichent alors un message générique. Statuts : 400 pour une demande refusée, 503 quand Umami ne répond pas.
 - **Tout fichier de test qui appelle `fetch` avec `AbortSignal` commence par `// @vitest-environment node`** : la configuration Vitest globale est `jsdom`, dont l'`AbortSignal` est refusé par le `fetch` de Node.
@@ -490,7 +490,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   lireCookie(entete: string | null, nom: string): string | undefined
   estOppose(valeur: string | undefined): boolean
   enteteCookieOpposition(choix: 'refus' | 'accepte', production: boolean): string
-  soumissionIntersite(entetes: Headers, host: string): boolean   // host normalisé, sans port
+  soumissionIntersite(entetes: Headers, hoteAttendu: string): boolean   // hôte:port de la requête
   // etat.ts
   interface CommuneMesurable { mesure?: { active?: boolean | null; siteUmami?: string | null } | null }
   mesureInstallee(): boolean
@@ -542,6 +542,7 @@ describe('formulaire soumis depuis un autre site', () => {
     expect(soumissionIntersite(h({ origin: 'null' }), 'mairie.fr')).toBe(true)
     expect(soumissionIntersite(h({ 'sec-fetch-site': 'cross-site' }), 'mairie.fr')).toBe(true)
     expect(soumissionIntersite(h({ 'sec-fetch-site': 'same-site' }), 'mairie.fr')).toBe(true)
+    expect(soumissionIntersite(h({ origin: 'https://mairie.fr:8443' }), 'mairie.fr')).toBe(true)
   })
   it('accepté : même origine, ou en-têtes absents', () => {
     expect(soumissionIntersite(h({ origin: 'https://mairie.fr' }), 'mairie.fr')).toBe(false)
@@ -616,18 +617,21 @@ export function enteteCookieOpposition(choix: 'refus' | 'accepte', production: b
 }
 
 /**
- * Vrai si le formulaire d'opposition a été soumis depuis un autre site :
+ * Vrai si le formulaire d'opposition a été soumis depuis une autre origine :
  * `SameSite=Lax` n'empêche pas une réponse d'effacer le cookie. Sans
  * JavaScript, le navigateur envoie quand même `Origin` (et `Sec-Fetch-Site`)
- * sur un POST de formulaire. En-têtes absents (vieux client, curl) : accepté.
+ * sur un POST de formulaire. `hoteAttendu` : hôte ET port de la requête
+ * (`new URL(request.url).host`). Le schéma n'est pas comparé : derrière Caddy,
+ * Next peut voir `http` quand le navigateur voit `https`, et le HTTP est
+ * redirigé vers HTTPS par Caddy. En-têtes absents (vieux client, curl) : accepté.
  */
-export function soumissionIntersite(entetes: Headers, host: string): boolean {
+export function soumissionIntersite(entetes: Headers, hoteAttendu: string): boolean {
   const site = entetes.get('sec-fetch-site')
   if (site && site !== 'same-origin' && site !== 'none') return true
   const origine = entetes.get('origin')
   if (origine === null) return false
   try {
-    return new URL(origine).hostname.toLowerCase() !== host
+    return new URL(origine).host.toLowerCase() !== hoteAttendu.toLowerCase()
   } catch {
     return true // « null » ou valeur illisible
   }
@@ -1293,7 +1297,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     activee: 'Mesure d’audience activée'
     desactivee: 'Mesure d’audience désactivée'
     effacee: 'Historique de mesure effacé'
-    effacementNonConfirme: 'Effacement de l’historique demandé, non confirmé par le service de mesure'
+    effacementDemande: 'Effacement de l’historique de mesure demandé'
+    effacementRefuse: 'Effacement de l’historique de mesure refusé par le service de mesure'
   }
   export const preparerMesure: CollectionBeforeChangeHook
   export const journaliserMesure: CollectionAfterChangeHook
@@ -1535,6 +1540,7 @@ describe('protection des champs écrits par le hook', () => {
       id: communeA,
       overrideAccess: true,
     })
+    expect(apres.mesure?.active).toBe(true)
     expect(apres.mesure?.siteUmami).toBe(avant.mesure?.siteUmami)
     expect(apres.mesure?.lienPartage).toBe(avant.mesure?.lienPartage)
   })
@@ -1696,8 +1702,8 @@ export const MESSAGES_MESURE = {
   activee: 'Mesure d’audience activée',
   desactivee: 'Mesure d’audience désactivée',
   effacee: 'Historique de mesure effacé',
-  effacementNonConfirme:
-    'Effacement de l’historique demandé, non confirmé par le service de mesure',
+  effacementDemande: 'Effacement de l’historique de mesure demandé',
+  effacementRefuse: 'Effacement de l’historique de mesure refusé par le service de mesure',
 } as const
 
 interface Mesure {
@@ -1746,7 +1752,8 @@ export const preparerMesure: CollectionBeforeChangeHook = async ({
   if (data?.mesure === undefined) return data
   const avant = mesureDe(originalDoc)
   const mesure: Mesure = {
-    ...(data.mesure ?? {}),
+    // `mesure: null` n'est pas une demande de coupure : l'état actuel est gardé.
+    ...(data.mesure ?? { active: avant?.active ?? false }),
     siteUmami: avant?.siteUmami ?? null,
     lienPartage: avant?.lienPartage ?? null,
   }
@@ -1935,7 +1942,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   export const supprimerSiteMesure: CollectionAfterDeleteHook // src/hooks/mesureAudience.ts
   export const effacerHistoriqueMesure: Endpoint // POST /api/communes/:id/mesure/effacer
   // Réponses JSON { message: string } : 200 effacé, 403 droits, 404 pas d'historique,
-  // 500 journal refusé, 503 Umami refuse, 504 Umami sans réponse (effacement incertain)
+  // 500 journal refusé (rien tenté), 503 Umami refuse, 504 Umami sans réponse (effacement incertain)
   ```
 
 - [ ] **Step 1: Write the failing test**
@@ -2075,10 +2082,11 @@ describe('« Supprimer l’historique »', () => {
     expect(remisesAZero()).toHaveLength(0)
   })
 
-  it('l’admin de la commune efface : remise à zéro puis journal', async () => {
+  it('l’admin de la commune efface : demande au journal, remise à zéro, puis « effacé »', async () => {
     const r = await effacer(adminA, communeA)
     expect(r.status).toBe(200)
     expect(remisesAZero()).toHaveLength(1)
+    expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)).toBe(1)
     expect(await journalEffacement(communeA)).toBe(1)
   })
 
@@ -2086,23 +2094,27 @@ describe('« Supprimer l’historique »', () => {
     expect((await effacer(operateur, communeA)).status).toBe(200)
   })
 
-  it('Umami refuse : 503, rien au journal', async () => {
-    const avant = await journalEffacement(communeA)
+  it('Umami refuse : 503 ; au journal, la demande et le refus', async () => {
+    const effacees = await journalEffacement(communeA)
+    const demandes = await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)
     umami.reglages.horsEquipe = true
     const r = await effacer(operateur, communeA)
     expect(r.status).toBe(503)
     expect((await r.json()).message).toMatch(/rien n’a été effacé/)
-    expect(await journalEffacement(communeA)).toBe(avant)
+    expect(await journalEffacement(communeA)).toBe(effacees)
+    expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)).toBe(demandes + 1)
+    expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementRefuse)).toBe(1)
   })
 
-  it('Umami ne répond pas : 504, état incertain annoncé et tracé', async () => {
-    const avant = await journalEffacement(communeA)
+  it('Umami ne répond pas : 504, état incertain annoncé ; la demande reste au journal', async () => {
+    const effacees = await journalEffacement(communeA)
+    const demandes = await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)
     umami.reglages.panne = true
     const r = await effacer(operateur, communeA)
     expect(r.status).toBe(504)
     expect((await r.json()).message).toMatch(/a peut-être eu lieu/)
-    expect(await journalEffacement(communeA)).toBe(avant)
-    expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementNonConfirme)).toBe(1)
+    expect(await journalEffacement(communeA)).toBe(effacees)
+    expect(await journalEffacement(communeA, MESSAGES_MESURE.effacementDemande)).toBe(demandes + 1)
   })
 
   it('journal en panne : Umami n’est pas appelé, rien n’est effacé', async () => {
@@ -2146,6 +2158,27 @@ describe('suppression d’une commune', () => {
     expect(reste.totalDocs).toBe(1)
   })
 
+  it('suppression sans UMAMI_URL : refusée, sauf désinstallation déclarée', async () => {
+    const { id, site } = await creerCommuneMesuree('g')
+    delete process.env.UMAMI_URL
+    await expect(
+      payload.delete({ collection: 'communes', id, overrideAccess: true }),
+    ).rejects.toThrow(/n’est pas configuré/)
+    expect(umami.sites.has(site)).toBe(true)
+    process.env.UMAMI_DESINSTALLE = '1'
+    try {
+      await payload.delete({ collection: 'communes', id, overrideAccess: true })
+    } finally {
+      delete process.env.UMAMI_DESINSTALLE
+    }
+    const reste = await payload.count({
+      collection: 'communes',
+      where: { id: { equals: id } },
+      overrideAccess: true,
+    })
+    expect(reste.totalDocs).toBe(0)
+  })
+
   it('site déjà absent d’Umami : la suppression passe', async () => {
     const { id, site } = await creerCommuneMesuree('f')
     umami.sites.delete(site)
@@ -2179,16 +2212,25 @@ Ajouter à `src/hooks/mesureAudience.ts` (compléter les imports : `CollectionAf
  * recrée le site sous le même identifiant (`preparerMesure` revérifie le site
  * à chaque activation ; vérifié : Umami accepte de recréer l'identifiant).
  *
- * Sans UMAMI_URL, le site n'est pas supprimé et un avertissement est
- * journalisé : refuser rendrait la commune impossible à supprimer tant que la
- * mesure n'est pas réinstallée.
+ * Sans UMAMI_URL, la suppression est refusée : une variable perdue au
+ * redéploiement ne prouve pas que les données de mesure ont disparu. Seule une
+ * désinstallation déclarée (`UMAMI_DESINSTALLE=1`, après suppression de la
+ * base `umami`, README) laisse passer, avec un avertissement.
  */
 export const supprimerSiteMesure: CollectionAfterDeleteHook = async ({ doc, req }) => {
   const site = mesureDe(doc)?.siteUmami
   if (!site) return doc
   if (!mesureInstallee()) {
-    req.payload.logger.warn(`Mesure d’audience non installée : site Umami ${site} laissé en place`)
-    return doc
+    if (process.env.UMAMI_DESINSTALLE === '1') {
+      req.payload.logger.warn(`Mesure d’audience désinstallée : site Umami ${site} non supprimé`)
+      return doc
+    }
+    throw new APIError(
+      'Cette commune a un historique de mesure d’audience, mais le service de mesure n’est pas configuré (UMAMI_URL) : la commune n’a pas été supprimée.',
+      400,
+      null,
+      true,
+    )
   }
   try {
     await supprimerSite(site)
@@ -2210,7 +2252,7 @@ export const supprimerSiteMesure: CollectionAfterDeleteHook = async ({ doc, req 
 `src/endpoints/effacerHistoriqueMesure.ts` :
 
 ```ts
-import { commitTransaction, initTransaction, killTransaction, type Endpoint } from 'payload'
+import type { Endpoint } from 'payload'
 
 import { aRoleSur, isOperateur } from '../access/roles'
 import { ecrire } from '../hooks/journaliser'
@@ -2221,13 +2263,12 @@ import { effacerHistorique, UmamiIndisponible } from '../lib/umami/client'
  * POST /api/communes/:id/mesure/effacer — réservé à l'admin de la commune et
  * à l'opérateur.
  *
- * I12 face à une action externe : l'entrée de journal est écrite d'abord,
- * dans une transaction ; Umami est appelé ensuite ; la transaction n'est
- * validée qu'après sa confirmation. Un journal refusé empêche l'effacement ;
- * un refus d'Umami annule l'entrée. Sans réponse d'Umami, l'effacement a
- * peut-être eu lieu : une entrée « non confirmé » est écrite hors transaction
- * pour qu'il reste une trace. Limite acceptée : Umami confirme puis la
- * validation de la transaction échoue — effacement fait, sans entrée.
+ * I12 face à une action externe irréversible : l'intention est journalisée
+ * et VALIDÉE avant l'appel à Umami (hors transaction : `req` d'un point
+ * d'accès n'en ouvre pas), puis le résultat est journalisé. Un journal refusé
+ * empêche l'effacement. Quoi qu'il arrive ensuite (Umami sans réponse, panne
+ * de pdlm, réponse perdue par le navigateur), l'entrée « demandé » reste : une
+ * demande sans entrée « effacé » ni « refusé » signale un état incertain.
  */
 export const effacerHistoriqueMesure: Endpoint = {
   path: '/:id/mesure/effacer',
@@ -2250,29 +2291,24 @@ export const effacerHistoriqueMesure: Endpoint = {
         { status: 404 },
       )
     }
-    const transactionPropre = await initTransaction(req)
+    const journaliser = (message: string) =>
+      ecrire(req, 'commune', `${message} — ${commune.nom}`, commune.id, commune.nom)
+
     try {
-      await ecrire(
-        req,
-        'commune',
-        `${MESSAGES_MESURE.effacee} — ${commune.nom}`,
-        commune.id,
-        commune.nom,
-      )
-      await effacerHistorique(site)
-      if (transactionPropre) await commitTransaction(req)
-      return Response.json({ message: 'Historique effacé.' })
+      await journaliser(MESSAGES_MESURE.effacementDemande)
     } catch (erreur) {
-      if (transactionPropre) await killTransaction(req)
+      req.payload.logger.error({ err: erreur }, 'Journal refusé : effacement non tenté')
+      return Response.json(
+        { message: 'Le journal n’a pas pu être écrit ; rien n’a été effacé.' },
+        { status: 500 },
+      )
+    }
+
+    try {
+      await effacerHistorique(site)
+    } catch (erreur) {
       req.payload.logger.error({ err: erreur }, 'Effacement de l’historique de mesure impossible')
       if (erreur instanceof UmamiIndisponible && erreur.sansReponse) {
-        await ecrire(
-          req,
-          'commune',
-          `${MESSAGES_MESURE.effacementNonConfirme} — ${commune.nom}`,
-          commune.id,
-          commune.nom,
-        )
         return Response.json(
           {
             message:
@@ -2281,20 +2317,18 @@ export const effacerHistoriqueMesure: Endpoint = {
           { status: 504 },
         )
       }
-      if (erreur instanceof UmamiIndisponible) {
-        return Response.json(
-          {
-            message:
-              'Le service de mesure d’audience ne répond pas ; rien n’a été effacé. Réessayez plus tard.',
-          },
-          { status: 503 },
-        )
-      }
+      await journaliser(MESSAGES_MESURE.effacementRefuse)
       return Response.json(
-        { message: 'Le journal n’a pas pu être écrit ; rien n’a été effacé.' },
-        { status: 500 },
+        {
+          message:
+            'Le service de mesure d’audience a refusé l’effacement ; rien n’a été effacé. Réessayez plus tard.',
+        },
+        { status: 503 },
       )
     }
+
+    await journaliser(MESSAGES_MESURE.effacee)
+    return Response.json({ message: 'Historique effacé.' })
   },
 }
 ```
@@ -2334,7 +2368,8 @@ export function EffacerHistorique() {
       setMessage(corps.message ?? '')
       setEtape(reponse.ok ? 'fait' : 'erreur')
     } catch {
-      setMessage('Le serveur ne répond pas ; rien n’a été effacé.')
+      // La demande a pu partir : ne jamais affirmer que rien n'a été effacé.
+      setMessage('Le serveur n’a pas répondu ; l’effacement a peut-être eu lieu. Consultez le journal ou réessayez.')
       setEtape('erreur')
     }
   }
@@ -2418,7 +2453,7 @@ Expected: une ligne d'import et une entrée de table pour `EffacerHistorique`.
 - [ ] **Step 7: Run tests to verify they pass**
 
 Run: `npx vitest run --config ./vitest.config.mts tests/int/mesure-historique.int.spec.ts && npm run test:int && npm run typecheck`
-Expected: PASS (10 tests) ; suite complète et typecheck verts. Si `typecheck` refuse `user` dans `condition` (type `TypedUser` contre `UtilisateurAcces`), le convertir explicitement (`user as UtilisateurAcces`), sans changer la logique.
+Expected: PASS (11 tests) ; suite complète et typecheck verts. Si `typecheck` refuse `user` dans `condition` (type `TypedUser` contre `UtilisateurAcces`), le convertir explicitement (`user as UtilisateurAcces`), sans changer la logique.
 
 - [ ] **Step 8: Check the button by hand**
 
@@ -3247,7 +3282,7 @@ let commune: { id: number; host: string }
 
 const choisir = (host: string, choix: string, entetes: Record<string, string> = {}) =>
   POST(
-    new Request('http://interne/mesure/opposition', {
+    new Request(`https://${host}/mesure/opposition`, {
       method: 'POST',
       headers: {
         'x-commune-host': host,
@@ -3285,6 +3320,7 @@ describe('POST /mesure/opposition (I20)', () => {
     for (const entetes of [
       { origin: 'https://site-hostile.example' },
       { origin: 'null' },
+      { origin: `https://${commune.host}:8443` },
       { 'sec-fetch-site': 'cross-site' },
     ]) {
       const r = await choisir(commune.host, 'accepte', entetes)
@@ -3331,7 +3367,7 @@ export async function POST(request: Request) {
   const commune = await communeDuHost(host)
   if (!commune) return new Response(null, { status: 404 })
   // Un site tiers ne doit pas pouvoir lever l'opposition d'un visiteur.
-  if (soumissionIntersite(request.headers, host)) {
+  if (soumissionIntersite(request.headers, new URL(request.url).host)) {
     return new Response('Origine refusée', { status: 403 })
   }
   const formulaire = await request.formData().catch(() => null)
@@ -3598,24 +3634,24 @@ test.describe('Mesure d’audience', () => {
     await envoi
   })
 
-  test('sans JavaScript, refuser par le formulaire retire la balise ; accepter la remet', async ({
-    browser,
-  }) => {
+  test.describe('sans JavaScript', () => {
     // L'opposition doit fonctionner sans JavaScript (spec, section 4).
-    const contexte = await browser.newContext({ javaScriptEnabled: false })
-    const page = await contexte.newPage()
-    await page.goto('/mesure-d-audience')
-    await page.getByRole('button', { name: 'Refuser la mesure' }).click()
-    await expect(page).toHaveURL(/\/mesure-d-audience$/)
-    await expect(page.getByRole('status')).toContainText('Vous vous êtes opposé')
-    await page.goto('/')
-    await expect(page.locator(BALISE)).toHaveCount(0)
+    // `test.use` garde la baseURL de la configuration (un browser.newContext() nu la perdrait).
+    test.use({ javaScriptEnabled: false })
 
-    await page.goto('/mesure-d-audience')
-    await page.getByRole('button', { name: 'Accepter la mesure' }).click()
-    await page.goto('/')
-    await expect(page.locator(BALISE)).toHaveCount(1)
-    await contexte.close()
+    test('refuser par le formulaire retire la balise ; accepter la remet', async ({ page }) => {
+      await page.goto('/mesure-d-audience')
+      await page.getByRole('button', { name: 'Refuser la mesure' }).click()
+      await expect(page).toHaveURL(/\/mesure-d-audience$/)
+      await expect(page.getByRole('status')).toContainText('Vous vous êtes opposé')
+      await page.goto('/')
+      await expect(page.locator(BALISE)).toHaveCount(0)
+
+      await page.goto('/mesure-d-audience')
+      await page.getByRole('button', { name: 'Accepter la mesure' }).click()
+      await page.goto('/')
+      await expect(page.locator(BALISE)).toHaveCount(1)
+    })
   })
 
   test('la page est atteinte depuis le pied de page et utilisable au clavier', async ({ page }) => {
@@ -3899,7 +3935,7 @@ Tables et colonnes relevées par exécution sur Umami 3.4.0 (23/09) ; `relationM
 
 Deux choix, pour qu'I21 tienne **strictement** :
 
-- **Marge de 2 jours** : la purge tourne toutes les 24 h ; supprimer ce qui a plus de « 25 mois moins 2 jours » garantit qu'aucune ligne ne dépasse 25 mois entre deux passages.
+- **Limite calculée sur la date avancée de 2 jours** : `(maintenant + 2 jours) − 25 mois`, et non `maintenant − 25 mois + 2 jours`. La soustraction de mois « saute » en fin de mois : purgée le 28/02/2027 avec l'ancienne formule, une ligne du 31/01/2025 était gardée puis dépassait 25 mois dès le 1/03 (relevé par Astra, vérifié le 23/09). Avancer la date d'abord garantit qu'aucune ligne ne dépasse 25 mois avant la purge suivante (24 h plus tard) : balayage heure par heure sur 2026-2030, 0 violation.
 - **Sessions supprimées sur leur seule date**, qu'un événement récent s'y rattache ou non. En pratique ce cas n'arrive pas : l'identifiant de session d'Umami inclut un sel qui change chaque mois (`SALT_ROTATION=month`, lu dans `src/app/api/send/route.ts`) et le relais retire `timestamp`. Une session ne reçoit donc plus d'événement un mois après sa création. Si le cas survenait malgré tout, les événements concernés restent (moins de 25 mois) mais perdent leurs attributs de session : c'est le prix de la stricte conformité.
 
 - [ ] **Step 1: Write the failing test script**
@@ -3925,9 +3961,10 @@ nettoyer() {
 trap nettoyer EXIT
 nettoyer
 
-# VIEUX : au-delà de la limite (25 mois moins 1 jour) ; RECENT : en deçà (25 mois moins 3 jours).
-VIEUX="now() - interval '25 months' + interval '1 day'"
-RECENT="now() - interval '25 months' + interval '3 days'"
+# Même limite que la purge ; VIEUX juste en deçà, RECENT juste au-delà.
+LIMITE="((now() + interval '2 days') - interval '25 months')"
+VIEUX="($LIMITE - interval '1 hour')"
+RECENT="($LIMITE + interval '1 day')"
 SV=00000000-0000-4000-8000-0000000000a1   # session ancienne
 SR=00000000-0000-4000-8000-0000000000a2   # session récente
 EV=00000000-0000-4000-8000-0000000000e1   # événement ancien
@@ -3965,9 +4002,27 @@ attendu() { # $1=libellé $2=requête $3=valeur attendue
 }
 for t in $TABLES; do
   attendu "$t : seule la ligne récente reste" \
-    "SELECT count(*) FROM $t WHERE website_id='$SITE' AND created_at < now() - interval '25 months' + interval '2 days'" 0
+    "SELECT count(*) FROM $t WHERE website_id='$SITE' AND created_at < $LIMITE" 0
   attendu "$t : la ligne récente est gardée" \
-    "SELECT count(*) FROM $t WHERE website_id='$SITE' AND created_at >= now() - interval '25 months' + interval '2 days'" 1
+    "SELECT count(*) FROM $t WHERE website_id='$SITE' AND created_at >= $LIMITE" 1
+done
+
+# Horloge figée : fin février (année ordinaire puis bissextile), là où la soustraction
+# de mois saute. La ligne « juste trop vieille » doit partir, la suivante rester.
+purge_a() { # $1=date de purge
+  docker compose -f docker-compose.dev.yml exec -T postgres psql -q -v ON_ERROR_STOP=1 -v maintenant="$1" \
+    -U umami -d umami -f - <scripts/purge-mesure.sql >/dev/null
+}
+for cas in "2027-02-28 12:00+00|2025-01-31 00:00+00|2025-02-03 00:00+00" \
+           "2028-02-28 12:00+00|2026-01-31 00:00+00|2026-02-02 13:00+00"; do
+  IFS='|' read -r quand trop_vieux garde <<<"$cas"
+  psql_umami -c "INSERT INTO website_event (event_id, website_id, session_id, visit_id, url_path, created_at) VALUES
+    (gen_random_uuid(), '$SITE', '$SR', gen_random_uuid(), '/fige-vieux', '$trop_vieux'),
+    (gen_random_uuid(), '$SITE', '$SR', gen_random_uuid(), '/fige-garde', '$garde')" >/dev/null
+  purge_a "$quand"
+  attendu "purge du $quand : $trop_vieux supprimé" "SELECT count(*) FROM website_event WHERE website_id='$SITE' AND url_path='/fige-vieux'" 0
+  attendu "purge du $quand : $garde gardé" "SELECT count(*) FROM website_event WHERE website_id='$SITE' AND url_path='/fige-garde'" 1
+  psql_umami -c "DELETE FROM website_event WHERE website_id='$SITE' AND url_path LIKE '/fige-%'" >/dev/null
 done
 
 # Atomicité : une purge qui échoue en cours de route ne supprime rien.
@@ -3998,9 +4053,15 @@ Expected: FAIL (`scripts/purge-mesure.sql` introuvable)
 -- pdlm — purge de la mesure d'audience (I21 : aucune donnée de plus de 25 mois).
 -- Lancé par le service `purge-mesure` au démarrage puis toutes les 24 h, et par
 -- restore.sh après une restauration, avec ON_ERROR_STOP. Tables relevées sur
--- Umami 3.4.0. Limite : 25 mois moins 2 jours, pour qu'aucune ligne ne
--- dépasse 25 mois entre deux passages quotidiens.
-SELECT now() - interval '25 months' + interval '2 days' AS limite \gset
+-- Umami 3.4.0. Limite : (maintenant + 2 jours) − 25 mois — la date est avancée
+-- AVANT de retrancher les mois, sinon le saut de fin de mois laisse une ligne
+-- dépasser 25 mois avant la purge suivante (28/02 → 1/03). `-v maintenant=…`
+-- fige l'horloge pour les tests.
+\if :{?maintenant}
+\else
+\set maintenant now
+\endif
+SELECT (:'maintenant'::timestamptz + interval '2 days') - interval '25 months' AS limite \gset
 
 BEGIN;
 
@@ -4035,7 +4096,7 @@ COMMIT;
 - [ ] **Step 4: Run it to verify it passes**
 
 Run: `./scripts/tester-purge-mesure.sh`
-Expected: dix-huit lignes `OK` (deux par table), puis « purge interrompue : rien de supprimé », puis « Purge conforme (I21). »
+Expected: dix-huit lignes `OK` (deux par table), quatre lignes `OK` d'horloge figée (fin février 2027 et 2028), « purge interrompue : rien de supprimé », puis « Purge conforme (I21). »
 
 - [ ] **Step 5: Commit**
 
@@ -4138,11 +4199,12 @@ if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
   echo "     purge des données de plus de 25 mois…"
   docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami -f - \
     <scripts/purge-mesure.sql >/dev/null
-  if [ -n "$MESURE_ACTIFS" ]; then docker compose --profile mesure start $MESURE_ACTIFS; fi
+  # --wait : attend la santé (Umami) ou le démarrage (purge) ; échoue sinon.
+  if [ -n "$MESURE_ACTIFS" ]; then docker compose --profile mesure up -d --wait $MESURE_ACTIFS; fi
 fi
 ```
 
-Pas de `|| true` : si un service qui tournait ne redémarre pas, le script échoue et le dit. Un service qui ne tournait pas avant n'est pas démarré.
+Pas de `|| true` : si un service qui tournait ne redevient pas sain, le script échoue et le dit. Un service qui ne tournait pas avant n'est pas démarré.
 
 Mettre à jour l'en-tête de `restore.sh` : « … et, si la sauvegarde contient umami.sql.gz, la base de mesure d'audience, purgée à 25 mois avant remise en service ».
 
@@ -4212,6 +4274,7 @@ Dans la table « Variables d'environnement », ajouter :
 | `UMAMI_API_KEY`     | clé d'API du compte technique `pdlm`                                                |
 | `UMAMI_TEAM_ID`     | identifiant de l'équipe de l'EPCI dans Umami                                        |
 | `UMAMI_PUBLIC_URL`  | `https://stats.<plateforme>` (interface, liens de partage ; réservé, I6)            |
+| `UMAMI_DESINSTALLE` | `1` seulement après une désinstallation délibérée (base `umami` supprimée) : autorise la suppression d'une commune qui a un historique de mesure |
 
 Ajouter une section `## Mesure d'audience` après « Ajouter une commune » (et son entrée dans le Sommaire), avec :
 
@@ -4221,7 +4284,10 @@ Ajouter une section `## Mesure d'audience` après « Ajouter une commune » (et 
    - DNS `stats.<plateforme>` et le bloc Caddy (décommenter celui du `Caddyfile`) ;
    - dans Umami (`https://stats.<plateforme>`) : se connecter en `admin` / `umami` et **changer ce mot de passe** ; créer l'utilisateur `pdlm` (rôle « utilisateur ») et, connecté en `pdlm`, sa clé d'API (Paramètres → Clés d'API ; la clé n'est montrée qu'une fois) → `UMAMI_API_KEY` ; en `admin`, créer l'équipe au nom de l'EPCI et y ajouter `pdlm` avec le rôle **membre** (le rôle « lecture seule » ne peut pas créer de site — vérifié) → identifiant de l'équipe dans `UMAMI_TEAM_ID` ; ajouter les agents de l'EPCI à l'équipe en **lecture seule** ;
    - `docker compose up -d app` pour que pdlm lise les variables.
-3. **Règle** : ne jamais créer de tableau (« board ») réunissant plusieurs communes (finalité propre à chaque éditeur, spec).
+3. **Règles** :
+   - ne jamais créer de tableau (« board ») réunissant plusieurs communes (finalité propre à chaque éditeur, spec) ;
+   - **ne jamais changer `UMAMI_TEAM_ID` ni retirer `pdlm` de l'équipe** une fois une commune activée : pdlm prouve qu'un site est déjà supprimé par « membre de l'équipe et site introuvable » ; un site resté dans une autre équipe passerait pour supprimé ;
+   - **désinstaller** : couper la mesure de toutes les communes, supprimer la base `umami`, retirer `COMPOSE_PROFILES=mesure` et `UMAMI_URL`, puis poser `UMAMI_DESINSTALLE=1`. Sans cette dernière variable, pdlm refuse de supprimer une commune qui a un historique de mesure (une `UMAMI_URL` perdue au redéploiement ne doit pas laisser de données orphelines).
 4. **Activer pour une commune** : admin de la commune, fiche commune → « Mesure d’audience » ; transmettre le « Lien de partage » au maire.
 5. **Couper, effacer** : couper n'efface rien (purge à 25 mois) ; « Supprimer l’historique » efface tout, définitivement.
 6. **Conservation** : purge quotidienne (service `purge-mesure`) ; tester avec `./scripts/tester-purge-mesure.sh` (pile de développement, profil `mesure`). Une sauvegarde de plus de 25 mois contient des données de mesure à supprimer.
@@ -4360,6 +4426,34 @@ Reporter la valeur dans le README (tâche 14, point 8).
 - [ ] **Step 8: Bouton « Supprimer l’historique » et lien du maire**
 
 Dans l'admin : le lien de partage ouvert dans une fenêtre privée montre la vue d'ensemble sans onglet sessions ni temps réel ; « Supprimer l’historique » → confirmation → « Historique effacé. » ; l'entrée « Historique de mesure effacé — … » est au journal ; `website_event` est vide pour ce site.
+
+- [ ] **Step 8b: Par HTTP réel, sur le serveur construit (pas seulement en appelant les fonctions)**
+
+Les tests d'intégration appellent les hooks, les routes et le point d'accès directement. Ici, on vérifie la même chose à travers Next et Payload construits (`docker compose` de la tâche 11, image reconstruite). `$JWT` : jeton de l'opérateur (`POST /api/users/login`) ; `$A` : identifiant d'une commune mesurée ; `$HOST_A`, `$HOST_B` : domaines de deux communes **toutes deux mesurées** (le bloc `:80` de `Caddyfile.dev` accepte tout hôte).
+
+```bash
+# mesure: null ne coupe rien et ne touche pas aux champs du hook
+curl -s -X PATCH "http://localhost/api/communes/$A" -H "Authorization: JWT $JWT" \
+  -H 'Content-Type: application/json' -d '{"mesure":null}' | jq '.doc.mesure'
+# erreur publique : Umami arrêté → message lisible, pas « Something went wrong »
+docker compose stop umami
+curl -s -X PATCH "http://localhost/api/communes/$B_COUPEE" -H "Authorization: JWT $JWT" \
+  -H 'Content-Type: application/json' -d '{"mesure":{"active":true}}' | jq '.errors[0].message'
+docker compose start umami
+# effacement par le vrai point d'accès, puis le journal
+curl -s -X POST "http://localhost/api/communes/$A/mesure/effacer" -H "Authorization: JWT $JWT"
+# frontière du proxy : en-tête interne forgé vers B, requête sur A → seul A reçoit la visite
+curl -s -o /dev/null -w '%{http_code}\n' --resolve "$HOST_A:80:127.0.0.1" "http://$HOST_A/mesure/api/send" \
+  -H "x-commune-host: $HOST_B" -H 'Content-Type: application/json' \
+  -d '{"type":"event","payload":{"url":"/preuve-proxy"}}'
+docker compose exec -T postgres psql -U postgres -d umami -tAc \
+  "SELECT website_id FROM website_event WHERE url_path='/preuve-proxy'"
+# opposition envoyée depuis une autre origine → 403, cookie intact
+curl -s -o /dev/null -w '%{http_code}\n' -X POST --resolve "$HOST_A:80:127.0.0.1" "http://$HOST_A/mesure/opposition" \
+  -H 'Origin: https://site-hostile.example' -d 'choix=accepte'
+```
+
+Expected : `active` et `siteUmami` inchangés ; message « Le service de mesure d’audience ne répond pas ; la mesure reste coupée… » (statut 503) ; « Historique effacé. » puis, au journal, « … demandé » et « Historique de mesure effacé » ; la visite `/preuve-proxy` enregistrée sous le site de A uniquement ; 403. Dans l'admin, avec les trois profils (opérateur, admin de la commune, rédacteur) : le bouton « Supprimer l’historique » n'apparaît que pour les deux premiers, et le message d'erreur d'activation s'affiche en clair.
 
 - [ ] **Step 9: Commit the README results**
 
