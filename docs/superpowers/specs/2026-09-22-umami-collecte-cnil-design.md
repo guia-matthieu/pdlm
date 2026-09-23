@@ -1,6 +1,6 @@
 # Mesure d'audience — projet A : collecte conforme CNIL (design)
 
-Date : 2026-09-22 · Statut : sections 1 et 2 validées en séance, sections 3 à 6 sur recommandation (délégation de l'utilisateur), à relire
+Date : 2026-09-22 · Statut : validée par l'utilisateur le 23/09 ; points de lecture confirmés par exécution le 23/09
 
 ## Contexte et décisions
 
@@ -175,7 +175,7 @@ Le script SQL, dans une transaction, supprime ce qui a plus de 25 mois (`created
 
 ## 6. Caddy, développement, tests
 
-**Caddyfile d'exemple** : un bloc `stats.<plateforme>` qui renvoie 404 sur `/api/send`, `/api/record`, `/script.js`, `/recorder.js`, `/p/*` et `/q/*` (chemins de collecte, de rejeu, de pixels et de liens relevés dans le code), et `reverse_proxy umami:3000` pour le reste. `Caddyfile.dev` reçoit un bloc `stats.localhost` identique.
+**Caddyfile d'exemple** : un bloc `stats.<plateforme>` qui renvoie 404 sur `/api/send`, `/api/batch`, `/api/record`, `/script.js`, `/recorder.js`, `/p/*` et `/q/*` (chemins de collecte, de rejeu, de pixels et de liens relevés dans le code), et `reverse_proxy umami:3000` pour le reste. `Caddyfile.dev` reçoit un bloc `stats.localhost` identique.
 
 **I22** — La collecte n'est joignable que par le relais : le conteneur `umami` n'a aucun port publié et les chemins de collecte répondent 404 sur `stats.<plateforme>`.
 
@@ -205,15 +205,30 @@ La CI n'a pas besoin d'un conteneur Umami. L'image `umami` rejoint le job Trivy 
 - aller-retour `backup.sh` puis `restore.sh` qui inclut la base `umami` ;
 - mémoire consommée par le conteneur `umami`.
 
-## Points vérifiés en lisant le code, à confirmer par exécution
+## Points vérifiés par exécution (23/09/2026)
 
-- L'API accepte l'identifiant de site fourni, et un doublon produit une erreur exploitable.
-- Le rôle dont le compte `pdlm` a besoin dans l'équipe pour y créer des sites.
-- Le filtrage des vues d'un lien de partage côté API (`canViewWebsiteSection`).
-- Le contenu exact de la remise à zéro (`deleteWebsiteDependentData`).
-- La présence de la base de géolocalisation dans l'image officielle.
-- Les noms de tables et de colonnes pour la purge.
-- L'étiquette exacte de l'image officielle 3.4.0, avant d'en relever l'empreinte.
+Umami 3.4.0 lancé sur une base jetable, API appelée avec une clé d'API réelle. Les sept points « lus, non exécutés » sont confirmés, avec des précisions qui changent l'implémentation :
+
+| Point | Résultat |
+| --- | --- |
+| Identifiant de site fourni | Accepté par `POST /api/websites`. Un doublon répond **500 sans corps** (pas une erreur exploitable) ; `GET /api/websites/:id` d'un site absent répond **401**, pas 404. C'est donc la lecture qui tranche après un échec de création. |
+| Rôle du compte `pdlm` dans l'équipe | `team-member` suffit pour créer, partager, remettre à zéro et supprimer ; `team-view-only` reçoit 401. Clés d'API actives hors `CLOUD_MODE`, en `Authorization: Bearer umami_…` ; `/api/me` les accepte, ce qui distingue une clé refusée d'un site absent. |
+| Vues d'un lien de partage `overview` seul | Avec l'en-tête `x-umami-share-context: 1` (celui de l'interface de partage) : statistiques, courbe des pages vues et métriques (pages, villes) lisibles ; sessions, détail d'une session, événements, données d'événements, temps réel, rapports et tout autre site refusés (401). |
+| Remise à zéro | Visites et sessions effacées ; site et lien de partage conservés. `DELETE /api/websites/:id` est **définitif** (partage compris) et recréer le même identifiant fonctionne ; un second `DELETE` répond 401. |
+| Base de géolocalisation | `/app/geo/GeoLite2-City.mmdb` (66 Mo) présente ; une IP tronquée transmise en `x-pdlm-ip` donne pays et ville. |
+| Tables et colonnes de la purge | Les huit tables existent, toutes avec `created_at` ; `relationMode = "prisma"` : aucune clé étrangère en base. |
+| Image | `ghcr.io/umami-software/umami:3.4.0@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367` (index amd64 + arm64). |
+
+Constat supplémentaire : un champ `ip` dans le corps l'emporte bien sur l'en-tête d'IP (`8.8.8.8` a localisé la visite aux États-Unis malgré un en-tête tronqué français). Le filtrage du corps par le relais est donc indispensable, pas une précaution.
+
+**Amendements à la conception, tirés de ces vérifications :**
+
+- **Services Umami dans un profil Compose `mesure`** : `${X:?}` dans `docker-compose.yml` fait refuser toute la pile, même profil inactif (vérifié). La mesure reste optionnelle ; les variables manquantes sont refusées par les conteneurs eux-mêmes.
+- **`/api/batch` rejoint les chemins bloqués** sur `stats.<plateforme>` : c'est une seconde porte de collecte (I22).
+- **Le relais répond 204** (et non 404) sur le domaine de la plateforme : c'est le cas « commune introuvable » de l'étape 2. Le script et le formulaire d'opposition, eux, répondent 404.
+- Next n'ajoute `X-Forwarded-For` que s'il est absent (`??=`, `base-server.js`) : la valeur de droite est celle de Caddy en production, l'adresse locale en développement (écartée par le relais).
+
+Plan d'implémentation : `docs/superpowers/plans/2026-09-23-umami-collecte-cnil.md`.
 
 ## Risques connus et acceptés
 
