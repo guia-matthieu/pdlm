@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 
 import { BandeauAlerte } from '@/components/BandeauAlerte'
@@ -7,6 +8,8 @@ import { Navigation } from '@/components/Navigation'
 import { PiedDePage } from '@/components/PiedDePage'
 import { alertesActives, menuCommune, pagesDuMenu } from '@/lib/contenu'
 import { resolveCommune } from '@/lib/commune'
+import { siteMesure } from '@/lib/mesure/etat'
+import { COOKIE_OPPOSITION, estOppose } from '@/lib/mesure/opposition'
 
 import './styles.css'
 
@@ -41,6 +44,10 @@ export default async function LayoutFront({ children }: { children: React.ReactN
   const couleurPrincipale = commune.apparence?.couleurPrincipale || undefined
   const couleurAccent = commune.apparence?.couleurAccent || undefined
 
+  // I20 : pas de script pour un visiteur qui s'est opposé.
+  const oppose = estOppose((await cookies()).get(COOKIE_OPPOSITION)?.value)
+  const siteUmami = oppose ? null : siteMesure(commune)
+
   return (
     <html lang="fr">
       <body
@@ -65,6 +72,18 @@ export default async function LayoutFront({ children }: { children: React.ReactN
         </header>
         <main id="contenu">{children}</main>
         <PiedDePage commune={commune} />
+        {siteUmami && (
+          <script
+            defer
+            src="/mesure/script.js"
+            data-website-id={siteUmami}
+            data-host-url="/mesure"
+            data-exclude-search="true"
+            data-exclude-hash="true"
+            data-do-not-track="true"
+            data-fetch-credentials="same-origin"
+          />
+        )}
       </body>
     </html>
   )

@@ -5,7 +5,15 @@ import { ValidationError } from 'payload'
 import { slugifier } from './formatSlug'
 
 /** Slugs réservés aux routes statiques du front public (R7). */
-export const SLUGS_RESERVES = ['actualites', 'agenda', 'documents', 'admin', 'api']
+export const SLUGS_RESERVES = [
+  'actualites',
+  'agenda',
+  'documents',
+  'admin',
+  'api',
+  'mesure',
+  'mesure-d-audience',
+]
 
 /**
  * Unicité de slug dans le périmètre de la commune (UX — la garantie forte est
