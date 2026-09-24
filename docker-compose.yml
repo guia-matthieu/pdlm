@@ -219,9 +219,16 @@ services:
       - /bin/sh
       - -c
       - |
+        # depends_on est ignoré quand Docker relance les conteneurs (reboot) :
+        # attendre Postgres, et réessayer vite après un échec plutôt qu'à J+1.
         while true; do
-          psql -v ON_ERROR_STOP=1 -f /purge-mesure.sql || echo "ÉCHEC de la purge de la mesure d'audience (I21)" >&2
-          sleep 86400
+          until pg_isready -q; do sleep 5; done
+          if psql -v ON_ERROR_STOP=1 -f /purge-mesure.sql; then
+            sleep 86400
+          else
+            echo "ÉCHEC de la purge de la mesure d'audience (I21)" >&2
+            sleep 300
+          fi
         done
 
   caddy:

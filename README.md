@@ -230,6 +230,19 @@ supprimer.
    opposition/CSRF vérifiés par des appels HTTP réels sur le serveur
    construit (pas seulement via les fonctions).
 
+**Recette du 24 septembre 2026 (pile locale de type production) :** les
+points ci-dessus ont été joués sur la pile Docker locale (Caddy, Umami
+3.4.0), y compris à travers l'interface d'admin avec les trois profils —
+l'effacement d'historique (journal et base vidés), le lien de partage du
+maire (vue d'ensemble, sans onglets sessions ni temps réel), le
+cloisonnement entre communes, l'opposition et le message d'erreur quand
+Umami est arrêté. En local, les pages vues arrivent mais pays et ville
+restent vides (IP locale écartée) et `X-Forwarded-For` porte l'adresse vue
+par Caddy. Deux durcissements en sont sortis : `purge-mesure` attend
+Postgres et réessaie après un échec (le `depends_on` de Compose est
+ignoré quand Docker relance les conteneurs au redémarrage) ;
+`restore.sh` attend que Postgres réponde avant de vérifier le rôle umami.
+
 **Coût mémoire :** conteneur Umami mesuré en développement, au repos :
 146,9 Mio.
 

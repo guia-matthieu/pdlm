@@ -42,6 +42,17 @@ gunzip -t "$DOSSIER_ABS/postgres.sql.gz" 2>/dev/null || {
   exit 1
 }
 
+# Pile qui vient de démarrer : sans cette attente, « Postgres pas encore prêt »
+# serait lu comme « rôle umami absent » par le contrôle ci-dessous.
+for _ in $(seq 30); do
+  docker compose exec -T postgres pg_isready -q 2>/dev/null && break
+  sleep 2
+done
+docker compose exec -T postgres pg_isready -q 2>/dev/null || {
+  echo "ÉCHEC : PostgreSQL ne répond pas — restauration annulée." >&2
+  exit 1
+}
+
 # Mesure d'audience : prérequis vérifiés avant la moindre écriture.
 if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
   gunzip -t "$DOSSIER_ABS/umami.sql.gz" 2>/dev/null || {

@@ -183,7 +183,7 @@ export interface Commune {
    */
   mesure?: {
     /**
-     * Mesure d’audience non installée sur cette plateforme
+     * Couper n’efface rien : l’historique reste jusqu’à sa purge à 25 mois.
      */
     active?: boolean | null
     siteUmami?: string | null
@@ -206,6 +206,8 @@ export interface Media {
    * Obligatoire pour l’accessibilité (RGAA).
    */
   alt: string
+  prefix?: string | null
+  _objectKey?: string | null
   updatedAt: string
   createdAt: string
   url?: string | null
@@ -517,6 +519,8 @@ export interface Document {
    * Ex. : « 5 ans » — information reprise dans la politique de confidentialité de la commune.
    */
   dureeConservation?: string | null
+  prefix?: string | null
+  _objectKey?: string | null
   updatedAt: string
   createdAt: string
   url?: string | null
@@ -787,6 +791,8 @@ export interface UsersSelect<T extends boolean = true> {
 export interface MediaSelect<T extends boolean = true> {
   tenant?: T
   alt?: T
+  prefix?: T
+  _objectKey?: T
   updatedAt?: T
   createdAt?: T
   url?: T
@@ -977,6 +983,8 @@ export interface DocumentsSelect<T extends boolean = true> {
   categorie?: T
   dateDocument?: T
   dureeConservation?: T
+  prefix?: T
+  _objectKey?: T
   updatedAt?: T
   createdAt?: T
   url?: T
