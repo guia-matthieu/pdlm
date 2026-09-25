@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { aiguiller } from './lib/adresses'
+
 /**
  * Invariant I7 — proxy Next 16 (ex-middleware, runtime Node) :
  * 1. `/admin` est traité AVANT toute exclusion : si le host n'est pas le
@@ -7,7 +9,8 @@ import { NextResponse, type NextRequest } from 'next/server'
  * 2. sur les domaines communaux, `/api` n'autorise que les routes fichiers
  *    et `/api/health` (exception interne explicite) — le reste vit sur la
  *    plateforme ;
- * 3. `x-commune-host` est TOUJOURS écrasé (jamais lu depuis le client).
+ * 3. `x-commune-host` et `x-pdlm-chemin` sont TOUJOURS écrasés (jamais lus
+ *    depuis le client).
  */
 const ROUTES_API_PUBLIQUES = [/^\/api\/(media|documents)\/file\//, /^\/api\/health\/?$/]
 
@@ -58,9 +61,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 4. Front public : écraser x-commune-host (unique source de vérité)
+  // 4. Front public : écraser x-commune-host et x-pdlm-chemin (jamais lus du
+  //    client), puis aiguiller la langue (spec multilingue § 3) : un chemin
+  //    sans préfixe de langue est réécrit en interne vers la sentinelle de
+  //    [lang] — le visiteur ne voit pas la réécriture.
   const entetes = new Headers(request.headers)
   entetes.set('x-commune-host', host)
+  entetes.set('x-pdlm-chemin', pathname + request.nextUrl.search)
+  const reecriture = aiguiller(pathname)
+  if (reecriture) {
+    const cible = request.nextUrl.clone()
+    cible.pathname = reecriture
+    return NextResponse.rewrite(cible, { request: { headers: entetes } })
+  }
   return NextResponse.next({ request: { headers: entetes } })
 }
 
