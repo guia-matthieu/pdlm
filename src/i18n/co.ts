@@ -1,0 +1,50 @@
+import type { Dictionnaire } from './fr'
+
+/**
+ * Corse — TEXTES PROVISOIRES, à relire par un locuteur avant la mise en
+ * production (spec multilingue § 10, point 1).
+ */
+export const co: Dictionnaire = {
+  evitement: 'Andà à u cuntenutu',
+  menuPrincipal: 'Menu principale',
+  selecteurLangue: 'Lingua di u situ',
+  accueil: 'Accolta',
+  actualites: 'Nutizie',
+  agenda: 'Agenda',
+  documents: 'Ducumenti',
+  descriptionSite: (nom) => `Situ ufficiale di u cumunu di ${nom} : nutizie, agenda è pratiche.`,
+  bienvenue: (nom) => `Benvenuti à ${nom}`,
+  enConstruction: 'U situ hè in custruzzione. Riturnate prestu !',
+  consulter: 'Pudete fighjà :',
+  aucuneActualite: 'Nisuna nutizia per avà.',
+  pagination: 'Paginazione',
+  precedent: 'Precedente',
+  suivant: 'Seguente',
+  pageSur: (numero, total) => `Pagina ${numero} / ${total}`,
+  aucunEvenement: 'Nisun avvenimentu à vene.',
+  lieu: (lieu) => `Locu : ${lieu}`,
+  sInscrire: 'Scriversi',
+  filtrerCategorie: 'Filtrà per categuria',
+  toutes: 'Tutte',
+  aucunDocument: 'Nisun ducumentu in sta categuria.',
+  conservation: (duree) => `cunservazione : ${duree}`,
+  categories: {
+    deliberations: 'Deliberazioni',
+    arretes: 'Decreti',
+    budget: 'Bilanciu',
+    urbanisme: 'Urbanisimu',
+    autres: 'Altri',
+  },
+  horaires: 'Orarii :',
+  contact: 'Cuntattu',
+  telephone: 'Telefonu :',
+  courriel: 'Messaghju :',
+  informations: 'Infurmazioni',
+  mentionsLegales: 'Menzioni legali',
+  confidentialite: 'Pulitica di cunfidenzialità',
+  accessibilite: 'Accessibilità',
+  mesureAudience: 'Misura d’audienza',
+  propulsePar: 'Situ purtatu da',
+  logicielLibre: '(prugrammu liberu).',
+  nonTraduit: 'Sta pagina ùn hè ancu tradotta in corsu : eccu a versione in francese.',
+}

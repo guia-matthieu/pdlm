@@ -57,7 +57,7 @@ export default async function PageDocuments({
               <span className="liste-documents__meta">
                 ({CATEGORIES[doc.categorie] ?? doc.categorie})
                 {doc.dateDocument
-                  ? ` — ${formaterDate(doc.dateDocument, { dateStyle: 'long' })}`
+                  ? ` — ${formaterDate(doc.dateDocument, 'fr', { dateStyle: 'long' })}`
                   : ''}
                 {doc.dureeConservation ? ` — conservation : ${doc.dureeConservation}` : ''}
               </span>

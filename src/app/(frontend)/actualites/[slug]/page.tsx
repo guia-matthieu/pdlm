@@ -42,7 +42,7 @@ export default async function ActualiteDetail({ params }: Props) {
       <p className="actu-detail__meta">
         {actu.datePublication && (
           <time dateTime={actu.datePublication}>
-            {formaterDate(actu.datePublication, { dateStyle: 'long' })}
+            {formaterDate(actu.datePublication, 'fr', { dateStyle: 'long' })}
           </time>
         )}
         {auteur?.nom ? ` — ${auteur.nom}` : ''}

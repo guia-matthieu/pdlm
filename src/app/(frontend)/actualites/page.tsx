@@ -36,7 +36,7 @@ export default async function ListeActualites({
               {actu.datePublication && (
                 <p className="carte-actu__date">
                   <time dateTime={actu.datePublication}>
-                    {formaterDate(actu.datePublication, { dateStyle: 'long' })}
+                    {formaterDate(actu.datePublication, 'fr', { dateStyle: 'long' })}
                   </time>
                 </p>
               )}

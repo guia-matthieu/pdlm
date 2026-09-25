@@ -26,11 +26,14 @@ export default async function PageAgenda() {
             <li key={evenement.id} className="carte-evenement">
               <p className="carte-evenement__quand">
                 <time dateTime={evenement.dateDebut}>
-                  {formaterDate(evenement.dateDebut, { dateStyle: 'full', timeStyle: 'short' })}
+                  {formaterDate(evenement.dateDebut, 'fr', {
+                    dateStyle: 'full',
+                    timeStyle: 'short',
+                  })}
                 </time>
                 {' — '}
                 <time dateTime={evenement.dateFin}>
-                  {formaterDate(evenement.dateFin, { dateStyle: 'full', timeStyle: 'short' })}
+                  {formaterDate(evenement.dateFin, 'fr', { dateStyle: 'full', timeStyle: 'short' })}
                 </time>
               </p>
               <h2>{evenement.titre}</h2>
