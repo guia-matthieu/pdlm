@@ -14,7 +14,7 @@ import {
 } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
 import { creerEnFrancais, requisEnFrancais } from '../lib/champs-langue'
-import { FRANCAIS, LANGUES_REGIONALES, estCodeLangue, langueDe } from '../lib/langues'
+import { FRANCAIS, LANGUES_REGIONALES, nomLangueMinuscule } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** Domaines réservés à la plateforme — un hostname communal ne peut pas les prendre (I6). */
@@ -91,9 +91,15 @@ export const Communes: CollectionConfig = {
                   },
                 })
           if (canoniques.totalDocs === 0) {
-            throw new Error(
-              'Activation impossible : la commune doit posséder un domaine canonique en français.',
-            )
+            throw new ValidationError({
+              errors: [
+                {
+                  path: 'actif',
+                  message:
+                    'Activation impossible : la commune doit posséder un domaine canonique en français.',
+                },
+              ],
+            })
           }
         }
 
@@ -112,11 +118,10 @@ export const Communes: CollectionConfig = {
             })
             const d = servis.docs[0]
             if (d) {
-              const nom = estCodeLangue(d.langue) ? langueDe(d.langue).nom.toLowerCase() : d.langue
               throw new ValidationError({
                 errors: [{
                   path: 'langues',
-                  message: `Le ${nom} est servi à la racine de ${d.hostname}. Changez d’abord la langue de ce domaine.`,
+                  message: `Le ${nomLangueMinuscule(d.langue)} est servi à la racine de ${d.hostname}. Changez d’abord la langue de ce domaine.`,
                 }],
               })
             }

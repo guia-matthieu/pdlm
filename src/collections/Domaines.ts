@@ -4,7 +4,7 @@ import { ValidationError } from 'payload'
 
 import { idDe, isOperateur } from '../access/roles'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
-import { FRANCAIS, LANGUES, estCodeLangue, langueDe } from '../lib/langues'
+import { FRANCAIS, LANGUES, nomLangueMinuscule } from '../lib/langues'
 import { hostnamesReserves } from './Communes'
 
 /** Normalisation d'un hostname : minuscules, IDNA-ASCII, sans port ni point final (I6). */
@@ -93,15 +93,13 @@ export const Domaines: CollectionConfig = {
 
         // La langue servie à la racine doit être activée pour la commune.
         if (langue !== FRANCAIS && !((cible.langues as string[] | null) ?? []).includes(langue)) {
-          const nom = estCodeLangue(langue) ? langueDe(langue).nom.toLowerCase() : langue
-          throw erreur('langue', `La commune n’a pas activé le ${nom}. Activez-le d’abord dans sa fiche (Langues du site).`)
+          throw erreur('langue', `La commune n’a pas activé le ${nomLangueMinuscule(langue)}. Activez-le d’abord dans sa fiche (Langues du site).`)
         }
 
         // I6 élargi : au plus un canonique par commune et par langue (l'index
         // unique partiel de la migration multilingue le garantit en base).
         if (canonique && (await compterCanoniques(req, commune, langue, originalDoc?.id)) > 0) {
-          const nom = estCodeLangue(langue) ? langueDe(langue).nom.toLowerCase() : langue
-          throw erreur('canonique', `Cette commune possède déjà un domaine canonique en ${nom}.`)
+          throw erreur('canonique', `Cette commune possède déjà un domaine canonique en ${nomLangueMinuscule(langue)}.`)
         }
 
         // Le canonique français reste requis pour une commune active : on ne

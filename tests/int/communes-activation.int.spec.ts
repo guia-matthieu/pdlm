@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { getPayloadClient } from '@/lib/payload'
 
+import { refus } from '../helpers/refus'
+
 /**
  * I6 — une commune active doit posséder un domaine canonique. Le contrôle
  * (`beforeChange` de `Communes`) compare `commune_id` à
@@ -34,15 +36,17 @@ describe('I6 — activation d’une commune à la création', () => {
   it('refuse avec un message clair la création d’une commune active sans domaine canonique', async () => {
     const suffixe = `${Date.now()}`
     await expect(
-      payload.create({
-        collection: 'communes',
-        data: {
-          nom: `Activation ${suffixe}`,
-          slug: `communes-activation-${suffixe}`,
-          actif: true,
-        },
-        overrideAccess: true,
-      }),
+      refus(
+        payload.create({
+          collection: 'communes',
+          data: {
+            nom: `Activation ${suffixe}`,
+            slug: `communes-activation-${suffixe}`,
+            actif: true,
+          },
+          overrideAccess: true,
+        }),
+      ),
     ).rejects.toThrow(/domaine canonique/i)
 
     const restante = await payload.count({

@@ -75,3 +75,8 @@ export function langueDe(code: CodeLangue): Langue {
   if (!langue) throw new Error(`Langue inconnue : « ${code} »`)
   return langue
 }
+
+/** Nom d'une langue en minuscules, pour les messages d'erreur ; la valeur telle quelle si le code est inconnu. */
+export function nomLangueMinuscule(code: string): string {
+  return estCodeLangue(code) ? langueDe(code).nom.toLowerCase() : code
+}

@@ -82,6 +82,14 @@ describe('I15 — désactiver une langue servie à la racine', () => {
       payload.update({ collection: 'communes', id: c.id, data: { langues: [] }, overrideAccess: true }),
     ).resolves.toMatchObject({ langues: [] })
   })
+
+  it('refuse aussi quand le domaine qui la sert n’est pas canonique', async () => {
+    const c = await commune(['co'])
+    await domaine(c.id, `${c.host}.corsica`, 'co', false)
+    await expect(
+      refus(payload.update({ collection: 'communes', id: c.id, data: { langues: [] }, overrideAccess: true })),
+    ).rejects.toThrow(new RegExp(`${c.host}\\.corsica.*changez d’abord`, 'i'))
+  })
 })
 
 describe('I16 — un code de langue n’est pas un slug de page', () => {

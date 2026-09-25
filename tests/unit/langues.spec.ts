@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { CODES_LANGUES, LANGUES, LANGUES_REGIONALES, estCodeLangue, langueDe } from '@/lib/langues'
+import {
+  CODES_LANGUES,
+  LANGUES,
+  LANGUES_REGIONALES,
+  estCodeLangue,
+  langueDe,
+  nomLangueMinuscule,
+} from '@/lib/langues'
 
 describe('liste des langues', () => {
   it('commence par le français, toujours présent', () => {
@@ -32,5 +39,16 @@ describe('liste des langues', () => {
       expect(l.dates?.mois).toHaveLength(12)
       expect(l.dates?.jours).toHaveLength(7)
     }
+  })
+
+  describe('nomLangueMinuscule', () => {
+    it('donne le nom en minuscules pour un code de langue connu', () => {
+      expect(nomLangueMinuscule('co')).toBe('corse')
+      expect(nomLangueMinuscule('fr')).toBe('français')
+    })
+
+    it('rend la valeur telle quelle pour un code inconnu', () => {
+      expect(nomLangueMinuscule('xx')).toBe('xx')
+    })
   })
 })
