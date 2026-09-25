@@ -50,9 +50,9 @@ export const contexteLangue = cache(async (param: string): Promise<ContexteLangu
 })
 
 /**
- * `alternates` d'une rubrique fixe (/actualites, /agenda, /documents,
- * /mesure-d-audience) : l'interface est toujours traduite, donc la rubrique
- * existe dans toutes les langues du site.
+ * `alternates` d'une rubrique fixe (/, /actualites, /agenda, /documents) :
+ * l'interface est toujours traduite, donc la rubrique existe dans toutes les
+ * langues du site.
  */
 export async function alternatesRubrique(ctx: ContexteLangue, chemin: string) {
   return adressesAlternatives({

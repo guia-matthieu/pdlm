@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { RichText } from '@/components/RichText'
+import { cheminLangue } from '@/lib/adresses'
 import { evenementsCommune, versionsEnLangue } from '@/lib/contenu'
 import { formaterDate } from '@/lib/dates'
 import { alternatesRubrique, contexteLangue } from '@/lib/langue-courante'
@@ -25,6 +26,7 @@ export default async function PageAgenda({ params }: Props) {
   const { t } = ctx
   const res = await evenementsCommune(ctx.site.commune.id)
   const evenements = await versionsEnLangue('evenements', res.docs, ctx.langue)
+  const lien = (c: string) => cheminLangue(c, ctx.langue, ctx.site.langueRacine)
   const date = (d: string) => formaterDate(d, ctx.langue, { dateStyle: 'full', timeStyle: 'short' })
 
   return (
@@ -51,7 +53,7 @@ export default async function PageAgenda({ params }: Props) {
                 // Le lieu (contenu) domine la phrase : elle garde la langue de l'événement.
                 <p className="carte-evenement__lieu">{t.lieu(evenement.lieu)}</p>
               )}
-              <RichText data={evenement.description} />
+              <RichText data={evenement.description} lien={lien} />
               {evenement.inscription?.actif && evenement.inscription?.lien && (
                 <p lang={ctx.langue}>
                   <a className="bouton bouton--primaire" href={evenement.inscription.lien}>

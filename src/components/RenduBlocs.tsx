@@ -50,7 +50,7 @@ export function RenduBlocs({
           case 'texteRiche':
             return (
               <section key={i} className="bloc bloc-texte">
-                <RichText data={bloc.contenu} />
+                <RichText data={bloc.contenu} lien={lien} />
               </section>
             )
           case 'image':
@@ -90,7 +90,7 @@ export function RenduBlocs({
                     <summary>
                       <h2>{element.titre}</h2>
                     </summary>
-                    <RichText data={element.contenu} />
+                    <RichText data={element.contenu} lien={lien} />
                   </details>
                 ))}
               </section>

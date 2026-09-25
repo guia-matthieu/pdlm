@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { ContenuEnLangue } from '@/components/ContenuEnLangue'
 import { MediaImage } from '@/components/MediaImage'
 import { RichText } from '@/components/RichText'
-import { adressesAlternatives } from '@/lib/adresses'
+import { adressesAlternatives, cheminLangue } from '@/lib/adresses'
 import {
   actualiteParSlug,
   auteurResume,
@@ -80,7 +80,10 @@ export default async function ActualiteDetail({ params }: Props) {
             langueAffichee={langue}
           />
         ) : null}
-        <RichText data={actu.contenu} />
+        <RichText
+          data={actu.contenu}
+          lien={(c) => cheminLangue(c, ctx.langue, ctx.site.langueRacine)}
+        />
       </article>
     </ContenuEnLangue>
   )

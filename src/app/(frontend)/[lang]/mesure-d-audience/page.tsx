@@ -3,8 +3,9 @@ import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 
 import { ContenuEnLangue } from '@/components/ContenuEnLangue'
-import { cheminLangue } from '@/lib/adresses'
-import { alternatesRubrique, contexteLangue } from '@/lib/langue-courante'
+import { adressesAlternatives, cheminLangue } from '@/lib/adresses'
+import { basePlateforme, domainesCommune } from '@/lib/contenu'
+import { contexteLangue } from '@/lib/langue-courante'
 import { siteMesure } from '@/lib/mesure/etat'
 import { COOKIE_OPPOSITION, estOppose } from '@/lib/mesure/opposition'
 
@@ -12,14 +13,23 @@ interface Props {
   params: Promise<{ lang: string }>
 }
 
+/**
+ * R10 : le contenu est un repli français (écart n° 7) — canonique sur
+ * l'adresse française, hreflang `fr` et `x-default` seulement.
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ctx = await contexteLangue((await params).lang)
-  return ctx
-    ? {
-        title: ctx.t.mesureAudience,
-        alternates: await alternatesRubrique(ctx, '/mesure-d-audience'),
-      }
-    : {}
+  if (!ctx) return {}
+  return {
+    title: ctx.t.mesureAudience,
+    alternates: adressesAlternatives({
+      chemin: '/mesure-d-audience',
+      langueContenu: 'fr',
+      languesDisponibles: ['fr'],
+      domaines: await domainesCommune(ctx.site.commune.id),
+      basePlateforme: basePlateforme(ctx.site.commune.slug),
+    }),
+  }
 }
 
 /**
