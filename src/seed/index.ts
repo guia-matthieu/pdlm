@@ -93,6 +93,28 @@ async function seed() {
     canonique: false,
   })
 
+  // Multilingue (démo) : Valvert active le corse et reçoit un domaine .corsica
+  // — nom corse « Valverde » provisoire, à relire par un locuteur (spec § 10, point 1).
+  await payload.update({
+    collection: 'communes',
+    id: valvert.id,
+    data: { langues: ['co'] },
+    overrideAccess: true,
+  })
+  await payload.update({
+    collection: 'communes',
+    id: valvert.id,
+    locale: 'co',
+    data: { nom: 'Valverde' },
+    overrideAccess: true,
+  })
+  await upsertDomaine(payload, {
+    hostname: 'valvert.corsica',
+    commune: valvert.id,
+    canonique: true,
+    langue: 'co',
+  })
+
   // Activation après création des canoniques (I6)
   for (const commune of [saintEx, valvert]) {
     if (!commune.actif) {
