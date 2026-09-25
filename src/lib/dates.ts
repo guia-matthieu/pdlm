@@ -55,6 +55,32 @@ export function formaterDate(
   if (!noms) {
     throw new Error(`Langue « ${langue} » : inconnue d’Intl et sans noms de dates dans langues.ts.`)
   }
+  // Repli sans Intl : gabarits limités à dateStyle 'long'/'full' et timeStyle
+  // absent/'short' (avec dateStyle). Toute autre option serait silencieusement
+  // mal rendue (ex. dateStyle 'short' rendu comme 'long') : on refuse au lieu
+  // de mentir sur le format.
+  const { dateStyle, timeStyle, ...autres } = options
+  const optionInconnue = Object.keys(autres)[0]
+  if (optionInconnue) {
+    throw new Error(
+      `Langue « ${langue} » : option Intl « ${optionInconnue} » non prise en charge par le repli sans Intl.`,
+    )
+  }
+  if (timeStyle !== undefined && dateStyle === undefined) {
+    throw new Error(
+      `Langue « ${langue} » : timeStyle sans dateStyle non pris en charge par le repli sans Intl.`,
+    )
+  }
+  if (dateStyle !== 'long' && dateStyle !== 'full') {
+    throw new Error(
+      `Langue « ${langue} » : dateStyle « ${String(dateStyle)} » non pris en charge par le repli sans Intl (seuls « long » et « full » le sont).`,
+    )
+  }
+  if (timeStyle !== undefined && timeStyle !== 'short') {
+    throw new Error(
+      `Langue « ${langue} » : timeStyle « ${String(timeStyle)} » non pris en charge par le repli sans Intl (seul « short » l'est).`,
+    )
+  }
   const p = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {
       timeZone: 'Europe/Paris',
@@ -82,9 +108,6 @@ export function formaterDate(
     h: p.hour,
     min: p.minute,
   }
-  const texteDate = remplir(
-    options.dateStyle === 'full' ? noms.format.complet : noms.format.long,
-    valeurs,
-  )
-  return options.timeStyle ? remplir(noms.format.heure, { ...valeurs, date: texteDate }) : texteDate
+  const texteDate = remplir(dateStyle === 'full' ? noms.format.complet : noms.format.long, valeurs)
+  return timeStyle ? remplir(noms.format.heure, { ...valeurs, date: texteDate }) : texteDate
 }

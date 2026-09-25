@@ -33,4 +33,11 @@ describe('formaterDate', () => {
       '23 settembre 2026',
     )
   })
+
+  it('refuse en corse les options que le repli sans Intl ne sait pas rendre', () => {
+    // dateStyle 'short' serait silencieusement rendu comme 'long' sans ce refus.
+    expect(() => formaterDate(DATE, 'co', { dateStyle: 'short' })).toThrow()
+    // timeStyle seul (sans dateStyle) rendrait à tort une date complète + l'heure.
+    expect(() => formaterDate(DATE, 'co', { timeStyle: 'short' })).toThrow()
+  })
 })
