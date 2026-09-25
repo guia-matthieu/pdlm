@@ -46,7 +46,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chromium',
+        // Domaine propre de la démo (spec multilingue § 10, point 2) : pas de DNS,
+        // pas de Caddy — Chromium résout valvert.corsica sur la boucle locale.
+        // *.localhost résout déjà nativement (sous-domaines de la plateforme).
+        launchOptions: { args: ['--host-resolver-rules=MAP valvert.corsica 127.0.0.1'] },
+      },
     },
   ],
   globalSetup: './tests/e2e/global-setup.ts',
