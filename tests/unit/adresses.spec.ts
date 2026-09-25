@@ -212,4 +212,15 @@ describe('sitemapXml', () => {
     const xml = sitemapXml(ressources, 'fr', DOMAINES.filter((d) => d.langue === 'fr'), PLATEFORME)
     expect(xml).toContain('<loc>https://pigna.fr/co/marche</loc>')
   })
+
+  it('échappe les caractères spéciaux XML dans loc et dans href', () => {
+    const ressourcesAvecEsperluette = [
+      { chemin: '/vie-&-citoyennete', langues: ['fr', 'co'] as const, priorite: '0.5' },
+    ]
+    const xml = sitemapXml(ressourcesAvecEsperluette, 'fr', DOMAINES, PLATEFORME)
+    expect(xml).toContain('<loc>https://pigna.fr/vie-&amp;-citoyennete</loc>')
+    expect(xml).toContain(
+      '<xhtml:link rel="alternate" hreflang="co" href="https://pigna.corsica/vie-&amp;-citoyennete"/>',
+    )
+  })
 })

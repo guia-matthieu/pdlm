@@ -127,6 +127,16 @@ export interface RessourceSitemap {
   priorite: string
 }
 
+/** Échappe le texte inséré dans un document XML (attribut ou contenu). `&` d'abord. */
+function echapperXml(valeur: string): string {
+  return valeur
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
 /**
  * Sitemap d'un domaine : les adresses dont le canonique est sur ce domaine
  * (même origine que la base canonique de sa langue principale), chacune avec
@@ -148,10 +158,10 @@ export function sitemapXml(
       const liens = [...r.langues, 'x-default' as const]
         .map((autre) => {
           const href = adresseCanonique(autre === 'x-default' ? FRANCAIS : autre, r.chemin, domaines, basePlateforme)
-          return `<xhtml:link rel="alternate" hreflang="${autre}" href="${href}"/>`
+          return `<xhtml:link rel="alternate" hreflang="${autre}" href="${echapperXml(href)}"/>`
         })
         .join('')
-      lignes.push(`  <url><loc>${loc}</loc>${liens}<priority>${r.priorite}</priority></url>`)
+      lignes.push(`  <url><loc>${echapperXml(loc)}</loc>${liens}<priority>${r.priorite}</priority></url>`)
     }
   }
   return `<?xml version="1.0" encoding="UTF-8"?>

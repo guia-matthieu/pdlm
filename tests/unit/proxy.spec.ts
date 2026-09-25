@@ -70,7 +70,9 @@ describe('proxy — aiguillage des langues', () => {
   it('réécrit un chemin sans préfixe vers la sentinelle, sans rediriger', () => {
     const reponse = proxy(requete('pigna.fr', '/marche?x=1'))
     expect(reponse.status).toBe(200)
-    expect(new URL(reponse.headers.get('x-middleware-rewrite') ?? '').pathname).toBe('/racine/marche')
+    const cible = new URL(reponse.headers.get('x-middleware-rewrite') ?? '')
+    expect(cible.pathname).toBe('/racine/marche')
+    expect(cible.search).toBe('?x=1')
     expect(reponse.headers.get('x-middleware-request-x-pdlm-chemin')).toBe('/marche?x=1')
   })
 
