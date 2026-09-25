@@ -3,9 +3,11 @@ import 'server-only'
 import type { Actualite, Alerte, Commune, Evenement, Media, Menu, Page } from '../payload-types'
 import type { DataFromCollectionSlug, Where } from 'payload'
 
-import { baseCanonique, type DomaineLangue } from './adresses'
+import { baseCanonique, sitemapXml, type DomaineLangue, type RessourceSitemap } from './adresses'
+import type { Site } from './commune'
 import { filtreAlerteActive, filtreEvenementAVenir, filtrePublication } from './dates'
 import { FRANCAIS, type CodeLangue } from './langues'
+import { languesDuSite } from './langues-site'
 import { getPayloadClient } from './payload'
 
 /**
@@ -392,4 +394,53 @@ export async function communeEnLangue(
     nom: texteEnLangue(enL.nom, commune.nom ?? '', langue),
     horaires: commune.horaires ? texteEnLangue(enL.horaires, commune.horaires, langue) : null,
   }
+}
+
+/** Sitemap du domaine d'un site (spec § 3) : pages, actualités et rubriques, par langue disponible. */
+export async function construireSitemap(site: Site): Promise<string> {
+  const { commune, langueRacine } = site
+  const languesSite = languesDuSite(commune)
+  const payload = await getPayloadClient()
+  const pages = await payload.find({
+    collection: 'pages',
+    where: { and: [baseCommune(commune.id), { _status: { equals: 'published' } }] },
+    limit: 500,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const actus = await actualitesCommune(commune.id, { limite: 500 })
+  const [dispoPages, dispoActus] = await Promise.all([
+    languesDisponibles(
+      'pages',
+      commune.id,
+      pages.docs.map((p) => p.id),
+      languesSite,
+    ),
+    languesDisponibles(
+      'actualites',
+      commune.id,
+      actus.docs.map((a) => a.id),
+      languesSite,
+    ),
+  ])
+  const accueil = pages.docs.find((p) => p.slug === 'accueil')
+  const ressources: RessourceSitemap[] = [
+    {
+      chemin: '/',
+      langues: accueil ? (dispoPages.get(accueil.id) ?? [FRANCAIS]) : languesSite,
+      priorite: '1.0',
+    },
+    ...pages.docs
+      .filter((p) => p.slug !== 'accueil')
+      .map((p) => ({ chemin: `/${p.slug}`, langues: dispoPages.get(p.id) ?? [FRANCAIS], priorite: '0.7' })),
+    { chemin: '/actualites', langues: languesSite, priorite: '0.8' },
+    ...actus.docs.map((a) => ({
+      chemin: `/actualites/${a.slug}`,
+      langues: dispoActus.get(a.id) ?? [FRANCAIS],
+      priorite: '0.6',
+    })),
+    { chemin: '/agenda', langues: languesSite, priorite: '0.6' },
+    { chemin: '/documents', langues: languesSite, priorite: '0.5' },
+  ]
+  return sitemapXml(ressources, langueRacine, await domainesCommune(commune.id), basePlateforme(commune.slug))
 }
