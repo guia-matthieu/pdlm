@@ -1,6 +1,6 @@
 # Front public : gabarits, frise du territoire et couleurs étendues (design)
 
-Date : 2026-09-25 · Statut : conception validée section par section en conversation le 25/09 ; relue contre le code le 25/09 ; **points bloquants tranchés par l'utilisateur le 25/09** (tableau en fin de document) ; à relire avant le plan
+Date : 2026-09-25 · Statut : conception validée section par section en conversation le 25/09 ; relue contre le code le 25/09 ; **points bloquants tranchés par l'utilisateur le 25/09** (tableau en fin de document) ; maquettes Village et Littoral validées le 25/09 ; section 6 (gabarits tiers) ajoutée à la demande de l'utilisateur le 25/09 ; à relire avant le plan
 
 ## Contexte et décisions
 
@@ -156,7 +156,7 @@ Tests :
 
 - **Couleurs** : propriété (graine fixe) : I25 sur chaque ligne du tableau ; cas nommés ; forcée sous le seuil → avertissement sans correction ; défauts non saisis → aucun avertissement d'harmonie.
 - **Frise et illustrations** : chaque pièce et chaque scène de chaque kit rend un SVG valide pour toutes les tailles ; frise vide → aucun SVG ; pièce ou scène hors kit → ignorée ou repli, sans erreur.
-- **Gabarits** : pour chaque gabarit, accueil rendu avec les données de démonstration → sections dans l'ordre de `gabarit.ts`, aucune URL tierce et aucun `<script>` ajouté par le gabarit (I27 : comparer au rendu d'une page intérieure) ; variables présentes ; commune sans photo ni lien → illustrations et éléments omis (I30) ; page `accueil` vide → pas de section texte libre.
+- **Gabarits** : la **suite de conformité commune** de la section 6 (I31), exécutée sur Village et Littoral ; en plus, page `accueil` vide → pas de section texte libre.
 - **Données** : création d'une commune → 6 démarches et 4 tuiles préremplies ; `photoAccueil` et `mosaique.photo` d'une autre commune refusées (I4) ; une version créée à chaque enregistrement.
 - **Accès** : rédacteur → aucun champ `apparence` / `accueil` modifiable ; admin commune → ni `gabarit` ni `frise` ; aperçu → 404 pour anonyme, pour l'admin d'une autre commune, paramètres mal formés ignorés (I28, I29) ; en-têtes servis vérifiés.
 - **Rendu** : captures Playwright de l'accueil, 1440 et 390, par gabarit × deux jeux de couleurs très différents × avec et sans photos ; **regardées avant fusion** ; audit axe sans violation.
@@ -168,10 +168,44 @@ Ordre de construction et branche :
 0. **Maquette statique Littoral** hors du code, même format que `G-maquette-v2/`, avec une tuile et un héros illustrés ; validation visuelle par l'utilisateur. — **tout de suite**
 1. `src/lib/couleurs.ts` + tests. — **tout de suite, sur `gabarits-couleurs` (base `main`)** : fichier neuf, aucun conflit possible.
 2. Données, migration, droits, versions, préremplissage (section 1). — **après fusion d'`umami-collecte` et de `multilingue-socle` dans `main`**, puis rebase de `gabarits-couleurs` : les trois chantiers touchent `Communes.ts`, `layout.tsx`, `lib/commune.ts` et les migrations.
-3. Moteur de gabarits + Village (sections, texte libre, illustrations) ; l'accueil passe au gabarit.
+3. Moteur de gabarits + Village (sections, texte libre, illustrations) ; l'accueil passe au gabarit ; **contrat de gabarit** (`src/gabarits/CONTRAT.md`) et **suite de conformité commune** (section 6), écrits en même temps que le premier gabarit qui les utilise.
 4. Kit de frise Village, champ frise, aperçu SVG dans l'admin.
 5. Littoral (kit, scènes, `theme.css`, composition).
 6. Onglet Apparence, route d'aperçu, en-têtes, bande de contrôle, README.
+
+## Section 6 : ouverture à des gabarits tiers
+
+Objectif : qu'un EPCI, une agence ou un contributeur puisse créer un gabarit (« Montagne », « Bourg patrimonial »…) sans lire tout le code et sans pouvoir affaiblir les garanties du produit. Question posée par l'utilisateur le 25/09 (« si on ouvre le projet à des EPCI/mairies »).
+
+**Un gabarit tiers est du code relu, jamais un téléversement.** Il entre par une contribution au dépôt (ou un fork AGPL), passe la revue et la suite de conformité, puis est déployé par l'hébergeur. ⛔ **Pas de thème téléversé depuis l'admin** : du CSS ou du HTML arbitraire peut charger des ressources tierces (traçage), casser la lisibilité (RGAA) ou introduire du script — exactement les garanties qui font la valeur du produit.
+
+### Le contrat de gabarit (`src/gabarits/CONTRAT.md`, versionné)
+
+Ce qu'un gabarit **reçoit** et **doit fournir**, et rien d'autre :
+
+- **Reçoit** : les variables CSS de la section 2 (liste figée et versionnée : `--principale-sure`, `--pale`, `--profond`, `--accent`, `--accent-sur-profond`, `--texte-sur-accent`, `--terre-sure`, `--picto-1`…`6`, `--encre`, `--alerte*`, `--focus`) ; les sections communes et leurs variantes (`NomSection`, avec les données que chacune rend) ; les scènes et pièces de son propre kit ; les textes fixes via `src/i18n/`.
+- **Fournit** : `gabarit.ts` (composition, polices, cadrage du héros), `theme.css`, `frise.ts` (kit + `horizon()`), `illustrations.ts` (`scene()`, `heros()` pour toutes les valeurs de `illustration`), ses polices auto-hébergées avec leur licence, un `README.md` (intention, crédits, licences), et une **maquette statique** de référence.
+- **N'a pas le droit** : définir une couleur de commune en dur ; charger une ressource hors de l'origine ; ajouter un script ; toucher au schéma de données ou à un autre gabarit (I26) ; employer `--accent-sur-profond` hors texte large.
+- **Version du contrat** : un numéro dans `CONTRAT.md` ; chaque gabarit déclare la version qu'il respecte ; une variable ou une section retirée = version majeure, avec une note de migration.
+
+### La suite de conformité commune
+
+Une seule suite, paramétrée par la liste des gabarits : **un gabarit qui la passe est techniquement recevable**, qu'il vienne du projet ou d'un tiers. La revue humaine reste nécessaire pour le goût et la maintenabilité.
+
+- **I31 — Tout gabarit passe la suite de conformité commune avant fusion.** Elle vérifie, pour chaque gabarit :
+  1. l'accueil se rend avec les données de démonstration, sections dans l'ordre de `gabarit.ts` ;
+  2. **aucune URL tierce** et **aucun `<script>` ajouté** (I27 : comparaison avec le rendu d'une page intérieure) ;
+  3. `theme.css` ne contient **aucune couleur littérale** hors d'une liste blanche (`#fff`, `#000`, `transparent`) et ne référence que des variables du contrat ;
+  4. audit **axe sans violation** sur l'accueil ;
+  5. rendu avec **trois palettes extrêmes** (jaune pur, gris moyen `#777777`, bordeaux très sombre) : contrastes du texte mesurés dans la page rendue ≥ 4,5:1 ;
+  6. **commune vide** (ni photo, ni lien, ni frise) : aucun emplacement vide (I30), toutes les illustrations présentes ;
+  7. chaque pièce et chaque scène du kit rend un SVG valide pour toutes les tailles ;
+  8. licences présentes pour chaque police et chaque image fournie ;
+  9. captures 1440 et 390 produites dans un dossier d'artefacts, **à regarder** lors de la revue.
+
+### Ce qui est hors de ce lot
+
+Le guide « créer un gabarit » (pas à pas, à partir d'une maquette statique comme `G-maquette-v2/` et `J-maquette-littoral/`) et un éventuel catalogue de gabarits contribués : à écrire quand un premier EPCI en aura besoin. Le contrat et la suite sont faits **maintenant**, parce qu'ils coûtent peu au moment d'écrire les deux premiers gabarits et beaucoup après.
 
 ## Points non vérifiés
 
