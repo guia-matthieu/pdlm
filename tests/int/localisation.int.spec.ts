@@ -261,6 +261,39 @@ describe('R5 — un contenu se crée en français', () => {
   })
 })
 
+describe('slugs en français', () => {
+  it('une mise à jour en corse sans slug laisse le slug français inchangé', async () => {
+    const page = await payload.create({
+      collection: 'pages',
+      data: {
+        tenant: commune.id,
+        titre: 'Bal du village',
+        slug: 'bal-du-village',
+        blocs: [{ blockType: 'contact', titre: 'x' }],
+        _status: 'published',
+      },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'pages',
+      id: page.id,
+      locale: 'co',
+      data: { titre: 'Ballu corsu' },
+      overrideAccess: true,
+    })
+    for (const locale of ['fr', 'co'] as const) {
+      const lu = await payload.findByID({
+        collection: 'pages',
+        id: page.id,
+        locale,
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(lu.slug, locale).toBe('bal-du-village')
+    }
+  })
+})
+
 describe('R4 — la structure du menu se modifie en français', () => {
   const STRUCTURE =
     /La structure du menu \(ajout, retrait ou changement d’ordre d’éléments\) se modifie en français\./
