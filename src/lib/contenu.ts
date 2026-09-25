@@ -1,9 +1,11 @@
 import 'server-only'
 
 import type { Actualite, Alerte, Commune, Evenement, Media, Menu, Page } from '../payload-types'
-import type { Where } from 'payload'
+import type { DataFromCollectionSlug, Where } from 'payload'
 
+import { baseCanonique, type DomaineLangue } from './adresses'
 import { filtreAlerteActive, filtreEvenementAVenir, filtrePublication } from './dates'
+import { FRANCAIS, type CodeLangue } from './langues'
 import { getPayloadClient } from './payload'
 
 /**
@@ -141,8 +143,14 @@ export async function menuCommune(id: IdCommune): Promise<Menu | null> {
 /**
  * Résolution explicite d'une relation média (depth 0 + projection minimale).
  * Retourne null si le média n'appartient pas à la commune — jamais de fuite.
+ * Règle 3 (petits textes) : en langue L, le texte alternatif traduit s'il
+ * existe, sinon l'alt français ; `langueAlt` indique lequel est montré.
  */
-export async function mediaDe(id: IdCommune, ref: unknown): Promise<Media | null> {
+export async function mediaDe(
+  id: IdCommune,
+  ref: unknown,
+  langue: CodeLangue = FRANCAIS,
+): Promise<(Media & { langueAlt: CodeLangue }) | null> {
   if (ref === undefined || ref === null || ref === '') return null
   const payload = await getPayloadClient()
   const media = await payload
@@ -159,7 +167,13 @@ export async function mediaDe(id: IdCommune, ref: unknown): Promise<Media | null
     (media as unknown as { tenant?: { id?: number } }).tenant !== null
       ? ((media as unknown as { tenant: { id?: number } }).tenant.id ?? null)
       : ((media as unknown as { tenant?: number }).tenant ?? null)
-  return tenant === id ? media : null
+  if (tenant !== id) return null
+  if (langue === FRANCAIS) return { ...media, langueAlt: FRANCAIS }
+  const enL = await payload
+    .findByID({ collection: 'media', id: media.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+    .catch(() => null)
+  const altL = enL?.alt
+  return { ...media, alt: altL || media.alt, langueAlt: altL ? langue : FRANCAIS }
 }
 
 /**
@@ -203,22 +217,174 @@ export function communePublique(c: Commune) {
   }
 }
 
-/** Hostname canonique de la commune (I6/I10 — canonicals et sitemap). */
-export async function domaineCanonique(id: IdCommune): Promise<string | null> {
+/** Domaines de la commune avec leur langue (canoniques, hreflang, sitemap). */
+export async function domainesCommune(id: IdCommune): Promise<DomaineLangue[]> {
   const payload = await getPayloadClient()
   const res = await payload.find({
     collection: 'domaines',
-    where: { and: [{ commune: { equals: id } }, { canonique: { equals: true } }] },
-    limit: 1,
+    where: { commune: { equals: id } },
+    depth: 0,
+    limit: 50,
     overrideAccess: true,
   })
-  return res.docs[0]?.hostname ?? null
+  return res.docs.map((d) => ({ hostname: d.hostname, langue: d.langue ?? FRANCAIS, canonique: d.canonique === true }))
 }
 
-/** Base d'URLs publiques : domaine canonique, sinon sous-domaine plateforme. */
-export async function baseUrlsPubliques(id: IdCommune, slug: string): Promise<string> {
-  const canonique = await domaineCanonique(id)
-  if (canonique) return `https://${canonique}`
+/** Sous-domaine de la plateforme (repli quand aucun domaine canonique n'existe). */
+export function basePlateforme(slug: string): string {
   const plateforme = process.env.PLATFORM_DOMAIN
   return plateforme ? `https://${slug}.${plateforme}` : ''
+}
+
+/** Base d'URLs publiques : domaine canonique français, sinon sous-domaine plateforme. */
+export async function baseUrlsPubliques(id: IdCommune, slug: string): Promise<string> {
+  return baseCanonique(FRANCAIS, await domainesCommune(id), basePlateforme(slug))
+}
+
+export type Traduisible = 'pages' | 'actualites' | 'evenements' | 'documents' | 'alertes'
+
+/** `langue` = langue du contenu réellement affiché (pour `lang` et la mention). */
+export interface EnLangue<T> {
+  doc: T
+  langue: CodeLangue
+}
+
+/**
+ * Règle 1 (spec § 2) : le document entier en L si sa traduction y est
+ * « validée », sinon entièrement en français. L'état se lit SANS repli : lu
+ * avec repli, `traduction` en L renverrait la valeur française.
+ */
+export async function versionEnLangue<C extends Traduisible>(
+  collection: C,
+  docFr: DataFromCollectionSlug<C>,
+  langue: CodeLangue,
+): Promise<EnLangue<DataFromCollectionSlug<C>>> {
+  if (langue === FRANCAIS) return { doc: docFr, langue: FRANCAIS }
+  const payload = await getPayloadClient()
+  const enL = await payload
+    .findByID({ collection, id: docFr.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+    .catch(() => null)
+  return (enL as { traduction?: string | null } | null)?.traduction === 'validee'
+    ? { doc: enL as DataFromCollectionSlug<C>, langue }
+    : { doc: docFr, langue: FRANCAIS }
+}
+
+/** Règle 2 : chaque élément d'une liste dans sa langue, en une seule requête. */
+export async function versionsEnLangue<C extends Traduisible>(
+  collection: C,
+  docsFr: DataFromCollectionSlug<C>[],
+  langue: CodeLangue,
+): Promise<EnLangue<DataFromCollectionSlug<C>>[]> {
+  if (langue === FRANCAIS || docsFr.length === 0) return docsFr.map((doc) => ({ doc, langue: FRANCAIS }))
+  const payload = await getPayloadClient()
+  const res = await payload.find({
+    collection,
+    where: { id: { in: docsFr.map((d) => d.id) } },
+    locale: langue,
+    fallbackLocale: false,
+    depth: 0,
+    limit: docsFr.length,
+    overrideAccess: true,
+  })
+  const valides = new Map(
+    res.docs
+      .filter((d) => (d as { traduction?: string | null }).traduction === 'validee')
+      .map((d) => [d.id, d as DataFromCollectionSlug<C>]),
+  )
+  return docsFr.map((doc) =>
+    valides.has(doc.id) ? { doc: valides.get(doc.id)!, langue } : { doc, langue: FRANCAIS },
+  )
+}
+
+/** Langues où chaque document est montrable : le français, plus L validée ET activée (I14, I17). */
+export async function languesDisponibles(
+  collection: Traduisible,
+  ids: number[],
+  languesSite: readonly CodeLangue[],
+): Promise<Map<number, CodeLangue[]>> {
+  const resultat = new Map<number, CodeLangue[]>(ids.map((id) => [id, [FRANCAIS]]))
+  if (ids.length === 0) return resultat
+  const payload = await getPayloadClient()
+  for (const langue of languesSite.filter((l) => l !== FRANCAIS)) {
+    const res = await payload.find({
+      collection,
+      where: { and: [{ id: { in: ids } }, { traduction: { equals: 'validee' } }] },
+      locale: langue,
+      fallbackLocale: false,
+      depth: 0,
+      limit: ids.length,
+      select: { traduction: true },
+      overrideAccess: true,
+    } as never)
+    for (const d of res.docs as Array<{ id: number }>) resultat.get(d.id)?.push(langue)
+  }
+  return resultat
+}
+
+export interface TexteEnLangue {
+  texte: string
+  langue: CodeLangue
+}
+
+/** Règle 3 : petit texte traduit s'il existe, sinon le français, marqué. */
+function texteEnLangue(enL: string | null | undefined, fr: string, langue: CodeLangue): TexteEnLangue {
+  return enL ? { texte: enL, langue } : { texte: fr, langue: FRANCAIS }
+}
+
+export interface ElementMenu {
+  label: TexteEnLangue
+  href: string
+  enfants: Array<{ label: TexteEnLangue; href: string }>
+}
+
+/**
+ * Menu dans la langue L. `href` SANS préfixe de langue (l'appelant applique
+ * `cheminLangue`) ; items « page » résolus par `pages` (I4, pagesDuMenu).
+ * Les lignes de tableau sont communes aux langues : on apparie par leur `id`.
+ */
+export async function menuEnLangue(
+  id: IdCommune,
+  langue: CodeLangue,
+  pages: Map<number, Page>,
+): Promise<ElementMenu[]> {
+  const fr = await menuCommune(id)
+  if (!fr) return []
+  const payload = await getPayloadClient()
+  const enL =
+    langue === FRANCAIS
+      ? fr
+      : await payload.findByID({ collection: 'menus', id: fr.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+  const labelsL = new Map<string, string | null | undefined>()
+  for (const item of enL.items ?? []) {
+    if (item.id) labelsL.set(item.id, item.label)
+    for (const e of item.enfants ?? []) if (e.id) labelsL.set(e.id, e.label)
+  }
+  const href = (page: unknown, url: string | null | undefined) => {
+    const p = typeof page === 'number' ? pages.get(page) : null
+    return p ? `/${p.slug}` : (url ?? '')
+  }
+  return (fr.items ?? [])
+    .map((item) => ({
+      label: texteEnLangue(labelsL.get(item.id ?? ''), item.label ?? '', langue),
+      href: href(item.page, item.url),
+      enfants: (item.enfants ?? [])
+        .map((e) => ({ label: texteEnLangue(labelsL.get(e.id ?? ''), e.label ?? '', langue), href: href(e.page, e.url) }))
+        .filter((e) => e.href),
+    }))
+    .filter((e) => e.href)
+}
+
+/** Nom et horaires de la commune dans la langue L (règle 3). */
+export async function communeEnLangue(
+  commune: Commune,
+  langue: CodeLangue,
+): Promise<{ nom: TexteEnLangue; horaires: TexteEnLangue | null }> {
+  const enL =
+    langue === FRANCAIS
+      ? commune
+      : await (await getPayloadClient()).findByID({ collection: 'communes', id: commune.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+  return {
+    nom: texteEnLangue(enL.nom, commune.nom ?? '', langue),
+    horaires: commune.horaires ? texteEnLangue(enL.horaires, commune.horaires, langue) : null,
+  }
 }

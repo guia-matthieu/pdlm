@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 
 import type { Commune } from '../payload-types'
 
+import { FRANCAIS, estCodeLangue, type CodeLangue } from './langues'
 import { getPayloadClient } from './payload'
 
 /** Normalise un host reçu : minuscules, sans port, sans www. initial. */
@@ -80,12 +81,19 @@ export function candidatCommune(hostBrut: string): CandidatCommune | null {
   return { domaine: sansWww(host) }
 }
 
+/** Site public résolu : la commune et la langue servie à la racine de ce host. */
+export interface Site {
+  commune: Commune
+  langueRacine: CodeLangue
+}
+
 /**
- * Résolution host → commune (D5), sans mémoïsation : pour les route handlers
- * qui lisent `x-commune-host` sur la requête. Le host doit venir de cet
- * en-tête, écrasé par le proxy (I7) — jamais de `Host` directement.
+ * Résolution host → site (D5, langue du domaine), sans mémoïsation : pour les
+ * route handlers qui lisent `x-commune-host` sur la requête. Le host doit
+ * venir de cet en-tête, écrasé par le proxy (I7) — jamais de `Host`
+ * directement.
  */
-export async function communeDuHost(hostBrut: string): Promise<Commune | null> {
+export async function siteDuHost(hostBrut: string): Promise<Site | null> {
   const candidat = candidatCommune(hostBrut)
   if (!candidat) return null
 
@@ -99,7 +107,9 @@ export async function communeDuHost(hostBrut: string): Promise<Commune | null> {
       limit: 1,
       overrideAccess: true,
     })
-    return res.docs[0] ?? null
+    const commune = res.docs[0]
+    // Les sous-domaines de la plateforme servent toujours le français (spec § 1).
+    return commune ? { commune, langueRacine: FRANCAIS } : null
   }
 
   if (candidat.domaine) {
@@ -128,14 +138,25 @@ export async function communeDuHost(hostBrut: string): Promise<Commune | null> {
       id: communeId,
       overrideAccess: true,
     })
-    return commune.actif ? commune : null
+    if (!commune.actif) return null
+    return { commune, langueRacine: estCodeLangue(domaine.langue) ? domaine.langue : FRANCAIS }
   }
 
   return null
 }
 
+/** Compatibilité : les route handlers n'ont besoin que de la commune. */
+export async function communeDuHost(hostBrut: string): Promise<Commune | null> {
+  return (await siteDuHost(hostBrut))?.commune ?? null
+}
+
+/** Résolution host → site (D5). Mémoïsée par requête via React.cache. */
+export const resolveSite = cache(async (): Promise<Site | null> => {
+  const entetes = await headers()
+  return siteDuHost(entetes.get('x-commune-host') ?? '')
+})
+
 /** Résolution host → commune (D5). Mémoïsée par requête via React.cache. */
 export const resolveCommune = cache(async (): Promise<Commune | null> => {
-  const entetes = await headers()
-  return communeDuHost(entetes.get('x-commune-host') ?? '')
+  return (await resolveSite())?.commune ?? null
 })
