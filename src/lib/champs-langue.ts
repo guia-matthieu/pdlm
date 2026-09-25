@@ -5,9 +5,9 @@ import type {
   SelectField,
 } from 'payload'
 
-import { ValidationError } from 'payload'
+import { Forbidden, ValidationError } from 'payload'
 
-import { FRANCAIS } from './langues'
+import { estCodeLangue, FRANCAIS } from './langues'
 
 /**
  * Un champ localisé `required: true` devient une colonne NOT NULL de la table
@@ -117,5 +117,31 @@ export const lectureAnonymeEnFrancais: CollectionBeforeOperationHook = ({
   if (!LECTURES.has(operation) || req.payloadAPI === 'local' || req.user) return args
   req.locale = FRANCAIS
   req.fallbackLocale = FRANCAIS
+  // R16 : un chemin peut nommer sa langue (`titre.co`, getLocalizedPaths) et
+  // contourner la langue forcée — totalDocs deviendrait un oracle du texte non validé.
+  const { where, sort, field } = args as { where?: unknown; sort?: unknown; field?: unknown }
+  const tris = (
+    Array.isArray(sort) ? sort : typeof sort === 'string' ? sort.split(',') : []
+  ) as unknown[]
+  const chemins = [
+    ...clesDuFiltre(where),
+    ...tris.map((t) => String(t).replace(/^-/, '')),
+    ...(typeof field === 'string' ? [field] : []),
+  ]
+  if (chemins.some(nommeUneAutreLangue)) throw new Forbidden(req.t)
   return args
+}
+
+/** Chaque clé d'un filtre, à toute profondeur (`and`, `or`, opérateurs compris). */
+function clesDuFiltre(filtre: unknown): string[] {
+  if (Array.isArray(filtre)) return filtre.flatMap(clesDuFiltre)
+  if (!filtre || typeof filtre !== 'object') return []
+  return Object.entries(filtre as Record<string, unknown>).flatMap(([cle, valeur]) => [
+    cle,
+    ...clesDuFiltre(valeur),
+  ])
+}
+
+function nommeUneAutreLangue(chemin: string): boolean {
+  return chemin.split('.').some((segment) => segment !== FRANCAIS && estCodeLangue(segment))
 }

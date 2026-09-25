@@ -150,3 +150,70 @@ describe('R14 — toutes les collections à champs localisés sont couvertes', (
     }
   })
 })
+
+describe('R16 — lecture REST anonyme : pas de filtre ni de tri sur une autre langue', () => {
+  const titreCo = encodeURIComponent('titre.co')
+
+  it('`where[titre.co]` est refusé (sinon totalDocs sert d’oracle)', async () => {
+    const { status } = await getRest(`evenements?depth=0&where[${titreCo}][contains]=Merc`)
+    expect(status).toBe(403)
+  })
+
+  it('`where[traduction.co]` est refusé (ne révèle pas ce qui est à relire)', async () => {
+    const { status } = await getRest(
+      `evenements?depth=0&where[${encodeURIComponent('traduction.co')}][equals]=a-relire`,
+    )
+    expect(status).toBe(403)
+  })
+
+  it('imbriqué dans `and` / `or` : refusé', async () => {
+    const et = await getRest(
+      `evenements?depth=0&where[and][0][tenant][equals]=${commune.id}&where[and][1][${titreCo}][contains]=Merc`,
+    )
+    expect(et.status).toBe(403)
+    const ou = await getRest(
+      `evenements?depth=0&where[or][0][and][0][${titreCo}][contains]=Merc&where[or][1][id][equals]=0`,
+    )
+    expect(ou.status).toBe(403)
+  })
+
+  it('`sort=titre.co` et `sort=-titre.co` : refusés', async () => {
+    expect((await getRest(`evenements?depth=0&sort=titre.co`)).status).toBe(403)
+    expect((await getRest(`evenements?depth=0&sort=-titre.co`)).status).toBe(403)
+  })
+
+  it('count avec un filtre en `co` : refusé', async () => {
+    const { status } = await getRest(`evenements/count?where[${titreCo}][contains]=Merc`)
+    expect(status).toBe(403)
+  })
+
+  it('findDistinct sur `titre.co` : refusé', async () => {
+    await expect(
+      payload.findDistinct({
+        collection: 'evenements',
+        field: 'titre.co' as never,
+        overrideAccess: false,
+        req: { payloadAPI: 'REST' },
+      }),
+    ).rejects.toThrow(/not allowed|Forbidden|autorisé/i)
+  })
+
+  it('un filtre en français reste permis', async () => {
+    const { status, corps } = await getRest(
+      `evenements?depth=0&where[titre][equals]=${encodeURIComponent(FR)}&where[${encodeURIComponent('titre.fr')}][equals]=${encodeURIComponent(FR)}&sort=-titre`,
+    )
+    expect(status).toBe(200)
+    expect(corps.totalDocs).toBe(1)
+  })
+
+  it('l’API locale (site public) garde `titre.co`', async () => {
+    const res = await payload.find({
+      collection: 'evenements',
+      where: { 'titre.co': { equals: CO } },
+      sort: '-titre.co',
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect(res.docs.map((d) => d.id)).toEqual([idEvenement])
+  })
+})
