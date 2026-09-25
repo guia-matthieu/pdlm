@@ -24,9 +24,18 @@ export function cheminSansPrefixe(chemin: string): { langue: CodeLangue | null; 
   const [chemin_, requete] = splitRequete(chemin)
   const segments = chemin_.split('/')
   const premier = segments[1] ?? ''
-  if (!estCodeLangue(premier)) return { langue: null, reste: chemin }
+  if (!estCodeLangue(premier)) return { langue: null, reste: surLeSite(chemin) }
   const reste = `/${segments.slice(2).join('/')}`.replace(/\/+$/, '') || '/'
-  return { langue: premier, reste: reste + requete }
+  return { langue: premier, reste: surLeSite(reste) + requete }
+}
+
+/**
+ * `reste` sert de cible à une redirection : `//hôte` ou `/\hôte` (le
+ * navigateur lit `\` comme `/`, et ignore tabulations et sauts de ligne)
+ * mènerait vers un autre domaine. Le début est réduit à un seul `/`.
+ */
+function surLeSite(chemin: string): string {
+  return chemin.replace(/^[/\\\t\n\r]+/, '/')
 }
 
 function splitRequete(chemin: string): [string, string] {

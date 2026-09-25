@@ -61,6 +61,24 @@ describe('cheminSansPrefixe', () => {
     expect(cheminSansPrefixe('/co?x=1')).toEqual({ langue: 'co', reste: '/?x=1' })
     expect(cheminSansPrefixe('/marche')).toEqual({ langue: null, reste: '/marche' })
   })
+
+  it('le reste ne commence jamais par `//` ni `/\\` (redirection vers un autre domaine)', () => {
+    expect(cheminSansPrefixe('/fr//evil.com').reste).toBe('/evil.com')
+    expect(cheminSansPrefixe('/fr/\\evil.com').reste).toBe('/evil.com')
+    expect(cheminSansPrefixe('/fr///evil.com?x=1').reste).toBe('/evil.com?x=1')
+    expect(cheminSansPrefixe('//evil.com').reste).toBe('/evil.com')
+  })
+
+  it('choisirLangue : la 308 vers la langue du domaine reste sur le site', () => {
+    expect(
+      choisirLangue({
+        langueRacine: 'fr',
+        languesSite: ['fr', 'co'],
+        param: 'fr',
+        cheminDemande: '/fr//evil.com',
+      }),
+    ).toEqual({ type: 'rediriger', vers: '/evil.com' })
+  })
 })
 
 describe('cheminLangue', () => {
@@ -73,7 +91,13 @@ describe('cheminLangue', () => {
   })
 
   it('laisse intacts les liens externes et les schémas', () => {
-    for (const lien of ['https://exemple.fr/x', 'mailto:a@b.fr', 'tel:0102030405', '//hote/x', '#contenu']) {
+    for (const lien of [
+      'https://exemple.fr/x',
+      'mailto:a@b.fr',
+      'tel:0102030405',
+      '//hote/x',
+      '#contenu',
+    ]) {
       expect(cheminLangue(lien, 'co', 'fr'), lien).toBe(lien)
     }
   })
@@ -143,7 +167,9 @@ describe('adresses canoniques', () => {
 
   it('exemples de la spec', () => {
     // pigna.fr/co/marche a pour canonique pigna.corsica/marche
-    expect(adresseCanonique('co', '/marche', DOMAINES, PLATEFORME)).toBe('https://pigna.corsica/marche')
+    expect(adresseCanonique('co', '/marche', DOMAINES, PLATEFORME)).toBe(
+      'https://pigna.corsica/marche',
+    )
     // pigna.corsica/fr/marche a pour canonique pigna.fr/marche
     expect(adresseCanonique('fr', '/marche', DOMAINES, PLATEFORME)).toBe('https://pigna.fr/marche')
     expect(adresseCanonique('fr', '/', DOMAINES, PLATEFORME)).toBe('https://pigna.fr')
@@ -209,7 +235,12 @@ describe('sitemapXml', () => {
   })
 
   it('sans domaine corse : les adresses /co vont dans le sitemap français', () => {
-    const xml = sitemapXml(ressources, 'fr', DOMAINES.filter((d) => d.langue === 'fr'), PLATEFORME)
+    const xml = sitemapXml(
+      ressources,
+      'fr',
+      DOMAINES.filter((d) => d.langue === 'fr'),
+      PLATEFORME,
+    )
     expect(xml).toContain('<loc>https://pigna.fr/co/marche</loc>')
   })
 
