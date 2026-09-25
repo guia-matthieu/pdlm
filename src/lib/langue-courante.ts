@@ -5,8 +5,9 @@ import { headers } from 'next/headers'
 import { notFound, permanentRedirect } from 'next/navigation'
 
 import { dictionnaire, type Dictionnaire } from '../i18n'
-import { cheminSansPrefixe, choisirLangue } from './adresses'
+import { adressesAlternatives, cheminSansPrefixe, choisirLangue } from './adresses'
 import { resolveSite, type Site } from './commune'
+import { basePlateforme, domainesCommune } from './contenu'
 import { type CodeLangue } from './langues'
 import { languesDuSite } from './langues-site'
 
@@ -31,7 +32,12 @@ export const contexteLangue = cache(async (param: string): Promise<ContexteLangu
   if (!site) return null
   const languesSite = languesDuSite(site.commune)
   const cheminDemande = (await headers()).get('x-pdlm-chemin') ?? '/'
-  const decision = choisirLangue({ param, langueRacine: site.langueRacine, languesSite, cheminDemande })
+  const decision = choisirLangue({
+    param,
+    langueRacine: site.langueRacine,
+    languesSite,
+    cheminDemande,
+  })
   if (decision.type === 'introuvable') notFound()
   if (decision.type === 'rediriger') permanentRedirect(decision.vers)
   return {
@@ -42,3 +48,18 @@ export const contexteLangue = cache(async (param: string): Promise<ContexteLangu
     chemin: cheminSansPrefixe(cheminDemande).reste,
   }
 })
+
+/**
+ * `alternates` d'une rubrique fixe (/actualites, /agenda, /documents,
+ * /mesure-d-audience) : l'interface est toujours traduite, donc la rubrique
+ * existe dans toutes les langues du site.
+ */
+export async function alternatesRubrique(ctx: ContexteLangue, chemin: string) {
+  return adressesAlternatives({
+    chemin,
+    langueContenu: ctx.langue,
+    languesDisponibles: ctx.languesSite,
+    domaines: await domainesCommune(ctx.site.commune.id),
+    basePlateforme: basePlateforme(ctx.site.commune.slug),
+  })
+}

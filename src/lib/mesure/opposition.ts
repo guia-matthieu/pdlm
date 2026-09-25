@@ -1,3 +1,5 @@
+import { CODES_LANGUES } from '../langues'
+
 /**
  * I20 — un visiteur qui s'est opposé n'est plus mesuré. Ce cookie ne sert
  * qu'à respecter l'opposition : il est lui-même exempté de consentement.
@@ -49,4 +51,11 @@ export function soumissionIntersite(entetes: Headers, hoteAttendu: string): bool
   } catch {
     return true // « null » ou valeur illisible
   }
+}
+
+const RETOUR = new RegExp(`^/(?:(?:${CODES_LANGUES.join('|')})/)?mesure-d-audience$`)
+
+/** Retour après opposition : la page d'information, dans la langue d'où vient le visiteur. */
+export function cheminRetour(valeur: unknown): string {
+  return typeof valeur === 'string' && RETOUR.test(valeur) ? valeur : '/mesure-d-audience'
 }

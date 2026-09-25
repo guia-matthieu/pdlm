@@ -1,76 +1,57 @@
-import Link from 'next/link'
-
-import type { Menu, Page } from '@/payload-types'
-
-interface EnteteNav {
-  label: string
-  href: string
-  enfants: Array<{ label: string; href: string }>
-}
+import { cheminLangue } from '@/lib/adresses'
+import type { ElementMenu, TexteEnLangue } from '@/lib/contenu'
+import type { ContexteLangue } from '@/lib/langue-courante'
 
 /**
- * Navigation publique depuis le menu de la commune : les items « page » sont
- * résolus uniquement si la page est publiée et appartient à la commune (I4 —
- * pagesDuMenu côté serveur).
+ * Navigation publique depuis le menu de la commune, dans la langue affichée.
+ * Les items « page » sont résolus uniquement si la page est publiée et
+ * appartient à la commune (I4 — pagesDuMenu, menuEnLangue côté serveur).
+ *
+ * Liens simples `<a>`, jamais next/link : un layout n'est pas re-rendu lors
+ * d'une navigation client (le sélecteur de langue garderait les liens de la
+ * page précédente), et un item du CMS peut être une URL externe que
+ * next/link préchargerait.
  */
-export function Navigation({ menu, pages }: { menu: Menu | null; pages: Map<number, Page> }) {
-  const entetes: EnteteNav[] = (menu?.items ?? [])
-    .map((item) => {
-      const page = typeof item.page === 'number' ? pages.get(item.page) : null
-      const href = page ? `/${page.slug}` : (item.url ?? '')
-      if (!href) return null
-      return {
-        label: item.label,
-        href,
-        enfants: (item.enfants ?? [])
-          .map((enfant) => {
-            const pageEnfant = typeof enfant.page === 'number' ? pages.get(enfant.page) : null
-            const hrefEnfant = pageEnfant ? `/${pageEnfant.slug}` : (enfant.url ?? '')
-            if (!hrefEnfant) return null
-            return { label: enfant.label, href: hrefEnfant }
-          })
-          .filter((e): e is { label: string; href: string } => Boolean(e)),
-      }
-    })
-    .filter((e): e is EnteteNav => Boolean(e))
+export function Navigation({ elements, ctx }: { elements: ElementMenu[]; ctx: ContexteLangue }) {
+  const lien = (chemin: string) => cheminLangue(chemin, ctx.langue, ctx.site.langueRacine)
+  const lang = (label: TexteEnLangue) => (label.langue !== ctx.langue ? label.langue : undefined)
 
   return (
-    <nav aria-label="Menu principal" id="menu-principal">
+    <nav aria-label={ctx.t.menuPrincipal} id="menu-principal">
       <ul className="nav-principale">
         <li>
-          <Link href="/">Accueil</Link>
+          <a href={lien('/')}>{ctx.t.accueil}</a>
         </li>
-        {/*
-          Les items venus du CMS gardent un <a> : leur href peut être une URL
-          externe (champ `url`, validé par validerUrlEditoriale). next/link
-          préchargerait alors un site tiers.
-        */}
-        {entetes.map((entete) => (
-          <li key={entete.href + entete.label}>
+        {elements.map((entete) => (
+          <li key={entete.href + entete.label.texte}>
             {entete.enfants.length > 0 ? (
               <details className="nav-deroulant">
-                <summary>{entete.label}</summary>
+                <summary lang={lang(entete.label)}>{entete.label.texte}</summary>
                 <ul>
                   {entete.enfants.map((enfant) => (
-                    <li key={enfant.href + enfant.label}>
-                      <a href={enfant.href}>{enfant.label}</a>
+                    <li key={enfant.href + enfant.label.texte}>
+                      <a href={lien(enfant.href)} lang={lang(enfant.label)}>
+                        {enfant.label.texte}
+                      </a>
                     </li>
                   ))}
                 </ul>
               </details>
             ) : (
-              <a href={entete.href}>{entete.label}</a>
+              <a href={lien(entete.href)} lang={lang(entete.label)}>
+                {entete.label.texte}
+              </a>
             )}
           </li>
         ))}
         <li>
-          <Link href="/actualites">Actualités</Link>
+          <a href={lien('/actualites')}>{ctx.t.actualites}</a>
         </li>
         <li>
-          <Link href="/agenda">Agenda</Link>
+          <a href={lien('/agenda')}>{ctx.t.agenda}</a>
         </li>
         <li>
-          <Link href="/documents">Documents</Link>
+          <a href={lien('/documents')}>{ctx.t.documents}</a>
         </li>
       </ul>
     </nav>

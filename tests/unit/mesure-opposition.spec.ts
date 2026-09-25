@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { mesureInstallee, siteMesure } from '@/lib/mesure/etat'
 import {
+  cheminRetour,
   COOKIE_OPPOSITION,
   enteteCookieOpposition,
   estOppose,
@@ -74,5 +75,25 @@ describe('état de la mesure', () => {
     expect(siteMesure({ mesure: { active: true, siteUmami: null } })).toBeNull()
     expect(siteMesure({})).toBeNull()
     expect(siteMesure(null)).toBeNull()
+  })
+})
+
+describe('cheminRetour (formulaire d’opposition)', () => {
+  it('garde la page d’information dans sa langue', () => {
+    expect(cheminRetour('/mesure-d-audience')).toBe('/mesure-d-audience')
+    expect(cheminRetour('/co/mesure-d-audience')).toBe('/co/mesure-d-audience')
+  })
+
+  it('refuse tout autre chemin (pas de redirection ouverte)', () => {
+    for (const v of [
+      '//evil.fr',
+      'https://evil.fr',
+      '/co/../admin',
+      '/xx/mesure-d-audience',
+      null,
+      42,
+    ]) {
+      expect(cheminRetour(v), String(v)).toBe('/mesure-d-audience')
+    }
   })
 })
