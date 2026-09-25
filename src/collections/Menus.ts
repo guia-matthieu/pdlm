@@ -90,24 +90,24 @@ function clesLignes(items: unknown): Array<string | null> {
 
 /**
  * R4 : les lignes du menu sont communes à toutes les langues. Hors du
- * français, on ne traduit que les libellés : ajouter ou retirer une ligne
- * changerait le menu français et y laisserait une ligne sans libellé.
+ * français, on ne traduit que les libellés : ajouter, retirer ou déplacer une
+ * ligne changerait le menu français (et y laisserait une ligne sans libellé).
  */
 const structureEnFrancais: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
   if (operation !== 'update' || (req.locale ?? FRANCAIS) === FRANCAIS) return data
   if (!data || !('items' in data)) return data
-  const avant = new Set(clesLignes(originalDoc?.items))
+  // Listes ORDONNÉES : l'ordre des lignes est lui aussi partagé par les langues.
+  const avant = clesLignes(originalDoc?.items)
   const apres = clesLignes(data.items)
-  const presentes = new Set(apres)
-  const ajout = apres.some((cle) => cle === null || !avant.has(cle))
-  const retrait = [...avant].some((cle) => !presentes.has(cle))
-  if (ajout || retrait) {
+  const identique =
+    avant.length === apres.length && apres.every((cle, i) => cle !== null && cle === avant[i])
+  if (!identique) {
     throw new ValidationError({
       errors: [
         {
           path: 'items',
           message:
-            'La structure du menu (ajout ou retrait d’éléments) se modifie en français. Dans cette langue, traduisez seulement les libellés.',
+            'La structure du menu (ajout, retrait ou changement d’ordre d’éléments) se modifie en français. Dans cette langue, traduisez seulement les libellés.',
         },
       ],
     })

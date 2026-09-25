@@ -262,7 +262,8 @@ describe('R5 — un contenu se crée en français', () => {
 })
 
 describe('R4 — la structure du menu se modifie en français', () => {
-  const STRUCTURE = /La structure du menu \(ajout ou retrait d’éléments\) se modifie en français\./
+  const STRUCTURE =
+    /La structure du menu \(ajout, retrait ou changement d’ordre d’éléments\) se modifie en français\./
   let menu: { id: number; items: Array<{ id?: string | null; url?: string | null }> }
 
   beforeAll(async () => {
@@ -318,6 +319,34 @@ describe('R4 — la structure du menu se modifie en français', () => {
         }),
       ),
     ).rejects.toThrow(STRUCTURE)
+  })
+
+  it('refuse de changer l’ordre des éléments en corse (le français suivrait)', async () => {
+    const [premier, second] = menu.items
+    await expect(
+      refus(
+        payload.update({
+          collection: 'menus',
+          id: menu.id,
+          locale: 'co',
+          overrideAccess: true,
+          data: {
+            items: [
+              { id: second.id, url: second.url },
+              { id: premier.id, url: premier.url },
+            ],
+          },
+        }),
+      ),
+    ).rejects.toThrow(STRUCTURE)
+    const francais = await payload.findByID({
+      collection: 'menus',
+      id: menu.id,
+      locale: 'fr',
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect(francais.items?.map((i) => i.id)).toEqual([premier.id, second.id])
   })
 })
 
