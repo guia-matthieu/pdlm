@@ -1064,7 +1064,7 @@ describe('composerFrise', () => {
 
 **Files:** `src/gabarits/littoral/{gabarit.ts, theme.css, frise.ts, illustrations.ts, README.md, polices/, maquette/}` ; ajouter `'littoral'` à `GABARITS` et aux options du select `gabarit` (seul changement de schéma admis par I26).
 
-- [ ] **Step 1:** porter `J-maquette-littoral/frise_littoral.py` : `KIT` (10 pièces : `phare`, `jetee`, `barque`, `voilier`, `cabane`, `pin`, `eglise`, `maison`, `mairie`, `goeland`), `TAILLES`, `composer()`, `_scene()`, `SCENES` (4 → 7 selon Q2), `heros()`, et les ornements `mer`, `maree`, `ligne_mer`, `courbe_marees`, `sable` (selon Q3).
+- [ ] **Step 1:** porter `L-littoral-scenes/frise_littoral.py` (copie de `J-maquette-littoral/frise_littoral.py` complétée des scènes `ecole`, `mer`, `nature` et des pièces `ecole`, `portique`, `dune`, `rocher` — **validées par Matthieu le 25/09**, hors dépôt comme `K-village-illustre/`) : `KIT` (10 pièces : `phare`, `jetee`, `barque`, `voilier`, `cabane`, `pin`, `eglise`, `maison`, `mairie`, `goeland`), `TAILLES`, `composer()`, `_scene()`, `SCENES` (7, dessinées et validées), `heros()`, et les ornements `mer`, `maree`, `ligne_mer`, `courbe_marees`, `sable` (selon Q3).
 - [ ] **Step 2:** porter `theme.css` (littéraux à retirer : `#1f7a3a`, `#6b4600`, `#fff3cf`) ; polices Source Serif 4 + Public Sans (OFL, licences dans `J-maquette-littoral/polices/`) ; `cadrageHeros: 'panorama'`.
 - [ ] **Step 3:** scène absente du kit → repli `nature` (test unitaire dans `gabarits-kits.spec.ts`).
 - [ ] **Step 4:** suite de conformité verte sur **les deux** gabarits (I26 : Village inchangé — `git diff --stat main -- src/gabarits/village` vide pour ce commit) ; regarder les captures.
