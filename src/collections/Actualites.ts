@@ -7,6 +7,7 @@ import {
   champTraduction,
   creerEnFrancais,
   exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
   requisEnFrancais,
 } from '../lib/champs-langue'
 
@@ -38,7 +39,7 @@ export const Actualites: CollectionConfig = {
   },
   hooks: {
     // Voir Pages.ts : `draft` n'est lisible que depuis `beforeOperation`.
-    beforeOperation: [memoriserModeBrouillon],
+    beforeOperation: [lectureAnonymeEnFrancais, memoriserModeBrouillon],
     beforeValidate: [creerEnFrancais, uniqueSlugParCommune('titre')],
     beforeChange: [
       figerTenant,

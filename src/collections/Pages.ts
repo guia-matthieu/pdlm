@@ -13,6 +13,7 @@ import {
   champTraduction,
   creerEnFrancais,
   exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
   requisEnFrancais,
 } from '../lib/champs-langue'
 
@@ -44,7 +45,7 @@ export const Pages: CollectionConfig = {
     // `beforeOperation` est le seul point où l'argument `draft` est visible :
     // `bloquerPublication` en a besoin pour distinguer un brouillon d'une
     // écriture sur la version publique (I3).
-    beforeOperation: [memoriserModeBrouillon],
+    beforeOperation: [lectureAnonymeEnFrancais, memoriserModeBrouillon],
     beforeValidate: [creerEnFrancais, uniqueSlugParCommune('titre')],
     beforeChange: [
       figerTenant,

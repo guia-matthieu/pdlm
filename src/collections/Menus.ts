@@ -10,7 +10,11 @@ import { ValidationError } from 'payload'
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { idDe } from '../access/roles'
 import { figerTenant, validerRelationsTenant } from '../hooks'
-import { creerEnFrancais, requisEnFrancais } from '../lib/champs-langue'
+import {
+  creerEnFrancais,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 import { FRANCAIS } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
@@ -136,6 +140,7 @@ export const Menus: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
+    beforeOperation: [lectureAnonymeEnFrancais],
     beforeValidate: [creerEnFrancais, unSeulMenuParCommune],
     beforeChange: [structureEnFrancais, figerTenant, validerRelationsTenant(extraireRefsMenus)],
   },

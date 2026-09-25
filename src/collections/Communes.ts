@@ -13,7 +13,11 @@ import {
   supprimerSiteMesure,
 } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
-import { creerEnFrancais, requisEnFrancais } from '../lib/champs-langue'
+import {
+  creerEnFrancais,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 import { FRANCAIS, LANGUES_REGIONALES, nomLangueMinuscule } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
@@ -60,7 +64,7 @@ export const Communes: CollectionConfig = {
   },
   endpoints: [effacerHistoriqueMesure],
   hooks: {
-    beforeOperation: [ignorerMesureNulle],
+    beforeOperation: [lectureAnonymeEnFrancais, ignorerMesureNulle],
     beforeValidate: [creerEnFrancais],
     beforeChange: [
       async ({ data, req, originalDoc }) => {

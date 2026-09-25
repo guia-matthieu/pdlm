@@ -6,6 +6,7 @@ import {
   champTraduction,
   creerEnFrancais,
   exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
   requisEnFrancais,
 } from '../lib/champs-langue'
 import { validerUrlEditoriale } from '../lib/url'
@@ -37,6 +38,7 @@ export const Evenements: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
+    beforeOperation: [lectureAnonymeEnFrancais],
     beforeValidate: [creerEnFrancais],
     // I4 : pas de champ relationnel, mais la description (texte riche) peut en porter
     beforeChange: [

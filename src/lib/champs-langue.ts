@@ -1,4 +1,9 @@
-import type { CollectionBeforeChangeHook, CollectionBeforeValidateHook, SelectField } from 'payload'
+import type {
+  CollectionBeforeChangeHook,
+  CollectionBeforeOperationHook,
+  CollectionBeforeValidateHook,
+  SelectField,
+} from 'payload'
 
 import { ValidationError } from 'payload'
 
@@ -90,3 +95,27 @@ export const exigerTraductionComplete =
     }
     return data
   }
+
+/** Opérations de lecture vues par `beforeOperation` (Payload 3.90, `operationToHookOperation`). */
+const LECTURES = new Set(['read', 'readDistinct', 'count', 'countVersions'])
+
+/**
+ * R14 : une traduction « à relire » reste invisible au public, y compris sans
+ * brouillon (spec § 2). Le site public lit par l'API locale et filtre lui-même
+ * sur `traduction` ; l'API REST, elle, est joignable sans compte (le proxy
+ * laisse passer `/api/*`). Une lecture non locale et anonyme est donc servie
+ * en français seul, `locale=all` compris. Les opérations de Payload lisent
+ * `req.locale` après ce hook (find, findByID, findVersions, findDistinct,
+ * count) : le modifier ici suffit. `findVersionByID` le lit avant, mais
+ * `readVersions` exige un compte (règle par défaut de Payload).
+ */
+export const lectureAnonymeEnFrancais: CollectionBeforeOperationHook = ({
+  args,
+  operation,
+  req,
+}) => {
+  if (!LECTURES.has(operation) || req.payloadAPI === 'local' || req.user) return args
+  req.locale = FRANCAIS
+  req.fallbackLocale = FRANCAIS
+  return args
+}

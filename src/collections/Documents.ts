@@ -6,6 +6,7 @@ import {
   champTraduction,
   creerEnFrancais,
   exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
   requisEnFrancais,
 } from '../lib/champs-langue'
 
@@ -24,6 +25,7 @@ export const Documents: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
+    beforeOperation: [lectureAnonymeEnFrancais],
     beforeValidate: [creerEnFrancais, limiterTaille(20)],
     beforeChange: [figerTenant, exigerTraductionComplete(['titre'])],
   },
