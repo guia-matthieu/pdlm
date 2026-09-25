@@ -61,7 +61,7 @@ export default async function LayoutLangue({ children, params }: Props) {
     menuEnLangue(commune.id, ctx.langue, pages),
     communeEnLangue(commune, ctx.langue),
   ])
-  const alertes = await versionsEnLangue('alertes', alertesFr, ctx.langue)
+  const alertes = await versionsEnLangue('alertes', commune.id, alertesFr, ctx.langue)
 
   // Couleur non saisie : variable non posée, le défaut de styles.css (:root) s'applique
   const couleurPrincipale = commune.apparence?.couleurPrincipale || undefined

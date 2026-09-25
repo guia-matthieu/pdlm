@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!ctx) return {}
   const fr = await pageParSlug(ctx.site.commune.id, slug)
   if (!fr) return {}
-  const { doc, langue } = await versionEnLangue('pages', fr, ctx.langue)
+  const { doc, langue } = await versionEnLangue('pages', ctx.site.commune.id, fr, ctx.langue)
   const dispo = await languesDisponibles('pages', ctx.site.commune.id, [fr.id], ctx.languesSite)
   return {
     title: doc.metaTitle || doc.titre,
@@ -45,7 +45,7 @@ export default async function PageGenerique({ params }: Props) {
   if (!ctx) notFound()
   const fr = await pageParSlug(ctx.site.commune.id, slug)
   if (!fr) notFound()
-  const { doc, langue } = await versionEnLangue('pages', fr, ctx.langue)
+  const { doc, langue } = await versionEnLangue('pages', ctx.site.commune.id, fr, ctx.langue)
   return (
     <ContenuEnLangue langueContenu={langue} langue={ctx.langue} t={ctx.t}>
       <RenduBlocs

@@ -254,26 +254,38 @@ export interface EnLangue<T> {
 /**
  * Règle 1 (spec § 2) : le document entier en L si sa traduction y est
  * « validée », sinon entièrement en français. L'état se lit SANS repli : lu
- * avec repli, `traduction` en L renverrait la valeur française.
+ * avec repli, `traduction` en L renverrait la valeur française. I4 : relecture
+ * filtrée par la commune du site (`idCommune`, jamais déduite du document) —
+ * un document d'une autre commune reste au français fourni.
  */
 export async function versionEnLangue<C extends Traduisible>(
   collection: C,
+  idCommune: IdCommune,
   docFr: DataFromCollectionSlug<C>,
   langue: CodeLangue,
 ): Promise<EnLangue<DataFromCollectionSlug<C>>> {
   if (langue === FRANCAIS) return { doc: docFr, langue: FRANCAIS }
   const payload = await getPayloadClient()
-  const enL = await payload
-    .findByID({ collection, id: docFr.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
-    .catch(() => null)
+  const res = await payload.find({
+    collection,
+    where: { and: [baseCommune(idCommune), { id: { equals: docFr.id } }] },
+    locale: langue,
+    fallbackLocale: false,
+    depth: 0,
+    limit: 1,
+    pagination: false,
+    overrideAccess: true,
+  } as never)
+  const enL = (res.docs[0] ?? null) as DataFromCollectionSlug<C> | null
   return (enL as { traduction?: string | null } | null)?.traduction === 'validee'
     ? { doc: enL as DataFromCollectionSlug<C>, langue }
     : { doc: docFr, langue: FRANCAIS }
 }
 
-/** Règle 2 : chaque élément d'une liste dans sa langue, en une seule requête. */
+/** Règle 2 : chaque élément d'une liste dans sa langue, en une seule requête (I4 : filtrée par commune). */
 export async function versionsEnLangue<C extends Traduisible>(
   collection: C,
+  idCommune: IdCommune,
   docsFr: DataFromCollectionSlug<C>[],
   langue: CodeLangue,
 ): Promise<EnLangue<DataFromCollectionSlug<C>>[]> {
@@ -281,7 +293,7 @@ export async function versionsEnLangue<C extends Traduisible>(
   const payload = await getPayloadClient()
   const res = await payload.find({
     collection,
-    where: { id: { in: docsFr.map((d) => d.id) } },
+    where: { and: [baseCommune(idCommune), { id: { in: docsFr.map((d) => d.id) } }] },
     locale: langue,
     fallbackLocale: false,
     depth: 0,

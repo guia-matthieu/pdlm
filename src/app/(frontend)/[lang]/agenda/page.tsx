@@ -25,7 +25,7 @@ export default async function PageAgenda({ params }: Props) {
   if (!ctx) notFound()
   const { t } = ctx
   const res = await evenementsCommune(ctx.site.commune.id)
-  const evenements = await versionsEnLangue('evenements', res.docs, ctx.langue)
+  const evenements = await versionsEnLangue('evenements', ctx.site.commune.id, res.docs, ctx.langue)
   const lien = (c: string) => cheminLangue(c, ctx.langue, ctx.site.langueRacine)
   const date = (d: string) => formaterDate(d, ctx.langue, { dateStyle: 'full', timeStyle: 'short' })
 

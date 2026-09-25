@@ -30,7 +30,7 @@ export default async function PageDocuments({ params, searchParams }: Props) {
   const lien = (c: string) => cheminLangue(c, ctx.langue, ctx.site.langueRacine)
   const { categorie } = await searchParams
   const res = await documentsCommune(ctx.site.commune.id, { categorie })
-  const documents = await versionsEnLangue('documents', res.docs, ctx.langue)
+  const documents = await versionsEnLangue('documents', ctx.site.commune.id, res.docs, ctx.langue)
   const categories: Record<string, string> = t.categories
 
   return (

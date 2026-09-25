@@ -80,7 +80,7 @@ describe('site du host', () => {
 describe('règle 1 — page ou fiche', () => {
   it('traduction validée : tout le document en corse', async () => {
     const fr = await pageParSlug(c.id, 'marche')
-    const v = await versionEnLangue('pages', fr!, 'co')
+    const v = await versionEnLangue('pages', c.id, fr!, 'co')
     expect(v.langue).toBe('co')
     expect(v.doc.titre).toBe('Mercatu')
     expect(v.doc.blocs?.[0]).toMatchObject({ titre: 'Venite' })
@@ -88,7 +88,7 @@ describe('règle 1 — page ou fiche', () => {
 
   it('I17 : « à relire » ne s’affiche pas — tout le document en français', async () => {
     const fr = await pageParSlug(c.id, 'demarches')
-    const v = await versionEnLangue('pages', fr!, 'co')
+    const v = await versionEnLangue('pages', c.id, fr!, 'co')
     expect(v.langue).toBe('fr')
     expect(v.doc.titre).toBe('Démarches')
     expect(v.doc.blocs?.[0]).toMatchObject({ titre: 'Mairie' })
@@ -98,7 +98,7 @@ describe('règle 1 — page ou fiche', () => {
 describe('règle 2 — listes', () => {
   it('tous les éléments apparaissent, chacun dans sa langue', async () => {
     const res = await actualitesCommune(c.id)
-    const v = await versionsEnLangue('actualites', res.docs, 'co')
+    const v = await versionsEnLangue('actualites', c.id, res.docs, 'co')
     expect(v.map((x) => [x.doc.titre, x.langue])).toEqual(
       expect.arrayContaining([['Una', 'co'], ['Deux', 'fr']]),
     )
@@ -153,6 +153,12 @@ describe('langues disponibles (hreflang, sitemap)', () => {
     try {
       const dispo = await languesDisponibles('pages', c.id, [pageAutre.id], ['fr', 'co'])
       expect(dispo.get(pageAutre.id)).toEqual(['fr'])
+      // Minor 3 : même garde pour les relectures par langue.
+      const v = await versionEnLangue('pages', c.id, pageAutre, 'co')
+      expect(v.langue).toBe('fr')
+      expect(v.doc.titre).toBe('Ailleurs')
+      const liste = await versionsEnLangue('pages', c.id, [pageAutre], 'co')
+      expect(liste.map((x) => [x.doc.titre, x.langue])).toEqual([['Ailleurs', 'fr']])
     } finally {
       await payload.delete({ collection: 'pages', where: { tenant: { equals: autre.id } }, overrideAccess: true })
       await supprimerCommuneTest(payload, autre.id)

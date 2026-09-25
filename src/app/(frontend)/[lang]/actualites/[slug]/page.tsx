@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!ctx) return {}
   const fr = await actualiteParSlug(ctx.site.commune.id, slug)
   if (!fr) return {}
-  const { doc, langue } = await versionEnLangue('actualites', fr, ctx.langue)
+  const { doc, langue } = await versionEnLangue('actualites', ctx.site.commune.id, fr, ctx.langue)
   const dispo = await languesDisponibles(
     'actualites',
     ctx.site.commune.id,
@@ -54,7 +54,12 @@ export default async function ActualiteDetail({ params }: Props) {
   if (!ctx) notFound()
   const fr = await actualiteParSlug(ctx.site.commune.id, slug)
   if (!fr) notFound()
-  const { doc: actu, langue } = await versionEnLangue('actualites', fr, ctx.langue)
+  const { doc: actu, langue } = await versionEnLangue(
+    'actualites',
+    ctx.site.commune.id,
+    fr,
+    ctx.langue,
+  )
 
   const image = await mediaDe(ctx.site.commune.id, actu.image, ctx.langue)
   const auteur = auteurResume(fr.auteur)

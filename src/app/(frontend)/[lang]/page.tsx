@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!ctx) return {}
   const fr = await pageAccueil(ctx.site.commune.id)
   if (!fr) return { alternates: await alternatesRubrique(ctx, '/') }
-  const { langue } = await versionEnLangue('pages', fr, ctx.langue)
+  const { langue } = await versionEnLangue('pages', ctx.site.commune.id, fr, ctx.langue)
   const dispo = await languesDisponibles('pages', ctx.site.commune.id, [fr.id], ctx.languesSite)
   return {
     alternates: adressesAlternatives({
@@ -61,7 +61,7 @@ export default async function PageAccueil({ params }: Props) {
       </section>
     )
   }
-  const { doc, langue } = await versionEnLangue('pages', fr, ctx.langue)
+  const { doc, langue } = await versionEnLangue('pages', ctx.site.commune.id, fr, ctx.langue)
   return (
     <ContenuEnLangue langueContenu={langue} langue={ctx.langue} t={ctx.t}>
       <RenduBlocs

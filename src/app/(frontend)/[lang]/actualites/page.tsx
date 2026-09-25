@@ -29,7 +29,7 @@ export default async function ListeActualites({ params, searchParams }: Props) {
   const { page: pageParam } = await searchParams
   const numeroPage = Math.max(1, Number(pageParam ?? '1') || 1)
   const res = await actualitesCommune(ctx.site.commune.id, { page: numeroPage })
-  const actus = await versionsEnLangue('actualites', res.docs, ctx.langue)
+  const actus = await versionsEnLangue('actualites', ctx.site.commune.id, res.docs, ctx.langue)
   const lien = (c: string) => cheminLangue(c, ctx.langue, ctx.site.langueRacine)
   const numero = res.page ?? 1
 
