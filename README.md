@@ -83,6 +83,19 @@ l'application (pas de synchronisation automatique de schéma en production) ;
 Caddy est l'unique point d'entrée exposé (80/443), avec certificats TLS
 automatiques (Let's Encrypt) par domaine.
 
+**Mettre à jour (nouvelle version, nouvelle migration)** : reconstruire les
+images et recréer le conteneur `migrate` dans la même commande, puis
+vérifier que la migration est bien passée :
+
+```bash
+CADDY_FILE=./Caddyfile docker compose up --build -d --force-recreate migrate app
+docker compose logs migrate   # doit lister la migration appliquée (« Migrated: … »)
+```
+
+Sans `--force-recreate`, un ancien conteneur `migrate` déjà terminé avec
+succès peut suffire à démarrer l'application sans que la nouvelle migration
+ait tourné (voir la recette des [langues régionales](#langues-régionales)).
+
 Vérification de bon fonctionnement : `GET /api/health` (utilisé par le
 healthcheck Docker de l'application).
 
@@ -209,7 +222,14 @@ migrations avec `S3_ENABLED=true`**, comme la pile de production : sans lui,
 la migration perdrait les colonnes du stockage S3 des médias et des
 documents (`prefix`, `_objectKey`). Vérifier ensuite que la migration ne perd
 rien, avec `scripts/instantane-contenu.ts` avant et après (modèle :
-`scripts/verifier-migration-multilingue.sh`).
+`scripts/verifier-migration-multilingue.sh`). Déployer après une sauvegarde
+(`./scripts/backup.sh`), en une seule commande qui reconstruit et recrée le
+conteneur de migration, puis vérifier :
+
+```bash
+CADDY_FILE=./Caddyfile docker compose up --build -d --force-recreate migrate app
+docker compose logs migrate   # doit lister la migration appliquée (« Migrated: … »)
+```
 
 **Limites de la v1 :**
 
@@ -236,7 +256,8 @@ production, contenu réel créé à la main les 24 et 25 septembre) :
 2. Instantané du contenu avec l'image de `main` :
    `docker compose run --rm --no-deps -T -v "$PWD/scripts:/app/scripts-recette:ro" -v "<dossier>:/out" -e INSTANTANE_FICHIER=/out/avant.json migrate node node_modules/payload/bin.js run scripts-recette/instantane-contenu.ts`.
 3. `docker compose build` puis `docker compose up -d` avec la version
-   multilingue : migration `20260925_182417_multilingue` appliquée.
+   multilingue (en deux temps, voir ci-dessous) : migration
+   `20260925_182417_multilingue` appliquée.
 4. Instantané après, `diff -u avant.json apres.json` : **vide**.
 5. Retour arrière : pile repartie de l'image de `main`, puis
    `./scripts/restore.sh backups/recette-multilingue-20260925` ; instantané,
@@ -250,9 +271,18 @@ production, contenu réel créé à la main les 24 et 25 septembre) :
 Au premier `up -d`, le conteneur `migrate` s'est arrêté sans erreur, sans
 aucun message, et la migration n'était pas appliquée ; un
 `docker compose run --rm migrate` l'a appliquée. Au second déploiement, le
-service `migrate` l'a appliquée normalement. Cause non trouvée. Après chaque
-déploiement, vérifier que `docker compose logs migrate` montre
-« Migrated: … » (ou « Done. » sans migration en attente).
+service `migrate` l'a appliquée normalement. Cause probable, non prouvée :
+le déploiement en deux temps (`build`, puis `up -d`) aurait laissé un
+conteneur `migrate` déjà « terminé avec succès » satisfaire la dépendance de
+l'application, sans que la nouvelle image tourne. Le second déploiement,
+fait sous la même forme, a pourtant fonctionné, d'où la réserve. Pour
+écarter ce risque, toujours déployer une migration en une seule commande qui
+recrée le conteneur, puis vérifier le journal :
+
+```bash
+CADDY_FILE=./Caddyfile docker compose up --build -d --force-recreate migrate app
+docker compose logs migrate   # doit lister la migration appliquée (« Migrated: … »)
+```
 
 Reste à faire à l'écran : activer le corse sur une commune, lui ajouter un
 domaine corse, traduire et valider une page, la voir en corse sur `/co/…` et
