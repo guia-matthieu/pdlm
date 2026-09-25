@@ -3,7 +3,7 @@ import 'server-only'
 import type { Actualite, Alerte, Commune, Evenement, Media, Menu, Page } from '../payload-types'
 import type { DataFromCollectionSlug, Where } from 'payload'
 
-import { baseCanonique, sitemapXml, type DomaineLangue, type RessourceSitemap } from './adresses'
+import { sitemapXml, type DomaineLangue, type RessourceSitemap } from './adresses'
 import type { Site } from './commune'
 import { filtreAlerteActive, filtreEvenementAVenir, filtrePublication } from './dates'
 import { FRANCAIS, type CodeLangue } from './langues'
@@ -236,11 +236,6 @@ export async function domainesCommune(id: IdCommune): Promise<DomaineLangue[]> {
 export function basePlateforme(slug: string): string {
   const plateforme = process.env.PLATFORM_DOMAIN
   return plateforme ? `https://${slug}.${plateforme}` : ''
-}
-
-/** Base d'URLs publiques : domaine canonique français, sinon sous-domaine plateforme. */
-export async function baseUrlsPubliques(id: IdCommune, slug: string): Promise<string> {
-  return baseCanonique(FRANCAIS, await domainesCommune(id), basePlateforme(slug))
 }
 
 export type Traduisible = 'pages' | 'actualites' | 'evenements' | 'documents' | 'alertes'
