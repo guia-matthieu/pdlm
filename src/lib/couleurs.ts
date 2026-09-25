@@ -184,17 +184,17 @@ const format2 = (n: number) => (Math.floor(n * 100) / 100).toFixed(2).replace('.
  * I24 : aucune couleur n'est refusée ; une saisie hors format vaut le défaut,
  * une forcée hors format est ignorée.
  */
-export function deriver(choix: Choix, forcees: Forcees = {}): Derivation {
+export function deriver(choix: Choix | null, forcees: Forcees | null = {}): Derivation {
   const saisies = {
-    principale: valide(choix.principale),
-    accent: valide(choix.accent),
-    terre: valide(choix.terre),
+    principale: valide(choix?.principale),
+    accent: valide(choix?.accent),
+    terre: valide(choix?.terre),
   }
   const p = saisies.principale ?? DEFAUTS.principale
   const a = saisies.accent ?? DEFAUTS.accent
   const t = saisies.terre ?? DEFAUTS.terre
   const f = Object.fromEntries(
-    Object.entries(forcees).flatMap(([cle, v]) => (valide(v) ? [[cle, valide(v)!]] : [])),
+    Object.entries(forcees ?? {}).flatMap(([cle, v]) => (valide(v) ? [[cle, valide(v)!]] : [])),
   ) as Partial<Record<CleForcee, string>>
 
   const [pL, pC, pH] = vers_oklch(p)

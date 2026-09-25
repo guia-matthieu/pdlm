@@ -2,6 +2,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 
 import { accords, contraste, DEFAUTS, deriver, VARIABLES_CONTRAT } from '@/lib/couleurs'
+import type { Forcees } from '@/lib/couleurs'
 
 const HEX = /^#[0-9a-f]{6}$/
 const BLANC = '#ffffff'
@@ -121,6 +122,17 @@ describe('deriver — saisies et défauts', () => {
         deriver({}).variables,
       )
     }
+  })
+
+  // I24 : une ligne de base incomplète (groupe absent, valeurs nulles, clés
+  // en trop) ne doit jamais faire tomber le rendu du site.
+  it('un argument nul ou des clés inconnues valent les défauts, sans erreur', () => {
+    const defauts = deriver({}).variables
+    expect(deriver(null).variables).toEqual(defauts)
+    expect(deriver({}, null).variables).toEqual(defauts)
+    expect(
+      deriver({}, { id: '42', picto7: '#123456', texte: null } as unknown as Forcees).variables,
+    ).toEqual(defauts)
   })
 
   it('les majuscules sont acceptées et donnent la même sortie', () => {
