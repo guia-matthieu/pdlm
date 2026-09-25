@@ -2,6 +2,7 @@ import type { Payload, PayloadRequest } from 'payload'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { FRANCAIS } from '@/lib/langues'
 import { getPayloadClient } from '@/lib/payload'
 
 /**
@@ -72,7 +73,12 @@ describe('Décision (f) — suppression de commune rattachée', () => {
     const commune = await mkCommune(`domaine${Date.now()}`)
     const domaine = await payload.create({
       collection: 'domaines',
-      data: { hostname: `${commune.slug}.example`, commune: commune.id, canonique: false },
+      data: {
+        hostname: `${commune.slug}.example`,
+        commune: commune.id,
+        canonique: false,
+        langue: FRANCAIS,
+      },
       overrideAccess: true,
     })
 

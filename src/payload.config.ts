@@ -19,6 +19,8 @@ import { Evenements } from './collections/Evenements'
 import { Documents } from './collections/Documents'
 import { Alertes } from './collections/Alertes'
 import { Menus } from './collections/Menus'
+import { FRANCAIS, LANGUES } from './lib/langues'
+import { languesDisponiblesAdmin } from './lib/langues-admin'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -59,6 +61,13 @@ export default buildConfig({
   i18n: {
     supportedLanguages: { fr },
     fallbackLanguage: 'fr',
+  },
+  // Langues du CONTENU (spec multilingue § 1). L'admin, elle, reste en français (i18n ci-dessus).
+  localization: {
+    locales: LANGUES.map((l) => ({ code: l.code, label: l.nom })),
+    defaultLocale: FRANCAIS,
+    fallback: true,
+    filterAvailableLocales: languesDisponiblesAdmin,
   },
   // I13 : GraphQL désactivé en v0.1 (non utilisé — sinon : tester ses mutations au même titre que REST)
   graphQL: {

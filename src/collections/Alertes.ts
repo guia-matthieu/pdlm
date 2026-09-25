@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { figerTenant } from '../hooks'
+import { champTraduction, exigerTraductionComplete, requisEnFrancais } from '../lib/champs-langue'
 
 /** I3/D9 : sans workflow — écritures admin/opérateur ; fenêtre d'activité filtrée à l'affichage. */
 export const Alertes: CollectionConfig = {
@@ -18,7 +19,7 @@ export const Alertes: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeChange: [figerTenant],
+    beforeChange: [figerTenant, exigerTraductionComplete(['message'])],
   },
   fields: [
     {
@@ -32,7 +33,14 @@ export const Alertes: CollectionConfig = {
         { label: 'Urgence', value: 'urgence' },
       ],
     },
-    { name: 'message', type: 'textarea', required: true, label: 'Message' },
+    {
+      name: 'message',
+      type: 'textarea',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Message',
+      admin: { description: 'Obligatoire en français.' },
+    },
     {
       name: 'dateDebut',
       type: 'date',
@@ -47,5 +55,6 @@ export const Alertes: CollectionConfig = {
       label: 'Fin d’affichage (dépublication automatique)',
       admin: { date: { pickerAppearance: 'dayAndTime' } },
     },
+    champTraduction,
   ],
 }

@@ -11,6 +11,8 @@ import {
   supprimerSiteMesure,
 } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
+import { requisEnFrancais } from '../lib/champs-langue'
+import { LANGUES_REGIONALES } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** Domaines réservés à la plateforme — un hostname communal ne peut pas les prendre (I6). */
@@ -137,9 +139,10 @@ export const Communes: CollectionConfig = {
     {
       name: 'nom',
       type: 'text',
-      required: true,
+      localized: true,
+      validate: requisEnFrancais,
       label: 'Nom de la commune',
-      admin: { description: 'Ex. : Saint-Exupéry-les-Bains' },
+      admin: { description: 'Obligatoire en français. Ex. : Saint-Exupéry-les-Bains' },
     },
     {
       name: 'slug',
@@ -171,6 +174,17 @@ export const Communes: CollectionConfig = {
       },
     },
     {
+      name: 'langues',
+      type: 'select',
+      hasMany: true,
+      label: 'Langues du site',
+      options: LANGUES_REGIONALES.map((l) => ({ label: l.nom, value: l.code })),
+      admin: {
+        description:
+          'Le français est toujours actif. Une langue cochée ici apparaît dans le sélecteur du site ; ses pages ne sont montrées que traduites et validées.',
+      },
+    },
+    {
       name: 'logo',
       type: 'upload',
       relationTo: 'media',
@@ -191,6 +205,7 @@ export const Communes: CollectionConfig = {
     {
       name: 'horaires',
       type: 'textarea',
+      localized: true,
       label: 'Horaires d’ouverture',
       admin: { description: 'Horaires de la mairie (texte libre en v0.1).' },
     },

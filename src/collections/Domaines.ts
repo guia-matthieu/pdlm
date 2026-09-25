@@ -2,6 +2,7 @@ import type { CollectionConfig, PayloadRequest, Where } from 'payload'
 
 import { idDe, isOperateur } from '../access/roles'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
+import { FRANCAIS, LANGUES } from '../lib/langues'
 import { hostnamesReserves } from './Communes'
 
 /** Normalisation d'un hostname : minuscules, IDNA-ASCII, sans port ni point final (I6). */
@@ -150,6 +151,18 @@ export const Domaines: CollectionConfig = {
       admin: {
         description:
           'Un seul par commune — utilisé pour les URLs canoniques et le sitemap. Requis pour activer une commune.',
+      },
+    },
+    {
+      name: 'langue',
+      type: 'select',
+      required: true,
+      defaultValue: FRANCAIS,
+      label: 'Langue servie à la racine',
+      options: LANGUES.map((l) => ({ label: l.nom, value: l.code })),
+      admin: {
+        description:
+          'Langue affichée à l’adresse nue de ce domaine (ex. pigna.corsica → corse). Les autres langues y sont servies sous /fr, /co…',
       },
     },
   ],

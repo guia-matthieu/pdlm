@@ -2,6 +2,7 @@ import type { Payload } from 'payload'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { FRANCAIS } from '@/lib/langues'
 import { getPayloadClient } from '@/lib/payload'
 
 /**
@@ -62,7 +63,7 @@ describe('I6 — hostnames réservés à la plateforme', () => {
     await expect(
       payload.create({
         collection: 'domaines',
-        data: { hostname, commune, canonique: false },
+        data: { hostname, commune, canonique: false, langue: FRANCAIS },
         overrideAccess: true,
       }),
     ).rejects.toThrow(/réservé/i)
@@ -71,7 +72,12 @@ describe('I6 — hostnames réservés à la plateforme', () => {
   it('refuse de renommer un domaine existant en hostname réservé', async () => {
     const domaine = await payload.create({
       collection: 'domaines',
-      data: { hostname: 'mairie.domaines-reserves.example', commune, canonique: false },
+      data: {
+        hostname: 'mairie.domaines-reserves.example',
+        commune,
+        canonique: false,
+        langue: FRANCAIS,
+      },
       overrideAccess: true,
     })
     await expect(

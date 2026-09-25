@@ -2,6 +2,7 @@ import type { Payload, PayloadRequest } from 'payload'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { FRANCAIS } from '@/lib/langues'
 import { getPayloadClient } from '@/lib/payload'
 
 /**
@@ -122,7 +123,12 @@ describe('Décision (g) — instantanés auteur/commune', () => {
 
     await payload.create({
       collection: 'domaines',
-      data: { hostname: `${commune.slug}.example`, commune: commune.id, canonique: false },
+      data: {
+        hostname: `${commune.slug}.example`,
+        commune: commune.id,
+        canonique: false,
+        langue: FRANCAIS,
+      },
       req: req(operateur),
       overrideAccess: false,
     })

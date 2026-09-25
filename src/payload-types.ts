@@ -104,10 +104,10 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
-  fallbackLocale: null;
+  fallbackLocale: ('false' | 'none' | 'null') | false | null | ('fr' | 'co') | ('fr' | 'co')[];
   globals: {};
   globalsSelect: {};
-  locale: null;
+  locale: 'fr' | 'co';
   widgets: {
     collections: CollectionsWidget;
   };
@@ -142,9 +142,9 @@ export interface UserAuthOperations {
 export interface Commune {
   id: number;
   /**
-   * Ex. : Saint-Exupéry-les-Bains
+   * Obligatoire en français. Ex. : Saint-Exupéry-les-Bains
    */
-  nom: string;
+  nom?: string | null;
   /**
    * Identifiant URL (sous-domaine de la plateforme = slug exact — choisir un slug court). Modifiable par l’opérateur uniquement.
    */
@@ -153,6 +153,10 @@ export interface Commune {
    * Désactiver met le site public en 404 sans supprimer les données (préféré à la suppression).
    */
   actif?: boolean | null;
+  /**
+   * Le français est toujours actif. Une langue cochée ici apparaît dans le sélecteur du site ; ses pages ne sont montrées que traduites et validées.
+   */
+  langues?: 'co'[] | null;
   logo?: (number | null) | Media;
   coordonnees?: {
     adresse?: string | null;
@@ -202,9 +206,9 @@ export interface Media {
   id: number;
   tenant?: (number | null) | Commune;
   /**
-   * Obligatoire pour l’accessibilité (RGAA).
+   * Obligatoire en français pour l’accessibilité (RGAA). Traduire dans chaque langue du site.
    */
-  alt: string;
+  alt?: string | null;
   prefix?: string | null;
   _objectKey?: string | null;
   updatedAt: string;
@@ -260,6 +264,10 @@ export interface Domaine {
    * Un seul par commune — utilisé pour les URLs canoniques et le sitemap. Requis pour activer une commune.
    */
   canonique?: boolean | null;
+  /**
+   * Langue affichée à l’adresse nue de ce domaine (ex. pigna.corsica → corse). Les autres langues y sont servies sous /fr, /co…
+   */
+  langue: 'fr' | 'co';
   updatedAt: string;
   createdAt: string;
 }
@@ -331,110 +339,122 @@ export interface User {
 export interface Page {
   id: number;
   tenant?: (number | null) | Commune;
-  titre: string;
+  /**
+   * Obligatoire en français.
+   */
+  titre?: string | null;
   /**
    * Généré depuis le titre. Unicité garantie dans la commune.
    */
   slug: string;
-  blocs: (
-    | {
-        titre: string;
-        sousTitre?: string | null;
-        image?: (number | null) | Media;
-        cta?: {
-          label?: string | null;
-          url?: string | null;
-        };
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'hero';
-      }
-    | {
-        contenu: {
-          root: {
-            type: string;
-            children: {
-              type: any;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        };
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'texteRiche';
-      }
-    | {
-        media: number | Media;
-        legende?: string | null;
-        largeur?: ('pleine' | 'large') | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'image';
-      }
-    | {
-        images: {
-          media: number | Media;
-          legende?: string | null;
-          id?: string | null;
-        }[];
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'galerie';
-      }
-    | {
-        elements: {
-          titre: string;
-          contenu: {
-            root: {
-              type: string;
-              children: {
-                type: any;
-                version: number;
-                [k: string]: unknown;
-              }[];
-              direction: ('ltr' | 'rtl') | null;
-              format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-              indent: number;
-              version: number;
+  /**
+   * Obligatoire en français.
+   */
+  blocs?:
+    | (
+        | {
+            titre: string;
+            sousTitre?: string | null;
+            image?: (number | null) | Media;
+            cta?: {
+              label?: string | null;
+              url?: string | null;
             };
-            [k: string]: unknown;
-          };
-          id?: string | null;
-        }[];
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'accordeon';
-      }
-    | {
-        boutons: {
-          label: string;
-          url: string;
-          variante?: ('primaire' | 'secondaire') | null;
-          id?: string | null;
-        }[];
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'boutons';
-      }
-    | {
-        titre?: string | null;
-        texte?: string | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'contact';
-      }
-  )[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero';
+          }
+        | {
+            contenu: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'texteRiche';
+          }
+        | {
+            media: number | Media;
+            legende?: string | null;
+            largeur?: ('pleine' | 'large') | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'image';
+          }
+        | {
+            images: {
+              media: number | Media;
+              legende?: string | null;
+              id?: string | null;
+            }[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'galerie';
+          }
+        | {
+            elements: {
+              titre: string;
+              contenu: {
+                root: {
+                  type: string;
+                  children: {
+                    type: any;
+                    version: number;
+                    [k: string]: unknown;
+                  }[];
+                  direction: ('ltr' | 'rtl') | null;
+                  format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                  indent: number;
+                  version: number;
+                };
+                [k: string]: unknown;
+              };
+              id?: string | null;
+            }[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'accordeon';
+          }
+        | {
+            boutons: {
+              label: string;
+              url: string;
+              variante?: ('primaire' | 'secondaire') | null;
+              id?: string | null;
+            }[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'boutons';
+          }
+        | {
+            titre?: string | null;
+            texte?: string | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'contact';
+          }
+      )[]
+    | null;
   /**
    * Facultatif — titre de la page dans les moteurs de recherche.
    */
   metaTitle?: string | null;
   metaDescription?: string | null;
+  /**
+   * Seule une traduction validée est montrée au public dans cette langue.
+   */
+  traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -446,11 +466,20 @@ export interface Page {
 export interface Actualite {
   id: number;
   tenant?: (number | null) | Commune;
-  titre: string;
+  /**
+   * Obligatoire en français.
+   */
+  titre?: string | null;
   slug: string;
-  resume: string;
+  /**
+   * Obligatoire en français.
+   */
+  resume?: string | null;
   image?: (number | null) | Media;
-  contenu: {
+  /**
+   * Obligatoire en français.
+   */
+  contenu?: {
     root: {
       type: string;
       children: {
@@ -464,9 +493,13 @@ export interface Actualite {
       version: number;
     };
     [k: string]: unknown;
-  };
+  } | null;
   datePublication?: string | null;
   auteur?: (number | null) | User;
+  /**
+   * Seule une traduction validée est montrée au public dans cette langue.
+   */
+  traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -478,7 +511,10 @@ export interface Actualite {
 export interface Evenement {
   id: number;
   tenant?: (number | null) | Commune;
-  titre: string;
+  /**
+   * Obligatoire en français.
+   */
+  titre?: string | null;
   dateDebut: string;
   dateFin: string;
   lieu?: string | null;
@@ -501,6 +537,10 @@ export interface Evenement {
     actif?: boolean | null;
     lien?: string | null;
   };
+  /**
+   * Seule une traduction validée est montrée au public dans cette langue.
+   */
+  traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -511,13 +551,20 @@ export interface Evenement {
 export interface Document {
   id: number;
   tenant?: (number | null) | Commune;
-  titre: string;
+  /**
+   * Obligatoire en français.
+   */
+  titre?: string | null;
   categorie: 'deliberations' | 'arretes' | 'budget' | 'urbanisme' | 'autres';
   dateDocument?: string | null;
   /**
    * Ex. : « 5 ans » — information reprise dans la politique de confidentialité de la commune.
    */
   dureeConservation?: string | null;
+  /**
+   * Seule une traduction validée est montrée au public dans cette langue.
+   */
+  traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
   prefix?: string | null;
   _objectKey?: string | null;
   updatedAt: string;
@@ -540,9 +587,16 @@ export interface Alerte {
   id: number;
   tenant?: (number | null) | Commune;
   niveau: 'info' | 'vigilance' | 'urgence';
-  message: string;
+  /**
+   * Obligatoire en français.
+   */
+  message?: string | null;
   dateDebut: string;
   dateFin: string;
+  /**
+   * Seule une traduction validée est montrée au public dans cette langue.
+   */
+  traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -555,7 +609,10 @@ export interface Menu {
   tenant?: (number | null) | Commune;
   nom: string;
   items: {
-    label: string;
+    /**
+     * Obligatoire en français.
+     */
+    label?: string | null;
     page?: (number | null) | Page;
     url?: string | null;
     /**
@@ -563,7 +620,10 @@ export interface Menu {
      */
     enfants?:
       | {
-          label: string;
+          /**
+           * Obligatoire en français.
+           */
+          label?: string | null;
           page?: (number | null) | Page;
           url?: string | null;
           id?: string | null;
@@ -692,6 +752,7 @@ export interface CommunesSelect<T extends boolean = true> {
   nom?: T;
   slug?: T;
   actif?: T;
+  langues?: T;
   logo?: T;
   coordonnees?:
     | T
@@ -734,6 +795,7 @@ export interface DomainesSelect<T extends boolean = true> {
   hostname?: T;
   commune?: T;
   canonique?: T;
+  langue?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -931,6 +993,7 @@ export interface PagesSelect<T extends boolean = true> {
       };
   metaTitle?: T;
   metaDescription?: T;
+  traduction?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -948,6 +1011,7 @@ export interface ActualitesSelect<T extends boolean = true> {
   contenu?: T;
   datePublication?: T;
   auteur?: T;
+  traduction?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -969,6 +1033,7 @@ export interface EvenementsSelect<T extends boolean = true> {
         actif?: T;
         lien?: T;
       };
+  traduction?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -982,6 +1047,7 @@ export interface DocumentsSelect<T extends boolean = true> {
   categorie?: T;
   dateDocument?: T;
   dureeConservation?: T;
+  traduction?: T;
   prefix?: T;
   _objectKey?: T;
   updatedAt?: T;
@@ -1006,6 +1072,7 @@ export interface AlertesSelect<T extends boolean = true> {
   message?: T;
   dateDebut?: T;
   dateFin?: T;
+  traduction?: T;
   updatedAt?: T;
   createdAt?: T;
 }

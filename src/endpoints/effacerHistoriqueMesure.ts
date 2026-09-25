@@ -38,7 +38,7 @@ export const effacerHistoriqueMesure: Endpoint = {
       )
     }
     const journaliser = (message: string) =>
-      ecrire(req, 'commune', `${message} — ${commune.nom}`, commune.id, commune.nom)
+      ecrire(req, 'commune', `${message} — ${commune.nom}`, commune.id, commune.nom ?? undefined)
 
     try {
       await journaliser(MESSAGES_MESURE.effacementDemande)

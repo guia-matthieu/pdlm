@@ -5,6 +5,7 @@ import { ValidationError } from 'payload'
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { idDe } from '../access/roles'
 import { figerTenant, validerRelationsTenant } from '../hooks'
+import { requisEnFrancais } from '../lib/champs-langue'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** XOR page/url : exactement une des deux (I9). */
@@ -93,7 +94,16 @@ export const Menus: CollectionConfig = {
       label: 'Éléments',
       labels: { singular: 'Élément', plural: 'Éléments' },
       fields: [
-        { name: 'label', type: 'text', required: true, label: 'Libellé' },
+        {
+          name: 'label',
+          type: 'text',
+          // Seul le libellé change d'une langue à l'autre : les lignes du menu
+          // (tableau non localisé) sont communes à toutes les langues.
+          localized: true,
+          validate: requisEnFrancais,
+          label: 'Libellé',
+          admin: { description: 'Obligatoire en français.' },
+        },
         {
           name: 'page',
           type: 'relationship',
@@ -114,7 +124,14 @@ export const Menus: CollectionConfig = {
           labels: { singular: 'Sous-élément', plural: 'Sous-éléments' },
           admin: { description: 'Un seul niveau d’imbrication.' },
           fields: [
-            { name: 'label', type: 'text', required: true, label: 'Libellé' },
+            {
+              name: 'label',
+              type: 'text',
+              localized: true,
+              validate: requisEnFrancais,
+              label: 'Libellé',
+              admin: { description: 'Obligatoire en français.' },
+            },
             {
               name: 'page',
               type: 'relationship',

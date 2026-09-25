@@ -1,5 +1,6 @@
 import type { Commune, Domaine, User } from '../payload-types'
 
+import { FRANCAIS } from '../lib/langues'
 import { getPayloadClient } from '../lib/payload'
 import { seedContenuDemo } from './contenu-demo'
 
@@ -32,7 +33,7 @@ async function upsertCommune(
 
 async function upsertDomaine(
   payload: Payload,
-  data: { hostname: string; commune: number; canonique: boolean },
+  data: { hostname: string; commune: number; canonique: boolean; langue?: Domaine['langue'] },
 ): Promise<Domaine> {
   const existants = await payload.find({
     collection: 'domaines',
@@ -41,7 +42,11 @@ async function upsertDomaine(
     overrideAccess: true,
   })
   if (existants.docs.length > 0) return existants.docs[0]
-  return payload.create({ collection: 'domaines', data, overrideAccess: true })
+  return payload.create({
+    collection: 'domaines',
+    data: { langue: FRANCAIS, ...data },
+    overrideAccess: true,
+  })
 }
 
 async function upsertUser(
