@@ -3,7 +3,12 @@ import type { CollectionConfig } from 'payload'
 import { creerContenu, lirePublieOuAuthentifie, majContenu, supprimerContenu } from '../access'
 import { figerTenant, uniqueSlugParCommune, validerRelationsTenant } from '../hooks'
 import { bloquerPublication, memoriserModeBrouillon } from '../hooks/bloquerPublication'
-import { champTraduction, exigerTraductionComplete, requisEnFrancais } from '../lib/champs-langue'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 
 /** I4 : image + auteur (affectation vérifiée, pas égalité fictive — I2). */
 const extraireRefsActualite = (data: Record<string, unknown>) => ({
@@ -34,7 +39,7 @@ export const Actualites: CollectionConfig = {
   hooks: {
     // Voir Pages.ts : `draft` n'est lisible que depuis `beforeOperation`.
     beforeOperation: [memoriserModeBrouillon],
-    beforeValidate: [uniqueSlugParCommune('titre')],
+    beforeValidate: [creerEnFrancais, uniqueSlugParCommune('titre')],
     beforeChange: [
       figerTenant,
       bloquerPublication,

@@ -11,7 +11,7 @@ import {
   supprimerSiteMesure,
 } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
-import { requisEnFrancais } from '../lib/champs-langue'
+import { creerEnFrancais, requisEnFrancais } from '../lib/champs-langue'
 import { LANGUES_REGIONALES } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
@@ -59,6 +59,7 @@ export const Communes: CollectionConfig = {
   endpoints: [effacerHistoriqueMesure],
   hooks: {
     beforeOperation: [ignorerMesureNulle],
+    beforeValidate: [creerEnFrancais],
     beforeChange: [
       async ({ data, req, originalDoc }) => {
         // Slug toujours cohérent avec le nom (généré une fois, figé ensuite — I8)

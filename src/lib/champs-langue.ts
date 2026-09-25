@@ -1,4 +1,4 @@
-import type { CollectionBeforeChangeHook, SelectField } from 'payload'
+import type { CollectionBeforeChangeHook, CollectionBeforeValidateHook, SelectField } from 'payload'
 
 import { ValidationError } from 'payload'
 
@@ -29,6 +29,22 @@ function vide(valeur: unknown): boolean {
 
 export const requisEnFrancais = (valeur: unknown, { req }: { req: { locale?: string | null } }) =>
   (req.locale ?? FRANCAIS) !== FRANCAIS || !vide(valeur) || 'Ce champ est obligatoire en français.'
+
+/**
+ * R5 : un contenu se crée en français (la langue qui fait foi), puis se
+ * traduit. Sans cette règle, un document créé dans une autre langue n'aurait
+ * aucun des champs obligatoires en français (`requisEnFrancais` ne les exige
+ * qu'en français). Placé en tête de `beforeValidate` : le refus arrive avant
+ * toute autre vérification.
+ */
+export const creerEnFrancais: CollectionBeforeValidateHook = ({ data, operation, req }) => {
+  if (operation === 'create' && (req.locale ?? FRANCAIS) !== FRANCAIS) {
+    throw new ValidationError({
+      errors: [{ path: 'id', message: 'Créez d’abord ce contenu en français, puis traduisez-le.' }],
+    })
+  }
+  return data
+}
 
 /** État de traduction (spec § 2) — il décide seul de l'affichage public d'une langue. */
 export const champTraduction: SelectField = {

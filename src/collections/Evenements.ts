@@ -2,7 +2,12 @@ import type { CollectionConfig } from 'payload'
 
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { figerTenant, validerRelationsTenant } from '../hooks'
-import { champTraduction, exigerTraductionComplete, requisEnFrancais } from '../lib/champs-langue'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** Validation : la fin doit suivre le début. */
@@ -32,6 +37,7 @@ export const Evenements: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
+    beforeValidate: [creerEnFrancais],
     // I4 : pas de champ relationnel, mais la description (texte riche) peut en porter
     beforeChange: [
       figerTenant,

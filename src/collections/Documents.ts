@@ -2,7 +2,12 @@ import type { CollectionConfig } from 'payload'
 
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { figerTenant, limiterTaille } from '../hooks'
-import { champTraduction, exigerTraductionComplete, requisEnFrancais } from '../lib/champs-langue'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 
 /** I5 : PDF uniquement, 20 Mo max, type vérifié sur le contenu réel. */
 export const Documents: CollectionConfig = {
@@ -19,7 +24,7 @@ export const Documents: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeValidate: [limiterTaille(20)],
+    beforeValidate: [creerEnFrancais, limiterTaille(20)],
     beforeChange: [figerTenant, exigerTraductionComplete(['titre'])],
   },
   upload: {

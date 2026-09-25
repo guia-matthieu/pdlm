@@ -2,7 +2,7 @@ import type { Locale, PayloadRequest } from 'payload'
 
 import { getTenantFromCookie } from '@payloadcms/plugin-multi-tenant/utilities'
 
-import { isOperateur } from '../access/roles'
+import { idDe, isOperateur } from '../access/roles'
 import { FRANCAIS } from './langues'
 
 /**
@@ -18,12 +18,13 @@ export async function languesDisponiblesAdmin({
 }): Promise<Locale[]> {
   if (isOperateur(req.user)) return locales
   const tenants = (req.user as { tenants?: Array<{ tenant: unknown }> } | null)?.tenants ?? []
-  const id =
-    getTenantFromCookie(req.headers, 'number') ??
-    (tenants.length === 1 ? (tenants[0].tenant as number | { id: number }) : null)
-  const idCommune = typeof id === 'object' && id !== null ? id.id : id
-  if (idCommune === null || idCommune === undefined)
-    return locales.filter((l) => l.code === FRANCAIS)
+  const siennes = tenants.map((t) => idDe(t?.tenant)).filter((id): id is number => id !== undefined)
+  // Le cookie n'est qu'un choix d'affichage : il ne compte que s'il désigne
+  // une commune de l'utilisateur (sinon, comme s'il n'y en avait pas).
+  const cookie = getTenantFromCookie(req.headers, 'number')
+  const choisie = typeof cookie === 'number' && siennes.includes(cookie) ? cookie : undefined
+  const idCommune = choisie ?? (siennes.length === 1 ? siennes[0] : undefined)
+  if (idCommune === undefined) return locales.filter((l) => l.code === FRANCAIS)
   const commune = await req.payload
     .findByID({ collection: 'communes', id: idCommune, depth: 0, overrideAccess: true })
     .catch(() => null)

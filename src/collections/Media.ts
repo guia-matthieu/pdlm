@@ -3,7 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { figerTenant } from '../hooks/figerTenant'
 import { limiterTaille } from '../hooks/limiterTaille'
-import { requisEnFrancais } from '../lib/champs-langue'
+import { creerEnFrancais, requisEnFrancais } from '../lib/champs-langue'
 
 /**
  * I5 : médias = images uniquement (pas de SVG — risque XSS), limite 20 Mo,
@@ -25,7 +25,7 @@ export const Media: CollectionConfig = {
   },
   hooks: {
     // I5 : limite de taille (20 Mo) — vérifiée sur le fichier réel, pas le MIME déclaré
-    beforeValidate: [limiterTaille(20)],
+    beforeValidate: [creerEnFrancais, limiterTaille(20)],
     beforeChange: [figerTenant],
   },
   upload: {

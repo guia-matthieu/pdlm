@@ -1,11 +1,17 @@
-import type { CollectionBeforeValidateHook, CollectionConfig, Where } from 'payload'
+import type {
+  CollectionBeforeChangeHook,
+  CollectionBeforeValidateHook,
+  CollectionConfig,
+  Where,
+} from 'payload'
 
 import { ValidationError } from 'payload'
 
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { idDe } from '../access/roles'
 import { figerTenant, validerRelationsTenant } from '../hooks'
-import { requisEnFrancais } from '../lib/champs-langue'
+import { creerEnFrancais, requisEnFrancais } from '../lib/champs-langue'
+import { FRANCAIS } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** XOR page/url : exactement une des deux (I9). */
@@ -57,6 +63,54 @@ const unSeulMenuParCommune: CollectionBeforeValidateHook = async ({ data, origin
   return data
 }
 
+/**
+ * Clés des lignes du menu (éléments et sous-éléments, rattachés à leur parent).
+ * Une ligne sans identifiant est une ligne nouvelle.
+ */
+function clesLignes(items: unknown): Array<string | null> {
+  const cles: Array<string | null> = []
+  if (!Array.isArray(items)) return cles
+  for (const item of items as Array<Record<string, unknown> | null>) {
+    const id = typeof item?.['id'] === 'string' && item['id'] !== '' ? item['id'] : null
+    cles.push(id)
+    const enfants = item?.['enfants']
+    if (!Array.isArray(enfants)) continue
+    for (const enfant of enfants as Array<Record<string, unknown> | null>) {
+      const idEnfant =
+        typeof enfant?.['id'] === 'string' && enfant['id'] !== '' ? enfant['id'] : null
+      cles.push(id === null || idEnfant === null ? null : `${id}>${idEnfant}`)
+    }
+  }
+  return cles
+}
+
+/**
+ * R4 : les lignes du menu sont communes à toutes les langues. Hors du
+ * français, on ne traduit que les libellés : ajouter ou retirer une ligne
+ * changerait le menu français et y laisserait une ligne sans libellé.
+ */
+const structureEnFrancais: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
+  if (operation !== 'update' || (req.locale ?? FRANCAIS) === FRANCAIS) return data
+  if (!data || !('items' in data)) return data
+  const avant = new Set(clesLignes(originalDoc?.items))
+  const apres = clesLignes(data.items)
+  const presentes = new Set(apres)
+  const ajout = apres.some((cle) => cle === null || !avant.has(cle))
+  const retrait = [...avant].some((cle) => !presentes.has(cle))
+  if (ajout || retrait) {
+    throw new ValidationError({
+      errors: [
+        {
+          path: 'items',
+          message:
+            'La structure du menu (ajout ou retrait d’éléments) se modifie en français. Dans cette langue, traduisez seulement les libellés.',
+        },
+      ],
+    })
+  }
+  return data
+}
+
 /** Validateurs typés pour les champs page/url des items de menu (XOR + schéma). */
 type OptsValidation = { siblingData?: Record<string, unknown> }
 
@@ -82,8 +136,8 @@ export const Menus: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeValidate: [unSeulMenuParCommune],
-    beforeChange: [figerTenant, validerRelationsTenant(extraireRefsMenus)],
+    beforeValidate: [creerEnFrancais, unSeulMenuParCommune],
+    beforeChange: [structureEnFrancais, figerTenant, validerRelationsTenant(extraireRefsMenus)],
   },
   fields: [
     { name: 'nom', type: 'text', required: true, defaultValue: 'Principal', label: 'Nom' },

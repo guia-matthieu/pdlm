@@ -13,6 +13,11 @@ import { refus } from '../helpers/refus'
 let payload: Payload
 let commune: { id: number; host: string }
 
+const LOCALES = [
+  { code: 'fr', label: 'Français' },
+  { code: 'co', label: 'Corse' },
+]
+
 const texte = (t: string): NonNullable<Actualite['contenu']> => ({
   root: {
     type: 'root',
@@ -236,6 +241,170 @@ describe('I17 — validation en deux temps', () => {
   })
 })
 
+describe('R5 — un contenu se crée en français', () => {
+  it('refuse de créer une page en corse', async () => {
+    await expect(
+      refus(
+        payload.create({
+          collection: 'pages',
+          locale: 'co',
+          data: {
+            tenant: commune.id,
+            titre: 'Mercatu',
+            slug: 'mercatu-co',
+            blocs: [{ blockType: 'contact' }],
+          } as never,
+          overrideAccess: true,
+        }),
+      ),
+    ).rejects.toThrow(/Créez d’abord ce contenu en français, puis traduisez-le\./)
+  })
+})
+
+describe('R4 — la structure du menu se modifie en français', () => {
+  const STRUCTURE = /La structure du menu \(ajout ou retrait d’éléments\) se modifie en français\./
+  let menu: { id: number; items: Array<{ id?: string | null; url?: string | null }> }
+
+  beforeAll(async () => {
+    const existant = await payload.find({
+      collection: 'menus',
+      where: { tenant: { equals: commune.id } },
+      limit: 1,
+      overrideAccess: true,
+    })
+    menu = (existant.docs[0] ??
+      (await payload.create({
+        collection: 'menus',
+        data: {
+          tenant: commune.id,
+          nom: 'Principal',
+          items: [
+            { label: 'Marché', url: '/marche' },
+            { label: 'Démarches', url: '/demarches' },
+          ],
+        },
+        overrideAccess: true,
+      }))) as typeof menu
+  })
+
+  it('refuse d’ajouter un élément en corse', async () => {
+    await expect(
+      refus(
+        payload.update({
+          collection: 'menus',
+          id: menu.id,
+          locale: 'co',
+          overrideAccess: true,
+          data: {
+            items: [
+              ...menu.items.map((i) => ({ id: i.id, url: i.url })),
+              { label: 'Novu', url: '/novu' },
+            ],
+          },
+        }),
+      ),
+    ).rejects.toThrow(STRUCTURE)
+  })
+
+  it('refuse de retirer un élément en corse', async () => {
+    await expect(
+      refus(
+        payload.update({
+          collection: 'menus',
+          id: menu.id,
+          locale: 'co',
+          overrideAccess: true,
+          data: { items: [{ id: menu.items[0].id, url: menu.items[0].url }] },
+        }),
+      ),
+    ).rejects.toThrow(STRUCTURE)
+  })
+})
+
+describe('I17 et obligatoire en français — cas limites', () => {
+  it('refuse de valider en corse une page dont les blocs corses sont vides', async () => {
+    const page = await payload.create({
+      collection: 'pages',
+      data: {
+        tenant: commune.id,
+        titre: 'Horaires',
+        slug: 'horaires-loc',
+        blocs: [{ blockType: 'contact' }],
+        _status: 'published',
+      },
+      overrideAccess: true,
+    })
+    await expect(
+      refus(
+        payload.update({
+          collection: 'pages',
+          id: page.id,
+          locale: 'co',
+          overrideAccess: true,
+          data: { traduction: 'validee', titre: 'Orarii', blocs: [] },
+        }),
+      ),
+    ).rejects.toThrow(/le contenu de la page manque/)
+  })
+
+  it('refuse une actualité dont le contenu français est un paragraphe vide', async () => {
+    const vide: NonNullable<Actualite['contenu']> = {
+      root: {
+        type: 'root',
+        format: '',
+        indent: 0,
+        version: 1,
+        direction: null,
+        children: [
+          { type: 'paragraph', format: '', indent: 0, version: 1, direction: null, children: [] },
+        ],
+      },
+    }
+    await expect(
+      refus(
+        payload.create({
+          collection: 'actualites',
+          data: {
+            tenant: commune.id,
+            titre: 'Vide',
+            slug: 'vide-loc',
+            resume: 'Résumé',
+            contenu: vide,
+          },
+          overrideAccess: true,
+        }),
+      ),
+    ).rejects.toThrow(/obligatoire en français/)
+  })
+})
+
+describe('nom de référence en français', () => {
+  it('modifier une commune en corse journalise son nom français', async () => {
+    const { nom } = await payload.findByID({
+      collection: 'communes',
+      id: commune.id,
+      locale: 'fr',
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'communes',
+      id: commune.id,
+      locale: 'co',
+      data: { nom: 'Nome corsu', horaires: 'Luni' },
+      overrideAccess: true,
+    })
+    const { docs } = await payload.find({
+      collection: 'journal',
+      where: { commune: { equals: commune.id } },
+      sort: '-createdAt',
+      limit: 1,
+      overrideAccess: true,
+    })
+    expect(docs[0].communeNom).toBe(nom)
+    expect(docs[0].message).toBe(`Modification — ${nom}`)
+  })
+})
+
 describe('admin — langues proposées', () => {
   it('un non-opérateur ne voit que le français et les langues de sa commune', async () => {
     await payload.update({
@@ -266,6 +435,74 @@ describe('admin — langues proposées', () => {
     expect((await languesDisponiblesAdmin({ locales, req } as never)).map((l) => l.code)).toEqual([
       'fr',
     ])
+  })
+
+  it('ignore le cookie d’une commune qui n’est pas celle de l’utilisateur', async () => {
+    const autre = await creerCommuneActive(payload, 'localisation-autre')
+    try {
+      await payload.update({
+        collection: 'communes',
+        id: autre.id,
+        data: { langues: ['co'] },
+        overrideAccess: true,
+      })
+      const req = {
+        payload,
+        user: { role: 'redacteur', tenants: [{ tenant: commune.id, roles: ['redacteur'] }] },
+        headers: new Headers({ cookie: `payload-tenant=${autre.id}` }),
+      }
+      // La commune de l'utilisateur n'a aucune langue régionale ; celle du cookie en a une.
+      expect(
+        (await languesDisponiblesAdmin({ locales: LOCALES, req } as never)).map((l) => l.code),
+      ).toEqual(['fr'])
+    } finally {
+      await supprimerCommuneTest(payload, autre.id)
+    }
+  })
+
+  it('sans cookie : les langues de l’unique commune, le français seul s’il y en a plusieurs', async () => {
+    const autre = await creerCommuneActive(payload, 'localisation-autre')
+    try {
+      await payload.update({
+        collection: 'communes',
+        id: commune.id,
+        data: { langues: ['co'] },
+        overrideAccess: true,
+      })
+      const seule = {
+        payload,
+        user: { role: 'redacteur', tenants: [{ tenant: commune.id, roles: ['redacteur'] }] },
+        headers: new Headers(),
+      }
+      expect(
+        (await languesDisponiblesAdmin({ locales: LOCALES, req: seule } as never)).map(
+          (l) => l.code,
+        ),
+      ).toEqual(['fr', 'co'])
+      const plusieurs = {
+        ...seule,
+        user: {
+          role: 'redacteur',
+          tenants: [
+            { tenant: commune.id, roles: ['redacteur'] },
+            { tenant: autre.id, roles: ['redacteur'] },
+          ],
+        },
+      }
+      expect(
+        (await languesDisponiblesAdmin({ locales: LOCALES, req: plusieurs } as never)).map(
+          (l) => l.code,
+        ),
+      ).toEqual(['fr'])
+    } finally {
+      await payload.update({
+        collection: 'communes',
+        id: commune.id,
+        data: { langues: [] },
+        overrideAccess: true,
+      })
+      await supprimerCommuneTest(payload, autre.id)
+    }
   })
 
   it('un opérateur voit toutes les langues', async () => {

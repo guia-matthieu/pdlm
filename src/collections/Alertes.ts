@@ -2,7 +2,12 @@ import type { CollectionConfig } from 'payload'
 
 import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
 import { figerTenant } from '../hooks'
-import { champTraduction, exigerTraductionComplete, requisEnFrancais } from '../lib/champs-langue'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 
 /** I3/D9 : sans workflow — écritures admin/opérateur ; fenêtre d'activité filtrée à l'affichage. */
 export const Alertes: CollectionConfig = {
@@ -19,6 +24,7 @@ export const Alertes: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
+    beforeValidate: [creerEnFrancais],
     beforeChange: [figerTenant, exigerTraductionComplete(['message'])],
   },
   fields: [
