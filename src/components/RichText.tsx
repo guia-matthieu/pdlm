@@ -5,6 +5,8 @@ import {
   RichText as RichTextLexical,
 } from '@payloadcms/richtext-lexical/react'
 
+import { validerUrlEditoriale } from '@/lib/url'
+
 const identite = (chemin: string) => chemin
 
 interface ChampsLien {
@@ -43,7 +45,10 @@ export function RichText({
   if (!data) return null
   const convertirLien: JSXConverter = ({ node, nodesToJSX }) => {
     const champs = ((node as { fields?: ChampsLien }).fields ?? {}) as ChampsLien
-    const href = champs.linkType === 'internal' ? adresseDocument(champs.doc) : (champs.url ?? '')
+    const saisie = champs.linkType === 'internal' ? adresseDocument(champs.doc) : (champs.url ?? '')
+    // Même règle que les autres URLs éditoriales (javascript:, data:, `//hôte`
+    // refusés) ; une ancre `#…` de la page reste permise.
+    const href = saisie.startsWith('#') || validerUrlEditoriale(saisie) === true ? saisie : '#'
     return (
       <a
         href={lien(href)}

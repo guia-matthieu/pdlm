@@ -79,4 +79,17 @@ describe('liens des textes riches (R9)', () => {
   it('sans `lien` (français, langue du domaine) : chemin inchangé', () => {
     expect(rendu({ linkType: 'custom', url: '/agenda' })).toContain('href="/agenda"')
   })
+
+  it('un lien à schéma dangereux est neutralisé en « # »', () => {
+    for (const url of ['javascript:alert(1)', 'data:text/html,<script>x</script>', '//evil.com']) {
+      const html = rendu({ linkType: 'custom', url }, enCorse)
+      expect(html, url).toContain('href="#"')
+      expect(html, url).not.toContain('javascript:')
+      expect(html, url).not.toContain('data:')
+    }
+  })
+
+  it('une ancre de la page reste intacte', () => {
+    expect(rendu({ linkType: 'custom', url: '#horaires' }, enCorse)).toContain('href="#horaires"')
+  })
 })
