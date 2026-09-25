@@ -43,8 +43,8 @@
 
 Écrites ici pour qu'aucun exécutant ne les re-décide dans son coin.
 
-1. **Pas de `culori`.** La spec (§ 2) le nomme ; ce plan porte à la place les conversions d'Ottosson du prototype `couleurs.py`, ligne à ligne. Motif : le résultat « 0 échec sur 3 000 tirages » a été obtenu avec cet algorithme de réduction de saturation (×0,93 jusqu'au gamut) ; la réduction de gamut de `culori` est un autre algorithme, le résultat ne se transférerait pas, et le module reste sans dépendance d'exécution. **Écart à la spec, à valider par l'utilisateur à la relecture.**
-2. **`--pale` à L = 0,965**, valeur du prototype validé à l'œil (la spec écrit 0,96).
+1. **Pas de `culori`.** La spec (§ 2) le nomme ; ce plan porte à la place les conversions d'Ottosson du prototype `couleurs.py`, ligne à ligne. Motif : le résultat « 0 échec sur 3 000 tirages » a été obtenu avec cet algorithme de réduction de saturation (×0,93 jusqu'au gamut) ; la réduction de gamut de `culori` est un autre algorithme, le résultat ne se transférerait pas, et le module reste sans dépendance d'exécution. **Écart à la spec, validé par l'utilisateur le 25/09.**
+2. **`--pale` à L = 0,965**, valeur du prototype validé à l'œil (la spec écrit 0,96). **Écart validé le 25/09.**
 3. **Un gris reste un gris.** Le prototype rendait `#777777` → `#777676` (teinte parasite d'arrondi) ; `couleurs.ts` rend `#767676`. Seul écart volontaire au prototype.
 4. **Variables produites = liste du contrat, rien d'autre** : `--principale-sure`, `--pale`, `--profond`, `--encre`, `--accent`, `--accent-sur-profond`, `--texte-sur-accent`, `--terre-sure`, `--picto-1`…`6`. Le prototype sortait aussi `--principale`, `--principale-fonce`, `--terre` : abandonnées ; `theme.css` de Village emploie `--principale-fonce`, remplacée par `--profond` au portage (tâche 5).
 5. **`--alerte`, `--alerte-texte`, `--focus` sont fixes et vivent dans `styles.css` (`:root`)**, pas dans `deriver()`.
@@ -55,13 +55,16 @@
 10. **Préremplissage de `accueil`** par `defaultValue` des champs `array` (et non par un hook `beforeChange`) : même effet à la création, sans code d'accès aux données. Les communes existantes : par la migration (tâche 2).
 11. **Onglet « Apparence » = onglet Payload non nommé** (`type: 'tabs'`, onglet sans `name`) : la forme des données (`apparence`, `accueil` à la racine) ne change pas.
 12. **I4 sur les nouvelles relations** : `validerRelationsTenant` n'accepte qu'un `champMedia` par appel ; on pose **un hook par champ** (`apparence.photoAccueil`, `accueil.mosaique`), à côté de celui du logo.
-13. **Ajout à la spec, défense en profondeur** : `proxy.ts` répond 404 à `/apercu/*` hors du domaine de la plateforme, comme il le fait déjà pour `/api/*`. I28 reste la garantie ; ceci retire la route des domaines communaux.
+13. **Ajout à la spec, défense en profondeur** : `proxy.ts` répond 404 à `/apercu/*` hors du domaine de la plateforme, comme il le fait déjà pour `/api/*`. I28 reste la garantie ; ceci retire la route des domaines communaux. **Ajout validé le 25/09.**
 
-## Questions ouvertes pour l'utilisateur (bloquent les tâches indiquées, pas la tâche 1)
+## Questions tranchées par l'utilisateur le 25/09 (ex-questions ouvertes)
 
 - **Q1 — Illustrations Village inexistantes (tâche 5).** `G-maquette-v2/frise.py` n'a ni tailles (`petite|moyenne|grande`), ni scènes, ni héros illustré : sa composition est codée en dur (`composer()`, positions au pixel). Les 7 scènes de Village et son héros illustré sont **à dessiner**, pas à porter. Proposition : les dessiner sur le modèle de `frise_littoral.py` (`_scene`, `SCENES`) et les faire valider en capture avant fusion.
+  **→ Tranché 25/09 : modèle Littoral, captures validées par Matthieu avant fusion. Reconfirmé après avoir vu les captures (Village photo, Littoral photo, Littoral illustré) : Village reçoit une version illustrée complète (héros + 7 scènes), dans le trait de sa silhouette ; elle ne sert que quand une photo manque (I30).**
 - **Q2 — Scènes manquantes dans les deux kits (tâches 5, 8).** La spec liste 7 scènes (`sentiers`, `patrimoine`, `commerces`, `associations`, `ecole`, `mer`, `nature`) ; `frise_littoral.py` n'en a que 4 (`SCENES`, l. 140-145). `ecole`, `mer`, `nature` sont à dessiner pour les deux kits.
+  **→ Tranché 25/09 : les 3 scènes sont dessinées pour les deux kits (7 scènes chacun), captures validées par Matthieu.**
 - **Q3 — Ornements propres à un gabarit (tâche 4, contrat).** Littoral emploie `mer()`, `maree()`, `courbe_marees()`, `sable()` en plus de `horizon()` ; le contrat de la spec (§ 6) ne prévoit que `horizon()`. Proposition : le contrat autorise un export libre `ornements` dans `frise.ts`, soumis aux mêmes règles (SVG seul, couleurs par variables).
+  **→ Tranché 25/09 : accepté. Le contrat v1 (`CONTRAT.md`) inclut l'export `ornements`.**
 
 ## Review Focus
 
@@ -656,7 +659,7 @@ transférerait pas) ; un gris saisi reste un gris exact."
 - [ ] **Multilingue implémenté et fusionné** : `git ls-tree -r --name-only main | grep -cE '^src/i18n/(fr|co)\.ts$'` → `2` ; `git ls-tree -r --name-only main | grep -c '(frontend)/\[lang\]/'` → ≥ 1.
 - [ ] **Rebase** : `git rebase main` sur `gabarits-couleurs` ; `npm run test:unit` vert (la tâche 1 doit rester verte).
 - [ ] **Re-vérifier les ancres** listées dans chaque tâche (colonne « Ancre vérifiée le 25/09 ») ; toute ancre qui a bougé → corriger la tâche d'abord.
-- [ ] **Relire les questions ouvertes Q1-Q3** : leurs réponses doivent être dans ce plan avant les tâches 4, 5 et 8.
+- [x] **Relire les questions ouvertes Q1-Q3** : leurs réponses doivent être dans ce plan avant les tâches 4, 5 et 8. Tranchées le 25/09 (section « Questions tranchées »).
 
 ---
 
