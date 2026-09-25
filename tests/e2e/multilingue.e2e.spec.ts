@@ -89,12 +89,37 @@ test.describe('Multilingue', () => {
   })
 
   test('aucun JavaScript ajouté pour le multilingue', async ({ page }) => {
-    const scripts = async (url: string) => {
+    const lire = async (url: string) => {
       await page.goto(url)
-      return page
+      // Tous les <script src>, chunks /_next/ compris (R11) — le chemin
+      // seul, requête ignorée.
+      const src = await page
         .locator('script[src]')
-        .evaluateAll((s) => s.map((e) => (e as HTMLScriptElement).src).filter((src) => !src.includes('/_next/')))
+        .evaluateAll((s) => s.map((e) => new URL((e as HTMLScriptElement).src).pathname))
+      const inline = await page.locator('script:not([src])').count()
+      return { src, inline }
     }
-    expect(await scripts(`${FR}/co/marche`)).toEqual(await scripts(`${FR}/marche`))
+    let co = await lire(`${FR}/co/marche`)
+    let fr = await lire(`${FR}/marche`)
+    // `/co/marche` et `/marche` rendent la même route ([lang]/[slug]) : les
+    // scripts /_next/ sont identiques d'un chargement à l'autre (constaté,
+    // jamais de chunk dépendant du paramètre de route ici). Le nombre de
+    // scripts EN LIGNE, lui, varie occasionnellement (~1 chargement sur 8 en
+    // dev, observé) : React/Next insèrent alors un script de révélation de
+    // limite Suspense (`$RC`/`$RB`/`$RV`) pour le `MetadataOutlet` interne de
+    // l'App Router, quand la résolution asynchrone de `generateMetadata`
+    // (requête Payload) n'entre pas dans le tout premier flux HTML — un
+    // artefact de minutage de React lui-même, identique pour les deux
+    // langues (même mécanisme, même page), sans rapport avec le code
+    // multilingue. On relit jusqu'à ce que les deux chargements retombent
+    // sur le même compte plutôt que de comparer un instantané
+    // potentiellement bruité par cette course.
+    for (let tentative = 0; tentative < 5 && co.inline !== fr.inline; tentative++) {
+      co = await lire(`${FR}/co/marche`)
+      fr = await lire(`${FR}/marche`)
+    }
+    expect(co.src.length).toBeGreaterThan(0)
+    expect(co.src).toEqual(fr.src)
+    expect(co.inline).toBe(fr.inline)
   })
 })
