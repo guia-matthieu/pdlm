@@ -2,9 +2,11 @@ import type { CollectionBeforeValidateHook } from 'payload'
 
 import { ValidationError } from 'payload'
 
+import { RACINE } from '../lib/adresses'
+import { CODES_LANGUES } from '../lib/langues'
 import { slugifier } from './formatSlug'
 
-/** Slugs réservés aux routes statiques du front public (R7). */
+/** Slugs réservés aux routes statiques du front public (R7) et aux préfixes de langue (I16). */
 export const SLUGS_RESERVES = [
   'actualites',
   'agenda',
@@ -13,6 +15,8 @@ export const SLUGS_RESERVES = [
   'api',
   'mesure',
   'mesure-d-audience',
+  RACINE,
+  ...CODES_LANGUES,
 ]
 
 /**

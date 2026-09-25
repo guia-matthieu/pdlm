@@ -261,7 +261,7 @@ export interface Domaine {
   hostname: string;
   commune: number | Commune;
   /**
-   * Un seul par commune — utilisé pour les URLs canoniques et le sitemap. Requis pour activer une commune.
+   * Un seul par commune et par langue — utilisé pour les URLs canoniques et le sitemap. Le canonique français est requis pour activer une commune.
    */
   canonique?: boolean | null;
   /**

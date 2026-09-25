@@ -1,5 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
+import { ValidationError } from 'payload'
+
 import { aRoleSur, communesAvecRole, idDe, isOperateur } from '../access/roles'
 import { effacerHistoriqueMesure } from '../endpoints/effacerHistoriqueMesure'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
@@ -12,7 +14,7 @@ import {
 } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
 import { creerEnFrancais, requisEnFrancais } from '../lib/champs-langue'
-import { LANGUES_REGIONALES } from '../lib/langues'
+import { FRANCAIS, LANGUES_REGIONALES, estCodeLangue, langueDe } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** Domaines réservés à la plateforme — un hostname communal ne peut pas les prendre (I6). */
@@ -81,13 +83,43 @@ export const Communes: CollectionConfig = {
               : await req.payload.count({
                   collection: 'domaines',
                   where: {
-                    and: [{ commune: { equals: communeId } }, { canonique: { equals: true } }],
+                    and: [
+                      { commune: { equals: communeId } },
+                      { canonique: { equals: true } },
+                      { langue: { equals: FRANCAIS } },
+                    ],
                   },
                 })
           if (canoniques.totalDocs === 0) {
             throw new Error(
-              'Activation impossible : la commune doit posséder au moins un domaine canonique.',
+              'Activation impossible : la commune doit posséder un domaine canonique en français.',
             )
+          }
+        }
+
+        // I15 : pas de désactivation d'une langue qu'un domaine sert à sa racine.
+        if (originalDoc?.id && Array.isArray(data?.langues)) {
+          const retirees = ((originalDoc.langues as string[] | null) ?? []).filter(
+            (l) => !(data.langues as string[]).includes(l),
+          )
+          if (retirees.length > 0) {
+            const servis = await req.payload.find({
+              collection: 'domaines',
+              where: { and: [{ commune: { equals: originalDoc.id } }, { langue: { in: retirees } }] },
+              limit: 1,
+              overrideAccess: true,
+              req,
+            })
+            const d = servis.docs[0]
+            if (d) {
+              const nom = estCodeLangue(d.langue) ? langueDe(d.langue).nom.toLowerCase() : d.langue
+              throw new ValidationError({
+                errors: [{
+                  path: 'langues',
+                  message: `Le ${nom} est servi à la racine de ${d.hostname}. Changez d’abord la langue de ce domaine.`,
+                }],
+              })
+            }
           }
         }
         return data
