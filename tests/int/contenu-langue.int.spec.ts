@@ -48,9 +48,19 @@ beforeAll(async () => {
   }
 
   const menu = await payload.create({ collection: 'menus', overrideAccess: true,
-    data: { tenant: c.id, nom: 'Principal', items: [{ label: 'Marché', url: '/marche' }, { label: 'Démarches', url: '/demarches' }] } })
+    data: { tenant: c.id, nom: 'Principal', items: [
+      { label: 'Marché', url: '/marche' },
+      { label: 'Démarches', url: '/demarches' },
+      { label: 'Lien direct', page: traduite.id },
+      { label: 'Lien absent', page: aRelire.id },
+    ] } })
   await payload.update({ collection: 'menus', id: menu.id, locale: 'co', overrideAccess: true,
-    data: { items: [{ id: menu.items[0].id, label: 'Mercatu', url: '/marche' }, { id: menu.items[1].id, url: '/demarches' }] } })
+    data: { items: [
+      { id: menu.items[0].id, label: 'Mercatu', url: '/marche' },
+      { id: menu.items[1].id, url: '/demarches' },
+      { id: menu.items[2].id, page: traduite.id },
+      { id: menu.items[3].id, page: aRelire.id },
+    ] } })
 })
 
 afterAll(async () => {
@@ -112,17 +122,40 @@ describe('règle 3 — petits textes', () => {
       horaires: { texte: 'Lundi 9h-12h', langue: 'fr' },
     })
   })
+
+  it('items « page » : href résolu si la page est dans la map fournie, retiré sinon', async () => {
+    const marche = await pageParSlug(c.id, 'marche')
+    const pages = new Map([[marche!.id, marche!]])
+    const menu = await menuEnLangue(c.id, 'fr', pages)
+    expect(menu.find((e) => e.label.texte === 'Lien direct')?.href).toBe('/marche')
+    expect(menu.some((e) => e.label.texte === 'Lien absent')).toBe(false)
+  })
 })
 
 describe('langues disponibles (hreflang, sitemap)', () => {
   it('le français toujours, une autre langue seulement validée ET activée', async () => {
     const pages = await payload.find({ collection: 'pages', where: { tenant: { equals: c.id } }, overrideAccess: true })
     const ids = pages.docs.map((p) => p.id)
-    const dispo = await languesDisponibles('pages', ids, ['fr', 'co'])
+    const dispo = await languesDisponibles('pages', c.id, ids, ['fr', 'co'])
     const parSlug = Object.fromEntries(pages.docs.map((p) => [p.slug, dispo.get(p.id)]))
     expect(parSlug).toEqual({ marche: ['fr', 'co'], demarches: ['fr'] })
     // Commune qui a retiré le corse : plus annoncé, même validé
-    const sansCorse = await languesDisponibles('pages', ids, ['fr'])
+    const sansCorse = await languesDisponibles('pages', c.id, ids, ['fr'])
     expect([...sansCorse.values()].every((l) => l.length === 1 && l[0] === 'fr')).toBe(true)
+  })
+
+  it('I4 : une page validée d’une autre commune reste au français seul (jamais annoncée traduite)', async () => {
+    const autre = await creerCommuneActive(payload, 'contenu-langue-isolee')
+    const pageAutre = await payload.create({ collection: 'pages', overrideAccess: true,
+      data: { tenant: autre.id, titre: 'Ailleurs', slug: 'ailleurs', _status: 'published', blocs: [{ blockType: 'contact', titre: 'x' }] } })
+    await payload.update({ collection: 'pages', id: pageAutre.id, locale: 'co', overrideAccess: true,
+      data: { titre: 'Altrò', blocs: [{ blockType: 'contact', titre: 'x' }], traduction: 'validee', _status: 'published' } })
+    try {
+      const dispo = await languesDisponibles('pages', c.id, [pageAutre.id], ['fr', 'co'])
+      expect(dispo.get(pageAutre.id)).toEqual(['fr'])
+    } finally {
+      await payload.delete({ collection: 'pages', where: { tenant: { equals: autre.id } }, overrideAccess: true })
+      await supprimerCommuneTest(payload, autre.id)
+    }
   })
 })

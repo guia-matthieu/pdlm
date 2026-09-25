@@ -296,9 +296,14 @@ export async function versionsEnLangue<C extends Traduisible>(
   )
 }
 
-/** Langues où chaque document est montrable : le français, plus L validée ET activée (I14, I17). */
+/**
+ * Langues où chaque document est montrable : le français, plus L validée ET
+ * activée (I14, I17). I4 : filtré par commune (`baseCommune`) — un id d'une
+ * autre commune reste au français seul, jamais annoncé traduit.
+ */
 export async function languesDisponibles(
   collection: Traduisible,
+  idCommune: IdCommune,
   ids: number[],
   languesSite: readonly CodeLangue[],
 ): Promise<Map<number, CodeLangue[]>> {
@@ -308,7 +313,7 @@ export async function languesDisponibles(
   for (const langue of languesSite.filter((l) => l !== FRANCAIS)) {
     const res = await payload.find({
       collection,
-      where: { and: [{ id: { in: ids } }, { traduction: { equals: 'validee' } }] },
+      where: { and: [baseCommune(idCommune), { id: { in: ids } }, { traduction: { equals: 'validee' } }] },
       locale: langue,
       fallbackLocale: false,
       depth: 0,
