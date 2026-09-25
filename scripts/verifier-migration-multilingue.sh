@@ -23,7 +23,16 @@ trap nettoyer EXIT
 # Les journaux de Payload vont dans $TRAVAIL/journal.txt (affiché en cas
 # d'échec) ; l'instantané écrit lui-même son fichier (INSTANTANE_FICHIER).
 journal() { "$@" >>"$TRAVAIL/journal.txt" 2>&1 || { tail -40 "$TRAVAIL/journal.txt"; return 1; }; }
+# Un instantané vide rendrait la comparaison vraie sans rien prouver.
+non_vide() {
+  node -e '
+    const s = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    const vides = ["communes", "pages", "actualites"].filter((c) => !(s[c]?.length > 0));
+    if (vides.length) { console.error("❌ " + process.argv[2] + " : aucun document dans " + vides.join(", ")); process.exit(1); }
+  ' "$TRAVAIL/$1.json" "$1"
+}
 comparer() {
+  non_vide "$1"
   if diff -u "$TRAVAIL/avant.json" "$TRAVAIL/$1.json"; then
     echo "✅ $2"
   else
@@ -72,6 +81,7 @@ INSERT INTO _pages_v_blocks_contact (_order, _parent_id, _path, titre, texte, _u
 SQL
   INSTANTANE_FICHIER="$TRAVAIL/avant.json" journal npx payload run scripts/instantane-contenu.ts
 )
+non_vide avant
 journal npx payload migrate
 INSTANTANE_FICHIER="$TRAVAIL/apres.json" journal npx payload run scripts/instantane-contenu.ts
 comparer apres "up : contenu français identique"
@@ -80,8 +90,20 @@ comparer apres "up : contenu français identique"
 INSERT INTO pages_locales (titre, _locale, _parent_id) VALUES ('Accolta', 'co', 1);
 INSERT INTO pages_blocks_contact (_order, _parent_id, _path, id, titre, texte, _locale)
   VALUES (22, 1, 'blocs', 'verif-contact-co', 'Scriveteci', 'Testu corsu.', 'co');
+-- Un domaine corse canonique : sans colonne langue, il ne doit plus l'être (I6).
+INSERT INTO domaines (hostname, commune_id, canonique, langue)
+  VALUES ('verif-co.invalid', 1, true, 'co');
 SQL
 journal npx payload migrate:down
+DOUBLONS=$("${PSQL[@]}" -d "$BASE" -tA -c \
+  "SELECT count(*) FROM (SELECT commune_id FROM domaines WHERE canonique GROUP BY commune_id HAVING count(*) > 1) d")
+if [ "$DOUBLONS" != "0" ]; then
+  echo "❌ down : $DOUBLONS commune(s) avec plusieurs domaines canoniques (base $BASE conservée)"
+  exit 1
+fi
+echo "✅ down : un seul domaine canonique par commune"
+# Le domaine ajouté pour ce contrôle n'existait pas à l'origine.
+"${PSQL[@]}" -d "$BASE" -c "DELETE FROM domaines WHERE hostname = 'verif-co.invalid'"
 (cd "$MAIN" && INSTANTANE_FICHIER="$TRAVAIL/retour.json" journal npx payload run scripts/instantane-contenu.ts)
 comparer retour "down : contenu identique à l'origine"
 "${PSQL[@]}" -c "DROP DATABASE $BASE"

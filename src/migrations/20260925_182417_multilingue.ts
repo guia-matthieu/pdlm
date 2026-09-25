@@ -9,7 +9,8 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
  * - up : recopies `INSERT … SELECT` vers les tables `*_locales` ; `_locale` des
  *   tables de blocs ajoutée avec un défaut 'fr', remplie, puis NOT NULL ; index
  *   unique `domaines_un_canonique_par_langue` (I6 par langue).
- * - down : index supprimé ; lignes de blocs non françaises supprimées ; colonnes
+ * - down : index supprimé ; domaines non français rendus non canoniques (I6 :
+ *   un seul canonique par commune) ; lignes de blocs non françaises supprimées ; colonnes
  *   recréées nullables, remplies depuis `*_locales` (fr), puis NOT NULL si elles
  *   l'étaient — le tout avant la suppression des tables `*_locales`.
  * Vérification rejouable : `bash scripts/verifier-migration-multilingue.sh`.
@@ -417,6 +418,8 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP INDEX "_pages_v_published_locale_idx";
   DROP INDEX "_actualites_v_snapshot_idx";
   DROP INDEX "_actualites_v_published_locale_idx";
+  -- I6 sans langue : un seul canonique par commune, le français.
+  UPDATE "domaines" SET "canonique" = false WHERE "langue" <> 'fr';
   ALTER TABLE "domaines" DROP COLUMN "langue";
   ALTER TABLE "pages_blocks_hero" DROP COLUMN "_locale";
   ALTER TABLE "pages_blocks_texte_riche" DROP COLUMN "_locale";
