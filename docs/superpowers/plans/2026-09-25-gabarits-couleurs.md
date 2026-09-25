@@ -1024,7 +1024,7 @@ describe('composerFrise', () => {
 
 - [ ] **Step 1:** porter `G-maquette-v2/theme.css` : remplacer `--principale-fonce` par `--profond`, `--texte`/`--titres`/`--texte-doux` par `--encre` (ou une variable locale dérivée par `color-mix(in oklab, var(--encre) …)`), et **retirer les 6 couleurs littérales** relevées le 25/09 (`#14532d`, `#16201c`, `#1f9d55`, `#4b5a53`, `#85590a`, `#e9f0eb`, `#fff3cf`) — critère 3 de la suite.
 - [ ] **Step 2:** porter les pièces de `G-maquette-v2/frise.py` (`maison`, `maison_basse`, `eglise`, `sapin`, `arbre`, `mairie`, `colline` → `horizon()`) vers la signature `(x, sol, taille)` avec `TAILLES = { petite: 0.72, moyenne: 1, grande: 1.3 }` (valeurs de `frise_littoral.py`).
-- [ ] **Step 3:** dessiner les 7 scènes et `heros()` selon la réponse à Q1/Q2 ; captures regardées par l'utilisateur avant la suite.
+- [ ] **Step 3:** porter les 7 scènes et `heros()` depuis la maquette **validée par Matthieu le 25/09** : `docs/recherche/2026-09-25_front-beau/K-village-illustre/illustrations_village.py` (hors dépôt, exclu par `.git/info/exclude` — planche : `captures/planche-scenes-desktop.png`) ; captures du rendu réel regardées par l'utilisateur avant la suite.
 - [ ] **Step 4:** `gabarit.ts` : composition de l'accueil dans l'ordre de `G-maquette-v2/generer.py` ; `cadrageHeros: 'haut'`.
 - [ ] **Step 5:** suite de conformité verte pour `village` ; **regarder** les 2 captures.
 - [ ] **Step 6: Commit** — `"Gabarit Village"`.
