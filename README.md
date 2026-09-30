@@ -2,7 +2,7 @@
 
 Logiciel libre (AGPL-3.0) pour les sites des communes de moins de 5 000 habitants. Une seule installation, hébergée par une intercommunalité, un syndicat mixte ou un prestataire mutualisé, sert plusieurs communes.
 
-Cette branche (`gh-pages`) contient la vitrine : deux gabarits, Village et Littoral, en maquettes statiques (communes et contenus fictifs). Elle est servie sur https://guia-matthieu.github.io/pdlm/
+Cette branche (`gh-pages`) contient la vitrine : deux gabarits, Village et Littoral, en maquettes statiques (communes et contenus fictifs). Elle est servie sur https://pdlm.guia.fr/
 
 Le code du logiciel n'est pas encore publié.
 
