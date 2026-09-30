@@ -1,0 +1,179 @@
+/* Gabarit « Village » — maquette v2. Zéro JS, zéro tiers, polices en 'self'. */
+
+@font-face { font-family: 'Bricolage'; src: url(polices/bricolage-grotesque-latin-wght.woff2) format('woff2'); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: 'Atkinson Next'; src: url(polices/AtkinsonHyperlegibleNext-Regular-latin.woff2) format('woff2'); font-weight: 200 800; font-display: swap; }
+
+:root {
+  --texte: #16201c;
+  --texte-doux: #4b5a53;
+  --fond: #ffffff;
+  --bande: #e9f0eb;
+  --alerte-fond: #fff3cf;
+  --alerte-bord: #85590a;
+  --titres: 'Bricolage', 'Atkinson Next', system-ui, sans-serif;
+  --corps: 'Atkinson Next', system-ui, sans-serif;
+  --largeur: 76rem;
+}
+
+* { box-sizing: border-box; }
+html { font-size: 112.5%; }
+body { margin: 0; font-family: var(--corps); color: var(--texte); background: var(--fond); line-height: 1.55; }
+img { display: block; max-width: 100%; }
+a { color: var(--principale-sure); text-underline-offset: .18em; }
+a:focus-visible { outline: 3px solid var(--texte); outline-offset: 3px; box-shadow: 0 0 0 3px #fff; border-radius: 4px; }
+h1, h2, h3 { font-family: var(--titres); line-height: 1.05; margin: 0; }
+h2 { font-size: clamp(1.9rem, 3.4vw, 2.7rem); font-weight: 750; letter-spacing: -.02em; }
+.conteneur { max-width: var(--largeur); margin: 0 auto; padding: 0 1.25rem; }
+.lien-evitement { position: absolute; left: -9999px; }
+.lien-evitement:focus { left: 1rem; top: 1rem; background: #fff; padding: .5rem 1rem; z-index: 20; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+/* Alerte : couleurs système */
+.alerte { background: var(--alerte-fond); border-bottom: 3px solid var(--alerte-bord); font-size: .92rem; }
+.alerte .conteneur { display: flex; gap: .8rem; padding-top: .55rem; padding-bottom: .55rem; }
+.alerte strong { color: var(--alerte-bord); }
+
+/* En-tête */
+.entete .conteneur { display: flex; align-items: center; gap: 2rem; padding-top: .9rem; padding-bottom: .9rem; }
+.marque { display: flex; align-items: center; gap: .8rem; color: var(--texte); text-decoration: none; margin-right: auto; }
+.marque svg { width: 46px; height: 54px; flex: none; }
+.marque b { display: block; font-family: var(--titres); font-weight: 750; font-size: 1.25rem; letter-spacing: -.01em; line-height: 1.05; }
+.marque small { font-size: .82rem; color: var(--texte-doux); }
+.entete nav ul { list-style: none; display: flex; gap: 1.6rem; margin: 0; padding: 0; }
+.entete nav a { color: var(--texte); text-decoration: none; font-weight: 650; }
+.entete nav a:hover { color: var(--principale-sure); }
+.bouton { display: inline-block; font-weight: 700; text-decoration: none; border-radius: 99px; padding: .6rem 1.2rem; background: var(--principale-sure); color: #fff; }
+.bouton:hover { background: var(--principale-fonce); }
+.bouton.clair { background: #fff; color: var(--principale-fonce); }
+.bouton.clair:hover { background: var(--bande); }
+.menu-mobile { display: none; }
+@media (max-width: 860px) {
+  .entete nav.principal, .entete .bouton { display: none; }
+  .menu-mobile { display: block; position: relative; }
+  .menu-mobile summary { list-style: none; cursor: pointer; font-weight: 700; background: var(--principale-sure); color: #fff; border-radius: 99px; padding: .45rem 1rem; }
+  .menu-mobile summary::-webkit-details-marker { display: none; }
+  .menu-mobile ul { list-style: none; position: absolute; right: 0; top: 2.8rem; width: 16rem; background: #fff; padding: 1rem; margin: 0; border-radius: 14px; box-shadow: 0 12px 40px rgba(22, 32, 28, .18); display: grid; gap: .8rem; z-index: 10; }
+  .menu-mobile a { color: var(--texte); font-weight: 700; text-decoration: none; }
+}
+
+/* Hero : la photo se termine sur la silhouette du village */
+.hero { position: relative; color: #fff; }
+.hero picture img { width: 100%; height: min(78vh, 660px); object-fit: cover; object-position: 50% 60%; }
+.hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, rgba(10, 25, 20, .72) 0%, rgba(10, 25, 20, .35) 45%, rgba(10, 25, 20, 0) 70%); z-index: 1; }
+.hero-texte { position: absolute; left: 0; right: 0; top: 28%; z-index: 2; }
+.hero h1 { font-size: clamp(2.2rem, 7.5vw, 6rem); overflow-wrap: anywhere; font-weight: 800; letter-spacing: -.035em; max-width: 11ch; line-height: .95; }
+.hero p { font-size: clamp(1.05rem, 1.6vw, 1.3rem); max-width: 30rem; margin: 1rem 0 1.6rem; }
+.hero .frise { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: clamp(90px, 13vw, 190px); z-index: 3; }
+
+/* Bloc mairie qui chevauche la frise */
+.sous-hero { position: relative; z-index: 4; display: grid; grid-template-columns: 1fr 24rem; gap: 3rem; align-items: start; }
+.mairie { margin-top: -7.5rem; background: #fff; border-radius: 20px; padding: 1.6rem 1.7rem; box-shadow: 0 20px 50px rgba(22, 32, 28, .16); border-top: 6px solid var(--accent); }
+.mairie h2 { font-size: 1.35rem; margin-bottom: .9rem; }
+.mairie .tel { display: block; font-family: var(--titres); font-size: 1.9rem; font-weight: 750; letter-spacing: -.01em; color: var(--principale-fonce); text-decoration: none; }
+.mairie .ouvert { display: inline-flex; align-items: center; gap: .45rem; font-weight: 700; color: #14532d; margin: .7rem 0 .2rem; }
+.mairie .ouvert::before { content: ''; width: .6rem; height: .6rem; border-radius: 50%; background: #1f9d55; }
+.mairie p { margin: 0 0 .5rem; }
+.mairie .petit { color: var(--texte-doux); font-size: .92rem; }
+
+/* Accès rapides */
+.taches-bloc { padding-top: 3rem; }
+.taches-bloc > p { color: var(--texte-doux); margin: .6rem 0 1.6rem; max-width: 34rem; }
+.taches { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: .4rem 1.2rem; }
+.taches a { display: flex; align-items: center; gap: 1rem; padding: .7rem .8rem .7rem .6rem; border-radius: 16px; text-decoration: none; color: var(--texte); }
+.taches a:hover { background: var(--bande); }
+.taches .picto { flex: none; width: 3.6rem; height: 3.6rem; border-radius: 50%; display: grid; place-items: center; background: var(--ton); color: #fff; }
+.taches .picto svg { width: 2.1rem; height: 2.1rem; fill: currentColor; }
+.taches b { display: block; font-family: var(--titres); font-size: 1.12rem; font-weight: 700; letter-spacing: -.01em; }
+.taches small { color: var(--texte-doux); font-size: .88rem; }
+@media (max-width: 860px) {
+  .sous-hero { grid-template-columns: 1fr; gap: 0; }
+  .mairie { margin-top: -3rem; order: -1; }
+  .taches { grid-template-columns: 1fr; }
+}
+
+/* Actualités sur bande */
+.bande { background: var(--bande); padding: 5rem 0 4.5rem; margin-top: 4rem; position: relative; }
+.bande::before { content: ''; position: absolute; left: 0; right: 0; top: -40px; height: 41px; background: var(--bande); clip-path: ellipse(75% 100% at 50% 100%); }
+.entete-section { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 2.2rem; }
+.entete-section a { font-weight: 700; }
+.actus { display: grid; grid-template-columns: 1.35fr 1fr; gap: 3rem; }
+.une { position: relative; }
+.une .photo { position: relative; }
+.une .photo::before { content: ''; position: absolute; inset: 1.4rem -1.4rem -1.4rem 1.4rem; background: var(--accent); border-radius: 22px; }
+.une img { position: relative; border-radius: 22px; aspect-ratio: 4 / 3; object-fit: cover; width: 100%; height: auto; }
+.une .texte { position: relative; background: #fff; border-radius: 18px; padding: 1.4rem 1.6rem; margin: -5rem 2.5rem 0 -1rem; box-shadow: 0 16px 40px rgba(22, 32, 28, .12); }
+.une h3 { font-size: 1.55rem; font-weight: 750; letter-spacing: -.015em; margin: .3rem 0 .6rem; }
+.une h3 a, .breve h3 a { color: var(--texte); text-decoration: none; }
+.une h3 a:hover, .breve h3 a:hover { text-decoration: underline; }
+.date { color: var(--principale-sure); font-weight: 700; font-size: .9rem; }
+.breves { display: grid; gap: 1.6rem; align-content: start; }
+.breve { display: grid; grid-template-columns: 8.5rem 1fr; gap: 1.1rem; align-items: center; }
+.breve img { border-radius: 14px; aspect-ratio: 1; object-fit: cover; width: 100%; height: auto; }
+.breve h3 { font-size: 1.15rem; font-weight: 700; margin: .2rem 0 .3rem; }
+.breve p, .une p { margin: 0; color: var(--texte-doux); }
+@media (max-width: 860px) {
+  .actus { grid-template-columns: 1fr; }
+  .une .texte { margin: -3rem .8rem 0; }
+  .breve { grid-template-columns: 6rem 1fr; }
+}
+
+/* Agenda sur fond profond */
+.agenda { background: var(--principale-fonce); color: #fff; padding: 4.5rem 0; }
+.agenda h2 { color: #fff; }
+.agenda .entete-section a { color: #fff; }
+.agenda ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
+.agenda li { border-top: 2px solid rgba(255, 255, 255, .25); padding-top: 1.1rem; }
+.agenda time { display: flex; align-items: baseline; gap: .5rem; font-family: var(--titres); color: var(--accent); }
+.agenda time b { font-size: 3.6rem; font-weight: 800; line-height: .9; letter-spacing: -.04em; }
+.agenda time span { font-size: 1.1rem; font-weight: 600; }
+.agenda h3 { font-size: 1.2rem; font-weight: 700; margin: .7rem 0 .3rem; }
+.agenda h3 a { color: #fff; text-decoration: none; }
+.agenda h3 a:hover { text-decoration: underline; }
+.agenda p { margin: 0; color: rgba(255, 255, 255, .78); font-size: .95rem; }
+@media (max-width: 860px) { .agenda ol { grid-template-columns: 1fr 1fr; } }
+
+/* Mosaïque « Vivre ici » */
+.vivre { padding: 5rem 0 2rem; }
+.mosaique { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 15rem; gap: 1rem; }
+.mosaique a { position: relative; border-radius: 20px; overflow: hidden; color: #fff; text-decoration: none; }
+.mosaique img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
+@media (prefers-reduced-motion: no-preference) { .mosaique a:hover img { transform: scale(1.04); } }
+.mosaique a::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(10, 25, 20, .75), rgba(10, 25, 20, 0) 55%); }
+.mosaique span { position: absolute; left: 1.2rem; bottom: 1rem; right: 1.2rem; z-index: 1; font-family: var(--titres); font-size: 1.35rem; font-weight: 700; letter-spacing: -.01em; }
+.mosaique .large { grid-column: span 2; grid-row: span 2; }
+.mosaique .haute { grid-row: span 2; }
+.mosaique .large span { font-size: 2rem; }
+@media (max-width: 860px) { .mosaique { grid-template-columns: 1fr 1fr; grid-auto-rows: 11rem; } .mosaique .haute { grid-row: span 1; } }
+
+/* Bandeau alertes */
+.abonnement { margin: 3rem auto 0; }
+.abonnement .carte { display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 2rem; background: var(--accent); color: var(--texte); border-radius: 26px; padding: 2.4rem 2.6rem; }
+.abonnement h2 { font-size: clamp(1.6rem, 2.8vw, 2.2rem); }
+.abonnement p { margin: .7rem 0 0; }
+.abonnement .actions { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: flex-end; }
+.abonnement .bouton { background: var(--texte); }
+.abonnement .bouton.clair { background: #fff; color: var(--texte); }
+@media (max-width: 860px) { .abonnement .carte { grid-template-columns: 1fr; padding: 1.8rem; } .abonnement .actions { justify-content: flex-start; } }
+
+/* Pied de page avec la frise au trait */
+.pied { margin-top: 5rem; background: var(--principale-fonce); color: #fff; }
+.pied .frise-trait { display: block; width: 100%; height: clamp(60px, 9vw, 130px); background: var(--fond); }
+.pied .colonnes { display: grid; grid-template-columns: 1.1fr 1.2fr 1fr; gap: 2.5rem; padding: 3rem 1.25rem 2rem; }
+.pied h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: .9rem; }
+.pied a { color: #fff; }
+.pied p { margin: 0 0 .4rem; }
+.pied table { border-collapse: collapse; font-size: .95rem; }
+.pied th { text-align: left; font-weight: 600; padding: .15rem 1.2rem .15rem 0; }
+.pied td { padding: .15rem 0; color: rgba(255, 255, 255, .85); }
+.pied ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.pied .legal { border-top: 1px solid rgba(255, 255, 255, .2); padding: 1rem 1.25rem 1.6rem; font-size: .85rem; color: rgba(255, 255, 255, .75); }
+@media (max-width: 860px) { .pied .colonnes { grid-template-columns: 1fr; } }
+
+/* Corrections mobile (revue des captures du 25/09) */
+body { overflow-x: clip; }
+.entete-section { flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .mairie { margin-top: 1.5rem; }
+  .une .photo::before { inset: .9rem -.6rem -.9rem .9rem; }
+  .hero-texte { top: auto; bottom: clamp(90px, 22vw, 150px); }
+}

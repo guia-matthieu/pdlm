@@ -1,0 +1,130 @@
+<title>Maquettes pdlm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible+Next:wght@400;600&display=swap">
+<style>
+/* Layout: une colonne de lecture, deux gabarits côte à côte, une bande « ce que vous voyez » sobre */
+:root {
+  --fond: #f6f7f2;
+  --surface: #ffffff;
+  --encre: #1c2620;
+  --doux: #55625a;
+  --sapin: #1f5c3f;
+  --ocre: #d9a13b;
+  --trait: #d8ddd4;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --texte: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --fond: #141a16; --surface: #1c241f; --encre: #e8ede6; --doux: #a9b5ac; --sapin: #7fc9a0; --ocre: #e6b659; --trait: #2f3a33; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --fond: #141a16; --surface: #1c241f; --encre: #e8ede6; --doux: #a9b5ac; --sapin: #7fc9a0; --ocre: #e6b659; --trait: #2f3a33; color-scheme: dark }
+
+body { background: var(--fond); color: var(--encre); font: 400 1.0625rem/1.6 var(--texte); }
+.page { max-width: 68rem; margin: 0 auto; padding-inline: 20px; padding-block: 48px 64px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800; }
+h3 { font-size: 1.35rem; font-weight: 600; }
+p { margin: 0; max-width: 65ch; }
+a { color: var(--sapin); text-underline-offset: 3px; }
+a:focus-visible { outline: 3px solid var(--ocre); outline-offset: 3px; border-radius: 4px; }
+.etiquette { font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--doux); }
+
+header { display: grid; gap: 18px; }
+header .chapo { font-size: 1.25rem; color: var(--encre); }
+header .detail { color: var(--doux); }
+.frise { width: 100%; max-width: 22rem; height: 34px; color: var(--sapin); }
+
+.gabarits { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 28px; }
+.gabarit { background: var(--surface); border: 1px solid var(--trait); border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+.gabarit img { display: block; width: 100%; aspect-ratio: 1200 / 743; object-fit: cover; object-position: top; border-bottom: 1px solid var(--trait); }
+.gabarit .corps { padding: 22px 22px 24px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.gabarit .corps p { color: var(--doux); }
+.liens { display: flex; flex-wrap: wrap; gap: 10px 18px; padding: 0; margin: 4px 0 0; list-style: none; }
+.liens a { font-weight: 600; }
+.liens a.principal { background: var(--sapin); color: var(--surface); text-decoration: none; padding: 8px 16px; border-radius: 999px; }
+
+.bande { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 28px 40px; border-top: 2px solid var(--encre); padding-top: 28px; }
+.bande > div { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.bande p { color: var(--doux); font-size: 1rem; }
+
+.question { background: var(--surface); border-left: 5px solid var(--ocre); padding: 22px 24px; border-radius: 0 10px 10px 0; display: grid; gap: 10px; }
+
+footer { display: grid; gap: 10px; color: var(--doux); font-size: .95rem; border-top: 1px solid var(--trait); padding-top: 24px; }
+.contact { color: var(--encre); font-weight: 600; user-select: all; }
+</style>
+
+<div class="page">
+  <header>
+    <svg class="frise" viewBox="0 0 352 34" aria-hidden="true" fill="currentColor">
+      <path d="M0 34 L0 22 Q60 14 120 20 T240 18 T352 22 L352 34 Z" opacity=".25"/>
+      <rect x="18" y="16" width="22" height="18"/><path d="M15 17 L29 7 L43 17 Z"/>
+      <rect x="60" y="14" width="30" height="20"/><path d="M57 15 L75 4 L93 15 Z"/>
+      <rect x="112" y="12" width="10" height="22"/><path d="M110 13 L117 0 L124 13 Z"/><rect x="122" y="18" width="26" height="16"/><path d="M119 19 L135 9 L151 19 Z"/>
+      <circle cx="178" cy="20" r="9"/><rect x="176.5" y="24" width="3" height="10"/>
+      <rect x="200" y="15" width="40" height="19"/><path d="M196 16 L220 5 L244 16 Z"/>
+      <path d="M268 34 L276 12 L284 34 Z"/><path d="M290 34 L299 8 L308 34 Z"/>
+      <rect x="322" y="17" width="22" height="17"/><path d="M319 18 L333 8 L347 18 Z"/>
+    </svg>
+    <span class="etiquette">Logiciel libre · AGPL-3.0</span>
+    <h1>pdlm</h1>
+    <p class="chapo">Un site de mairie prêt à l’emploi pour les communes de moins de 5 000 habitants, beau dès la mise en ligne et simple à tenir à jour.</p>
+    <p class="detail">Une seule installation sert plusieurs communes, chacune avec ses contenus, ses comptes et son adresse. Elle est prévue pour être hébergée par une intercommunalité, un syndicat mixte ou un prestataire mutualisé, pour le compte des communes.</p>
+  </header>
+
+  <section aria-labelledby="t-gabarits" style="display:grid;gap:24px">
+    <h2 id="t-gabarits">Deux gabarits</h2>
+    <div class="gabarits">
+      <article class="gabarit">
+        <img src="village/vignette.jpg" alt="Page d’accueil du gabarit Village : grande photo d’un village, silhouette de maisons et d’une église, horaires de la mairie" loading="lazy" width="1200" height="743">
+        <div class="corps">
+          <h3>Village</h3>
+          <p>Pour une commune rurale. Grande photo du village, frise du territoire dessinée à partir de ses bâtiments, démarches les plus demandées en un geste.</p>
+          <ul class="liens">
+            <li><a class="principal" href="village/accueil.html" target="_blank" rel="noopener">Voir la page d’accueil</a></li>
+            <li><a href="village/accueil-variante.html" target="_blank" rel="noopener">Autres couleurs</a></li>
+          </ul>
+        </div>
+      </article>
+      <article class="gabarit">
+        <img src="littoral/vignette-illustre.jpg" alt="Page d’accueil du gabarit Littoral, version illustrée : silhouette du port, d’un voilier et d’un phare au-dessus de la mer" loading="lazy" width="1200" height="743">
+        <div class="corps">
+          <h3>Littoral</h3>
+          <p>Pour une commune de bord de mer. Même principe, autre territoire : le port, la digue, le phare, et les marées dans le bandeau d’alerte.</p>
+          <ul class="liens">
+            <li><a class="principal" href="littoral/accueil-illustre.html" target="_blank" rel="noopener">Version illustrée</a></li>
+            <li><a href="littoral/accueil.html" target="_blank" rel="noopener">Version photo</a></li>
+            <li><a href="littoral/accueil-variante.html" target="_blank" rel="noopener">Autres couleurs</a></li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="bande" aria-label="Ce que vous voyez">
+    <div>
+      <span class="etiquette">Les couleurs</span>
+      <p>Chaque commune choisit les siennes, sans palette imposée : c’est son identité. Le système calcule les teintes dérivées et garantit que le texte reste lisible.</p>
+    </div>
+    <div>
+      <span class="etiquette">Ce sont des maquettes</span>
+      <p>Pages statiques, communes et contenus fictifs, téléphones et adresses factices. Les mentions de pied de page, dont l’accessibilité, sont des exemples : aucun audit n’a été fait sur ces pages.</p>
+    </div>
+    <div>
+      <span class="etiquette">Où en est le logiciel</span>
+      <p>Le socle (gestion des communes, des comptes, des contenus, mesure d’audience respectueuse de la CNIL) est en développement. Les gabarits sont la prochaine étape. Rien n’est encore en ligne.</p>
+    </div>
+  </section>
+
+  <section class="question" aria-labelledby="t-question">
+    <span class="etiquette">Une question ouverte</span>
+    <h2 id="t-question">Et l’intelligence artificielle ?</h2>
+    <p>La vraie difficulté d’un site de mairie, c’est de le tenir à jour. Une piste : un élu ou une secrétaire de mairie envoie une note vocale ou une photo depuis son téléphone, l’IA prépare la page, une personne relit et publie. Est-ce acceptable pour une collectivité, ou faut-il d’abord un outil qui fonctionne entièrement sans IA ? Votre avis m’intéresse.</p>
+  </section>
+
+  <footer>
+    <p>Matthieu Crédou · <span class="contact">matthieu@guia.fr</span></p>
+    <p>Photos : Wikimedia Commons, CC0 (Benoît Prieur, Leefix, Ancalagon, Jebulon, Cátia Matos, Milada Vigerova, Lipolis, jpoujol). Pictogrammes : GemeentenIconen, CC0. Polices : Bricolage Grotesque, Atkinson Hyperlegible Next, Public Sans, Source Serif 4 (licence OFL).</p>
+  </footer>
+</div>
