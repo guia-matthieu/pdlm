@@ -49,16 +49,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
-   ALTER TABLE "organisations" DISABLE ROW LEVEL SECURITY;
+   ALTER TABLE "users" DROP CONSTRAINT "users_organisation_id_organisations_id_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_organisations_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_mandats_fk";
+  DROP INDEX "users_organisation_idx";
+  DROP INDEX "payload_locked_documents_rels_organisations_id_idx";
+  DROP INDEX "payload_locked_documents_rels_mandats_id_idx";
+  ALTER TABLE "organisations" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "mandats" DISABLE ROW LEVEL SECURITY;
   DROP TABLE "organisations" CASCADE;
   DROP TABLE "mandats" CASCADE;
-  ALTER TABLE "users" DROP CONSTRAINT "users_organisation_id_organisations_id_fk";
-  
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_organisations_fk";
-  
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_mandats_fk";
-  
+  -- Retour arrière DESTRUCTIF : les entrées de journal de type 'mandat' sont supprimées (l'enum ne peut plus les porter).
+  DELETE FROM "journal" WHERE "type" = 'mandat';
   ALTER TABLE "journal" ALTER COLUMN "type" SET DATA TYPE text;
   DROP TYPE "public"."enum_journal_type";
   CREATE TYPE "public"."enum_journal_type" AS ENUM('commune', 'utilisateur', 'domaine');
@@ -67,9 +69,6 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_users_tenants_roles";
   CREATE TYPE "public"."enum_users_tenants_roles" AS ENUM('admin', 'redacteur');
   ALTER TABLE "users_tenants_roles" ALTER COLUMN "value" SET DATA TYPE "public"."enum_users_tenants_roles" USING "value"::"public"."enum_users_tenants_roles";
-  DROP INDEX "users_organisation_idx";
-  DROP INDEX "payload_locked_documents_rels_organisations_id_idx";
-  DROP INDEX "payload_locked_documents_rels_mandats_id_idx";
   ALTER TABLE "users" DROP COLUMN "organisation_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "organisations_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "mandats_id";
