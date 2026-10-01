@@ -11,6 +11,7 @@ let payload: Payload
 let communeA: number
 let communeB: number
 let organisation: number
+let organisation2: number
 let operateur: { id: number }
 let adminA: { id: number }
 let adminB: { id: number }
@@ -39,6 +40,13 @@ beforeAll(async () => {
       overrideAccess: true,
     })
   ).id
+  organisation2 = (
+    await payload.create({
+      collection: 'organisations',
+      data: { nom: 'CC Mandats 2', nature: 'epci', siret: '31000000000002' },
+      overrideAccess: true,
+    })
+  ).id
   operateur = await mkUser('op', { role: 'operateur' })
   adminA = await mkUser('admin-a', { tenants: [{ tenant: communeA, roles: ['admin'] }] })
   adminB = await mkUser('admin-b', { tenants: [{ tenant: communeB, roles: ['admin'] }] })
@@ -47,8 +55,10 @@ beforeAll(async () => {
 afterAll(async () => {
   try {
     await payload.delete({ collection: 'mandats', where: { organisation: { equals: organisation } }, overrideAccess: true })
+    await payload.delete({ collection: 'mandats', where: { organisation: { equals: organisation2 } }, overrideAccess: true })
     await payload.delete({ collection: 'users', where: { email: { like: DOMAINE } }, overrideAccess: true })
     await payload.delete({ collection: 'organisations', id: organisation, overrideAccess: true })
+    await payload.delete({ collection: 'organisations', id: organisation2, overrideAccess: true })
     await supprimerCommuneTest(payload, communeA)
     await supprimerCommuneTest(payload, communeB)
   } catch {
@@ -82,11 +92,12 @@ describe('accorder un mandat', () => {
     await expect(
       payload.create({
         collection: 'mandats',
-        data: { organisation, commune: communeA },
+        // autre organisation : aucun doublon possible, seul l'accès peut refuser
+        data: { organisation: organisation2, commune: communeA },
         req: req(adminB),
         overrideAccess: false,
       }),
-    ).rejects.toThrow()
+    ).rejects.toMatchObject({ status: 403 })
   })
 
   it('doublon actif refusé', async () => {
@@ -121,6 +132,66 @@ describe('lire les mandats', () => {
       overrideAccess: false,
     })
     expect(res.totalDocs).toBe(0)
+  })
+})
+
+describe('modifier un mandat actif', () => {
+  const mandatActifA = async () =>
+    (
+      await payload.find({
+        collection: 'mandats',
+        where: { and: [{ organisation: { equals: organisation } }, { commune: { equals: communeA } }] },
+        overrideAccess: true,
+      })
+    ).docs[0]
+
+  it('l’admin de B ne peut pas modifier le mandat de A, qui reste inchangé', async () => {
+    const avant = await mandatActifA()
+    const echec = await payload
+      .update({
+        collection: 'mandats',
+        id: avant.id,
+        data: { dateFin: ilYA(0) },
+        req: req(adminB),
+        overrideAccess: false,
+      })
+      .then(() => null, (e: { status?: number }) => e)
+    expect(echec).not.toBeNull()
+    expect([403, 404]).toContain(echec?.status)
+    const apres = await mandatActifA()
+    expect(apres.dateFin ?? null).toBeNull()
+    expect(apres.updatedAt).toBe(avant.updatedAt)
+  })
+
+  it('une date de fin future est journalisée « Mandat modifié »', async () => {
+    const m = await mandatActifA()
+    await payload.update({
+      collection: 'mandats',
+      id: m.id,
+      data: { dateFin: dans(86_400_000) },
+      req: req(adminA),
+      overrideAccess: false,
+    })
+    const nomA = (await payload.findByID({ collection: 'communes', id: communeA, overrideAccess: true })).nom
+    const journal = await payload.find({
+      collection: 'journal',
+      where: { and: [{ type: { equals: 'mandat' } }, { communeNom: { equals: nomA } }] },
+      overrideAccess: true,
+    })
+    expect(journal.docs.map((e) => e.message)).toContain(`Mandat modifié — CC Mandats pour ${nomA}`)
+  })
+
+  it('dateDebut et accordePar sont figés à la mise à jour', async () => {
+    const avant = await mandatActifA()
+    const apres = await payload.update({
+      collection: 'mandats',
+      id: avant.id,
+      data: { dateDebut: dans(3_600_000), accordePar: operateur.id, dateFin: null },
+      req: req(adminA),
+      overrideAccess: false,
+    })
+    expect(apres.dateDebut).toBe(avant.dateDebut)
+    expect(String(idDeRef(apres.accordePar))).toBe(String(adminA.id))
   })
 })
 
@@ -176,6 +247,33 @@ describe('retirer un mandat (D4)', () => {
     ).rejects.toThrow('Un mandat retiré ne se rouvre pas : accordez un nouveau mandat.')
   })
 
+  it('une mise à jour partielle sans dateFin garde la date de fin d’un mandat retiré', async () => {
+    const [m] = (
+      await payload.find({
+        collection: 'mandats',
+        where: { and: [{ organisation: { equals: organisation } }, { commune: { equals: communeA } }] },
+        overrideAccess: true,
+      })
+    ).docs
+    const apres = await payload.update({
+      collection: 'mandats',
+      id: m.id,
+      data: {},
+      req: req(adminA),
+      overrideAccess: false,
+    })
+    expect(apres.dateFin).toBe(m.dateFin)
+    await expect(
+      payload.update({
+        collection: 'mandats',
+        id: m.id,
+        data: { dateFin: dans(86_400_000) },
+        req: req(adminA),
+        overrideAccess: false,
+      }),
+    ).rejects.toThrow('Un mandat retiré ne se rouvre pas : accordez un nouveau mandat.')
+  })
+
   it('après retrait, un nouveau mandat peut être accordé', async () => {
     const m = await payload.create({
       collection: 'mandats',
@@ -193,6 +291,25 @@ describe('retirer un mandat (D4)', () => {
     await expect(
       payload.delete({ collection: 'mandats', id: m.id, req: req(adminA), overrideAccess: false }),
     ).rejects.toThrow()
+  })
+})
+
+describe('supprimer un mandat', () => {
+  it('l’opérateur supprime : « Mandat supprimé » au journal', async () => {
+    const m = await payload.create({
+      collection: 'mandats',
+      data: { organisation: organisation2, commune: communeB },
+      req: req(operateur),
+      overrideAccess: false,
+    })
+    await payload.delete({ collection: 'mandats', id: m.id, req: req(operateur), overrideAccess: false })
+    const nomB = (await payload.findByID({ collection: 'communes', id: communeB, overrideAccess: true })).nom
+    const journal = await payload.find({
+      collection: 'journal',
+      where: { and: [{ type: { equals: 'mandat' } }, { communeNom: { equals: nomB } }] },
+      overrideAccess: true,
+    })
+    expect(journal.docs.map((e) => e.message)).toContain(`Mandat supprimé — CC Mandats 2 pour ${nomB}`)
   })
 })
 

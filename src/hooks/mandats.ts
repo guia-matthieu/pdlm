@@ -67,6 +67,7 @@ export const preparerMandat: CollectionBeforeChangeHook = async ({
     if (
       finAvant !== null &&
       finAvant <= maintenant.getTime() &&
+      data.dateFin !== undefined && // mise à jour partielle sans dateFin : inchangée
       temps(data.dateFin) !== finAvant
     ) {
       throw refus('Un mandat retiré ne se rouvre pas : accordez un nouveau mandat.')
