@@ -41,3 +41,11 @@ test.describe('Admin Payload — rédacteur', () => {
     await expect(page.locator('#field-titre')).toBeVisible()
   })
 })
+
+test.describe('Admin Payload — admin de commune', () => {
+  test('ouvre le formulaire de création de mandat', async ({ page }) => {
+    await connecterAdmin(page, { email: 'admin@saint-ex.fr', motDePasse: 'demo1234' })
+    await page.goto('/admin/collections/mandats/create')
+    await expect(page.locator('#field-organisation')).toBeVisible()
+  })
+})

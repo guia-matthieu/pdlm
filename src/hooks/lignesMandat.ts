@@ -25,7 +25,10 @@ export const ajouterLignesMandat: CollectionAfterReadHook = async ({ doc, req })
     req,
   })
   const reelles = ((doc.tenants ?? []) as Ligne[]).filter(Boolean)
-  const dejaLa = new Set(reelles.map((l) => String(idDe(l!.tenant))))
+  // D6 : une ligne réelle sans rôle ne compte pas comme « déjà là ».
+  const dejaLa = new Set(
+    reelles.filter((l) => (l!.roles ?? []).length > 0).map((l) => String(idDe(l!.tenant))),
+  )
   const ajouts: Ligne[] = []
   for (const mandat of docs) {
     const commune = idDe(mandat.commune)

@@ -100,6 +100,10 @@ export default buildConfig({
             type: 'select',
             hasMany: true,
             defaultValue: ['redacteur'],
+            admin: {
+              description:
+                'Les lignes « Mandataire » sont calculées depuis la collection Mandats : elles ne sont jamais enregistrées, les modifier ou les retirer ici n’a aucun effet.',
+            },
             options: [
               { label: 'Administrateur', value: 'admin' },
               { label: 'Rédacteur', value: 'redacteur' },

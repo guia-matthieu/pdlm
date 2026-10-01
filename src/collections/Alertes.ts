@@ -5,7 +5,7 @@ import { figerTenant } from '../hooks'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_PUBLICATION } from '../access/roles'
 
-/** I3/D9 : sans workflow — écritures admin/opérateur ; fenêtre d'activité filtrée à l'affichage. */
+/** I3/D9 : sans workflow — écritures admin, mandataire et opérateur (I3, I36) ; fenêtre d'activité filtrée à l'affichage. */
 export const Alertes: CollectionConfig = {
   slug: 'alertes',
   labels: { singular: 'Alerte', plural: 'Alertes' },

@@ -2,6 +2,7 @@ import type { Payload, PayloadRequest } from 'payload'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { ajouterLignesMandat } from '@/hooks/lignesMandat'
 import { getPayloadClient } from '@/lib/payload'
 import { creerCommuneActive, supprimerCommuneTest } from '../helpers/communeTest'
 
@@ -108,6 +109,16 @@ describe('lignes mandataire', () => {
     const l = lignes(await charger(agent.id))
     expect(l.filter((x) => x.tenant === communes[4])).toEqual([{ tenant: communes[4], roles: ['redacteur'] }])
     expect(l.map((x) => x.tenant)).toContain(communes[0])
+  })
+
+  it('D6 : une ligne réelle sans rôle ne compte pas comme déjà présente', async () => {
+    const ligneVide = { tenant: communes[0], roles: [] as string[] }
+    const doc = { organisation, tenants: [ligneVide] }
+    const res = (await ajouterLignesMandat({
+      doc,
+      req: { payload } as unknown as PayloadRequest,
+    } as never)) as { tenants: Array<{ tenant: unknown; roles: string[] }> }
+    expect(res.tenants).toContainEqual({ tenant: communes[0], roles: ['mandataire'] })
   })
 
   it('compte sans organisation : inchangé', async () => {

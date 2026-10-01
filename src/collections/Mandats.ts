@@ -30,8 +30,16 @@ export const Mandats: CollectionConfig = {
     },
     create: ({ req, data }) => {
       if (isOperateur(req.user)) return true
+      const administrees = communesAvecRole(req.user, 'admin')
+      // Le contrôle d'accès de l'admin Payload interroge `create` sans donnée
+      // (bouton et vue de création) : sans commune connue, on ouvre à qui
+      // administre au moins une commune. Sûr : Mandats est hors du plugin
+      // multi-tenant (aucune commune par défaut tirée du cookie), `commune`
+      // est requise et `preparerMandat` refuse un mandat sans commune ; avec
+      // une commune, la cible est contrôlée.
+      if (!data || (data as { commune?: unknown }).commune === undefined) return administrees.length > 0
       const cible = idDe((data as { commune?: unknown } | undefined)?.commune)
-      return cible !== undefined && communesAvecRole(req.user, 'admin').includes(String(cible))
+      return cible !== undefined && administrees.includes(String(cible))
     },
     update: ({ req }) => {
       if (isOperateur(req.user)) return true
@@ -75,7 +83,7 @@ export const Mandats: CollectionConfig = {
       admin: {
         date: { pickerAppearance: 'dayAndTime' },
         description:
-          'Pour retirer le mandat tout de suite, choisir maintenant. Un mandat retiré ne se rouvre pas : en accorder un nouveau.',
+          'Pour retirer le mandat tout de suite, choisir maintenant ; une date future le retire à cette date. Un mandat retiré ne se rouvre pas : en accorder un nouveau.',
       },
     },
     {

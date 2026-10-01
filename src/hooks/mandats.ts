@@ -8,6 +8,7 @@ import {
 } from 'payload'
 
 import { idDe } from '../access/roles'
+import { formaterDate } from '../lib/dates'
 import { ecrire } from './journaliser'
 
 const temps = (v: unknown): number | null =>
@@ -106,17 +107,23 @@ export const journaliserMandat: CollectionAfterChangeHook = async ({
   previousDoc,
   operation,
 }) => {
-  const maintenant = Date.now()
   const finAvant = temps(previousDoc?.dateFin)
   const finApres = temps(doc.dateFin)
-  const verbe =
-    operation === 'create'
-      ? 'Mandat accordé'
-      : finApres !== null && finApres <= maintenant && (finAvant === null || finAvant > maintenant)
-        ? 'Mandat retiré'
-        : 'Mandat modifié'
+  const finPosee = finApres !== null && finApres !== finAvant
   const { texte, communeId, communeNom } = await libelle(req, doc)
-  await ecrire(req, 'mandat', `${verbe} — ${texte}`, communeId, communeNom)
+  const message =
+    operation === 'create'
+      ? `Mandat accordé — ${texte}`
+      : finPosee
+        ? `Mandat retiré — ${texte} (fin : ${formaterDate(new Date(finApres), {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })})`
+        : `Mandat modifié — ${texte}`
+  await ecrire(req, 'mandat', message, communeId, communeNom)
   return doc
 }
 

@@ -2,6 +2,7 @@ import type { Payload, PayloadRequest } from 'payload'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { Mandats } from '@/collections/Mandats'
 import { getPayloadClient } from '@/lib/payload'
 import { creerCommuneActive, supprimerCommuneTest } from '../helpers/communeTest'
 
@@ -163,7 +164,7 @@ describe('modifier un mandat actif', () => {
     expect(apres.updatedAt).toBe(avant.updatedAt)
   })
 
-  it('une date de fin future est journalisée « Mandat modifié »', async () => {
+  it('une date de fin future est journalisée « Mandat retiré » avec la date', async () => {
     const m = await mandatActifA()
     await payload.update({
       collection: 'mandats',
@@ -178,7 +179,11 @@ describe('modifier un mandat actif', () => {
       where: { and: [{ type: { equals: 'mandat' } }, { communeNom: { equals: nomA } }] },
       overrideAccess: true,
     })
-    expect(journal.docs.map((e) => e.message)).toContain(`Mandat modifié — CC Mandats pour ${nomA}`)
+    expect(journal.docs.map((e) => e.message)).toContainEqual(
+      expect.stringMatching(
+        new RegExp(`^Mandat retiré — CC Mandats pour ${nomA} \\(fin : \\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}\\)$`),
+      ),
+    )
   })
 
   it('dateDebut et accordePar sont figés à la mise à jour', async () => {
@@ -225,7 +230,8 @@ describe('retirer un mandat (D4)', () => {
       },
       overrideAccess: true,
     })
-    expect(journal.totalDocs).toBe(1)
+    // 2 : la date de fin future posée plus haut est déjà une entrée « retiré ».
+    expect(journal.totalDocs).toBe(2)
   })
 
   it('un mandat retiré ne se rouvre pas', async () => {
@@ -328,5 +334,19 @@ describe('suppressions liées', () => {
     await expect(
       payload.delete({ collection: 'organisations', id: organisation, overrideAccess: true }),
     ).rejects.toThrow(/mandat\(s\) sont encore rattaché\(s\) à cette organisation/)
+  })
+})
+
+describe('accès create sans donnée (contrôle de l’admin Payload)', () => {
+  const creer = (user: unknown, data?: Record<string, unknown>) =>
+    (Mandats.access!.create as (a: unknown) => unknown)({ req: req(user), data })
+
+  it('admin d’une commune : autorisé sans commune connue', async () => {
+    expect(await creer(adminA)).toBe(true)
+  })
+
+  it('compte sans rôle admin : refusé', async () => {
+    const redacteur = await mkUser('sans-admin', { tenants: [{ tenant: communeA, roles: ['redacteur'] }] })
+    expect(await creer(await payload.findByID({ collection: 'users', id: redacteur.id, overrideAccess: true }))).toBe(false)
   })
 })

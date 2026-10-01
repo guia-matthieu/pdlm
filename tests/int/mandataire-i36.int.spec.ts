@@ -220,6 +220,20 @@ describe('le mandataire ne peut pas (I36)', () => {
   })
 })
 
+describe('le mandataire ne touche pas aux mandats (I36)', () => {
+  it('modifier un mandat (prolonger ou rouvrir le sien) est refusé par l’accès', async () => {
+    await refuseParAcces(
+      payload.update({
+        collection: 'mandats',
+        id: mandatA,
+        data: { dateFin: new Date(Date.now() + 86_400_000 * 365).toISOString() },
+        req: req(await charger(agentId)),
+        overrideAccess: false,
+      }),
+    )
+  })
+})
+
 describe('retrait', () => {
   it('retrait : accès coupé à la requête suivante, trace au journal', async () => {
     await payload.update({

@@ -9,7 +9,7 @@ import { ROLES_PUBLICATION } from '../access/roles'
 /**
  * I5 : médias = images uniquement (pas de SVG — risque XSS), limite 20 Mo,
  * fichiers publics dès téléversement (décision assumée v0.1, cf. README).
- * Écritures réservées admin/opérateur (I3 — pas de workflow).
+ * Écritures réservées à l'admin, au mandataire et à l'opérateur (I3, I36 — pas de workflow).
  */
 export const Media: CollectionConfig = {
   slug: 'media',

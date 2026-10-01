@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import { APIError, type CollectionConfig } from 'payload'
 
 import { aRoleSur, communesAvecRole, idDe, isOperateur } from '../access/roles'
 import { effacerHistoriqueMesure } from '../endpoints/effacerHistoriqueMesure'
@@ -110,30 +110,42 @@ export const Communes: CollectionConfig = {
           collection: 'domaines',
           where: { commune: { equals: id } },
           overrideAccess: true,
+          req,
         })
         if (domaines.totalDocs > 0) {
-          throw new Error(
+          throw new APIError(
             `Suppression impossible : ${domaines.totalDocs} domaine(s) sont encore rattaché(s) à cette commune. Retirez-les d’abord, ou désactivez la commune plutôt que de la supprimer.`,
+            400,
+            null,
+            true,
           )
         }
         const comptes = await req.payload.count({
           collection: 'users',
           where: { 'tenants.tenant': { equals: id } },
           overrideAccess: true,
+          req,
         })
         if (comptes.totalDocs > 0) {
-          throw new Error(
+          throw new APIError(
             `Suppression impossible : ${comptes.totalDocs} compte(s) sont encore rattaché(s) à cette commune. Retirez-les d’abord, ou désactivez la commune plutôt que de la supprimer.`,
+            400,
+            null,
+            true,
           )
         }
         const mandats = await req.payload.count({
           collection: 'mandats',
           where: { commune: { equals: id } },
           overrideAccess: true,
+          req,
         })
         if (mandats.totalDocs > 0) {
-          throw new Error(
+          throw new APIError(
             `Suppression impossible : ${mandats.totalDocs} mandat(s) sont encore rattaché(s) à cette commune. Demandez à l’opérateur de les supprimer, ou désactivez la commune plutôt que de la supprimer.`,
+            400,
+            null,
+            true,
           )
         }
       },

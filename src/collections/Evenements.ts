@@ -18,7 +18,7 @@ const dateFinApresDebut = (
   )
 }
 
-/** I3 : pas de workflow — écritures réservées admin/opérateur en v0.1. */
+/** I3 : pas de workflow — écritures réservées à l'admin, au mandataire et à l'opérateur en v0.1 (I36). */
 export const Evenements: CollectionConfig = {
   slug: 'evenements',
   labels: { singular: 'Événement', plural: 'Agenda' },
