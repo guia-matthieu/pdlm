@@ -1,6 +1,6 @@
 # Conformité au référentiel de l'État (RPNT) : pdlm met la commune en règle et l'y garde (design)
 
-Date : 2026-10-01 · Statut : **brouillon v2, à relire** (réponses de l'utilisateur du 01/10 intégrées ; reste le rôle EPCI) · Branche `spec-conformite-rpnt`
+Date : 2026-10-01 · Statut : **brouillon v3, à relire** (réponses de l'utilisateur du 01/10 intégrées, modèle opérateur / mandataire / commune tranché) · Branche `spec-conformite-rpnt`
 
 ## Contexte
 
@@ -56,7 +56,7 @@ pdlm **n'écrit jamais dans un système de l'État** (I32). Il prépare la décl
 
 - Quand le domaine canonique d'une commune active diffère du site lu dans l'annuaire, ou si l'annuaire n'en déclare aucun, l'admin affiche une carte **« Déclarer votre site »**.
 - La carte donne le **lien direct vers le formulaire** et l'adresse à coller, au format `https://<domaine canonique>`, dans « Site web n°1 ».
-- La carte est visible par l'admin de la commune **et par l'opérateur**. L'EPCI est lui aussi un service public : s'il opère la plateforme, il peut envoyer la demande pour ses communes. ⚠️ On ne sait pas encore si la DILA accepte une demande venue de l'EPCI pour la fiche d'une commune. À tester sur un cas réel avant de l'écrire dans l'aide.
+- La carte est visible par l'admin de la commune, **par ses mandataires** et par l'opérateur (section 8). Un EPCI ou une ville mandataire est un service public : il peut envoyer la demande pour la commune. ⚠️ On ne sait pas encore si la DILA accepte une demande venue de l'EPCI pour la fiche d'une commune. À tester sur un cas réel avant de l'écrire dans l'aide.
 - Une case « C'est envoyé » enregistre la date d'envoi.
 - pdlm relit l'annuaire, puis la ligne ANCT, jusqu'à constater la mise à jour. L'annuaire annonce un délai d'examen de 48 heures. Si rien n'a changé après 7 jours, la carte revient avec la mention « Pas encore pris en compte ».
 
@@ -109,6 +109,7 @@ ProConnect est l'identifiant de l'État pour les agents publics. Il rattache cha
 - **I33** Un état de conformité affiché porte toujours sa source (pdlm ou État) et sa date.
 - **I34** Aucune donnée personnelle ne sort de pdlm pour ces vérifications : pdlm ne lit l'extérieur qu'avec des données publiques (domaine, code INSEE).
 - **I35** Un choix de domaine non conforme n'est jamais bloqué, toujours signalé.
+- **I36** Un mandataire agit, la commune décide. Aucune action réservée à l'admin de la commune (utilisateurs, domaine canonique, activation, interrupteurs) n'est ouverte au mandataire. Tout mandat accordé ou retiré est journalisé.
 
 ⚠️ La numérotation reprend après I31, le plus haut numéro trouvé dans les specs des branches `umami-collecte`, `gabarits-couleurs` et `multilingue-socle` le 01/10. Elle est à confirmer si une autre spec en cours en a pris.
 
@@ -126,13 +127,40 @@ ProConnect est l'identifiant de l'État pour les agents publics. Il rattache cha
 - Messagerie : un module d'information avec un lien vers les bonnes pratiques (section 7).
 - ProConnect : sorti de cette spec, devient une piste à spécifier à part.
 
-**Reste à trancher : le rôle de l'EPCI.** Aujourd'hui, le code ne connaît que deux niveaux. Au niveau de la plateforme, il y a un seul rôle, `operateur` (« staff de l'organisation hébergeuse, accès à toutes les communes »). Au niveau de chaque commune, il y a `admin` et `redacteur` (`src/access/roles.ts`). Deux situations :
-- **(a) L'EPCI héberge la plateforme** (modèle Questembert). L'EPCI est l'opérateur, et aucun rôle nouveau n'est nécessaire. C'est lui qui reçoit les alertes avec l'admin de la commune.
-- **(b) La plateforme est hébergée par un OPSN qui sert plusieurs EPCI** (modèle Mégalis, ou la CdC en Corse). L'opérateur est l'OPSN, et chaque EPCI a besoin d'un rôle intermédiaire, **« intercommunalité »**. Ce rôle voit la conformité et les alertes **de ses seules communes membres**, en lecture, sans pouvoir modifier leurs contenus. Il suppose une notion de groupe de communes, qui n'existe pas encore dans le modèle.
+## 8. Qui agit pour la commune : opérateur, mandataire, commune
 
-Proposition : **(a) dans cette spec**, et (b) dans une spec dédiée le jour où un OPSN est en vue. La décision (b) touche le multi-tenant, comme ProConnect : les deux gagneraient à être spécifiées ensemble.
+*Tranché le 01/10. Constat de l'utilisateur : la plateforme peut être opérée par un prestataire (exemple : SITEC en Corse), par une mairie via ses services, ou par un EPCI via ses services pour le compte de ses communes membres. Et celui qui **héberge** n'est pas toujours celui qui **agit** pour une commune donnée.*
 
-**Destinataires des alertes** : l'admin de la commune et l'opérateur. Jamais le maire par défaut.
+Le modèle sépare deux questions que le code confondait jusqu'ici dans le seul rôle `operateur` : **qui héberge la plateforme**, et **qui agit pour quelle commune**.
+
+| Niveau | Qui | Portée | Existe ? |
+|---|---|---|---|
+| **Opérateur** | L'organisation qui **héberge** la plateforme, quelle que soit sa nature (prestataire, EPCI, ville, OPSN) | Toutes les communes de la plateforme | Oui (`operateur`) |
+| **Mandataire** | Une organisation qui **agit pour le compte** d'une ou de plusieurs communes : services d'un EPCI, services d'une ville pour ses voisines, prestataire | Les seules communes qui l'ont mandatée | **Nouveau** |
+| **Commune** | Les agents de la mairie | Leur commune | Oui (`admin`, `redacteur`) |
+
+**Le mandat est un objet, pas un rôle collé à un utilisateur.** Il comprend :
+- une organisation mandataire (nom, nature, SIRET),
+- une commune,
+- une date de début et une date de fin éventuelle,
+- la personne qui l'a accordé.
+
+Les utilisateurs d'une organisation mandataire héritent du rôle `mandataire` sur chacune des communes qui l'ont mandatée. Il n'y a donc pas de rôle `intercommunalité` : un EPCI, une ville et un prestataire relèvent du même mécanisme, et le SIRET préparera le rattachement par ProConnect.
+
+**Règle de partage : le mandataire agit, la commune décide.**
+- **Le mandataire peut** : voir la conformité, recevoir les alertes, préparer et envoyer la déclaration à l'annuaire (section 3), rédiger et publier les contenus. C'est le travail que « les mairies ne font pas ».
+- **Il ne peut pas** : gérer les utilisateurs de la commune, changer le domaine canonique, activer ou désactiver la commune, ni manœuvrer les interrupteurs que la spec Umami réserve à l'admin de la commune (« la commune décide »).
+- **Accorder et retirer un mandat** relève de l'admin de la commune ou de l'opérateur. Chaque mandat accordé ou retiré est journalisé (collection `Journal`).
+
+**Cas couverts** :
+- un EPCI héberge et agit pour ses communes : il est opérateur, et le mandat n'est pas nécessaire ;
+- la SITEC héberge et un EPCI agit : la SITEC est opératrice, l'EPCI est mandataire de ses communes membres ;
+- une ville héberge le site de ses voisines : elle est opératrice ou mandataire, selon qui fait tourner la plateforme ;
+- une commune agit seule : ni mandat ni intermédiaire.
+
+**Destinataires des alertes** : l'admin de la commune, les mandataires actifs de la commune et l'opérateur. Jamais le maire par défaut.
+
+⚠️ **Ce que cette décision coûte** : une collection `Mandats`, un rôle `mandataire` dans `ROLES_COMMUNE`, et une relecture de toutes les fonctions d'accès (`src/access/index.ts`) pour y placer le mandataire, entre le rédacteur et l'admin. Le multi-tenant est touché : à planifier **avant** les sections 3 à 6, qui en dépendent pour les alertes et la carte de déclaration. Invariant ajouté : **I36**.
 
 ## Tests
 
@@ -140,4 +168,5 @@ Proposition : **(a) dans cette spec**, et (b) dans une spec dédiée le jour où
 - **Rapprochement INSEE ↔ ligne ANCT** : sur le fichier réel du 01/10, aucune commune n'est perdue à cause du format du code (zéros initiaux, `2A`).
 - **Surveillance** : certificat à J-13 → alerte ; redirection `www` cassée → critère 1.7 au rouge ; domaine injoignable de l'extérieur mais joignable en local → rouge.
 - **Module messagerie** : domaine sans MX → 2.4 au rouge ; DMARC `p=none` → 2.6 vert, 2.7 rouge ; chaque critère rouge affiche un lien qui répond 200.
+- **Mandat** : un mandataire voit et agit sur ses seules communes ; il ne peut ni changer le domaine canonique, ni gérer les utilisateurs, ni toucher aux interrupteurs de la commune ; un mandat retiré coupe l'accès immédiatement et laisse une trace dans le Journal.
 - **Carte de déclaration** : elle apparaît, se masque après « C'est envoyé », et revient après 7 jours sans changement.
