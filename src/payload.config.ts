@@ -79,6 +79,10 @@ export default buildConfig({
   plugins: [
     multiTenantPlugin({
       tenantsSlug: 'communes',
+      // Users.access.read (src/collections/Users.ts) applique déjà D3 ; le filtre du
+      // plugin masquerait le propre compte d'un mandataire (sa ligne est calculée,
+      // non stockée, donc absente de `tenants.tenant` en base).
+      useUsersTenantFilter: false,
       userHasAccessToAllTenants: (user) => user?.role === 'operateur',
       collections: {
         media: { tenantFieldOverrides: { label: 'Commune' } },
