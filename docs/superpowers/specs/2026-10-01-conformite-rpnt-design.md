@@ -1,6 +1,6 @@
 # Conformité au référentiel de l'État (RPNT) : pdlm met la commune en règle et l'y garde (design)
 
-Date : 2026-10-01 · Statut : **brouillon v3, à relire** (réponses de l'utilisateur du 01/10 intégrées, modèle opérateur / mandataire / commune tranché) · Branche `spec-conformite-rpnt`
+Date : 2026-10-01 · Statut : **brouillon v3, à relire** (réponses de l'utilisateur du 01/10 intégrées, modèle opérateur / mandataire / commune tranché ; titulaire du nom en section 9) · Branche `spec-conformite-rpnt`
 
 ## Contexte
 
@@ -103,6 +103,32 @@ ProConnect est l'identifiant de l'État pour les agents publics. Il rattache cha
 
 **Il n'ouvre pas l'annuaire** : le formulaire de mise à jour ne le demande pas (section 3). Son intérêt pour pdlm est ailleurs : servir de **connexion à l'admin**. La secrétaire se connecterait avec son compte d'agent, et le SIRET de la mairie suffirait à la rattacher à la bonne commune. C'est un projet à part : il touche les rôles et le multi-tenant, et demande une inscription comme fournisseur de service ProConnect. Il mérite sa propre spec.
 
+## 9. À qui appartient le nom de la commune (critère maison, hors RPNT)
+
+**Le risque** (utilisateur, 01/10) : une agence enregistre le nom pour la commune. Si l'agence part, fait faillite ou perd le contrat, la commune peut perdre son nom. Le RPNT ne vérifie pas ce point : un site peut être au vert sur les critères 1.1 à 1.8 avec un nom dont la commune n'est pas titulaire.
+
+**Le cas existe**, d'après le RDAP public lu le 01/10 :
+- `brest.fr`, `mairie-vannes.fr` et `quimper.bzh` ont pour titulaire la ville ;
+- `ajaccio.corsica` a pour titulaire « CAPA », la communauté d'agglomération, et non la Ville d'Ajaccio.
+
+L'étude du 01/10 trouve aussi **14 communes corses et 4 bretonnes dont le nom déclaré n'existe plus** dans le DNS : ce sont probablement des noms expirés, non renouvelés. On ne sait pas pourquoi : il faudrait l'historique de chaque nom.
+
+**Ce que fait pdlm** :
+- **Lire le titulaire et l'échéance** du domaine canonique par RDAP public : l'organisation titulaire, le bureau d'enregistrement et la date d'expiration. pdlm ne conserve **jamais le nom d'une personne physique** que le RDAP renverrait, par exemple un contact administratif (I34).
+- **Afficher** l'un de ces états :
+  - « La commune est titulaire » ;
+  - « Le titulaire est une autre organisation : <nom> » (EPCI, agence…) ;
+  - « Titulaire masqué » ;
+  - « Inconnu ».
+
+  Ce n'est jamais un blocage : un EPCI titulaire peut être un choix délibéré.
+- **Alerter avant l'expiration**, à J-60 puis J-15, l'admin de la commune, ses mandataires et l'opérateur.
+- **Fin de mandat** : quand un mandat est retiré (section 8), pdlm affiche à la commune une liste de vérification. Qui est titulaire du nom ? Chez quel bureau d'enregistrement ? Qui détient l'accès au compte et le code de transfert ? Qui gère la zone DNS ? pdlm ne stocke **jamais** de code de transfert.
+
+**Ce que pdlm ne fait pas** : il ne récupère pas un nom et ne conseille aucune procédure. Les voies de recours dépendent du texte de chaque extension : charte de nommage de l'Afnic pour `.fr`, politiques d'enregistrement des registres `.bzh` et `.corsica`, et protection légale des noms des collectivités (article L45-2 du code des postes et des communications électroniques). **Ces textes n'ont pas été lus pour cette spec**, aucune modalité n'en est tirée. Il faut les lire avant d'écrire la moindre aide en ligne sur ce sujet.
+
+⚠️ Pour `.corsica`, l'auteur intervient comme AMO du registre. Lire les titulaires `.corsica` par RDAP public, commune par commune, dans un outil tiers, mérite l'accord explicite de l'utilisateur avant toute exploitation en dehors de pdlm.
+
 ## Invariants
 
 - **I32** pdlm n'écrit jamais dans un système de l'État (annuaire, ANCT). Il prépare, un humain envoie.
@@ -110,6 +136,7 @@ ProConnect est l'identifiant de l'État pour les agents publics. Il rattache cha
 - **I34** Aucune donnée personnelle ne sort de pdlm pour ces vérifications : pdlm ne lit l'extérieur qu'avec des données publiques (domaine, code INSEE).
 - **I35** Un choix de domaine non conforme n'est jamais bloqué, toujours signalé.
 - **I36** Un mandataire agit, la commune décide. Aucune action réservée à l'admin de la commune (utilisateurs, domaine canonique, activation, interrupteurs) n'est ouverte au mandataire. Tout mandat accordé ou retiré est journalisé.
+- **I37** Ni pdlm, ni l'opérateur, ni un mandataire n'enregistre un nom de domaine **à son propre nom** pour une commune : le titulaire est la commune. Le code ne peut pas imposer cette règle aux humains : elle figure dans les conditions d'utilisation, et pdlm en **vérifie** le respect et l'affiche (section 9).
 
 ⚠️ La numérotation reprend après I31, le plus haut numéro trouvé dans les specs des branches `umami-collecte`, `gabarits-couleurs` et `multilingue-socle` le 01/10. Elle est à confirmer si une autre spec en cours en a pris.
 
