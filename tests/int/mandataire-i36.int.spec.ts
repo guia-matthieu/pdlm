@@ -23,6 +23,15 @@ let pageA: number
 const MDP_TEST = ['motdepasse', '1234'].join('-')
 const DOMAINE = '@i36.pdlm.invalid'
 const req = (user: unknown) => ({ user, context: {} }) as unknown as PayloadRequest
+/** Le refus doit venir de l'accès (403, ou 404 quand l'accès filtre le document visé), pas d'une validation. */
+const refuseParAcces = async (promesse: Promise<unknown>) => {
+  const erreur = await promesse.then(
+    () => null,
+    (e: unknown) => e as { status?: number; name?: string },
+  )
+  expect(erreur, 'la requête aurait dû être refusée').not.toBeNull()
+  expect([403, 404]).toContain(erreur?.status)
+}
 const charger = async (id: number) => ({
   ...(await payload.findByID({ collection: 'users', id, overrideAccess: true })),
   collection: 'users',
@@ -146,25 +155,25 @@ describe('le mandataire peut', () => {
 
 describe('le mandataire ne peut pas (I36)', () => {
   it('écrire sur une commune qui ne l’a pas mandaté', async () => {
-    await expect(
+    await refuseParAcces(
       payload.create({
         collection: 'pages',
         data: page('Intrus', communeC),
         req: req(await charger(agentId)),
         overrideAccess: false,
       }),
-    ).rejects.toThrow()
+    )
   })
 
   it('D1 : supprimer une page', async () => {
-    await expect(
+    await refuseParAcces(
       payload.delete({ collection: 'pages', id: pageA, req: req(await charger(agentId)), overrideAccess: false }),
-    ).rejects.toThrow()
+    )
   })
 
   it('activer ou désactiver la commune, ni toucher à la mesure d’audience', async () => {
     for (const data of [{ actif: false }, { mesure: { active: true } }, { coordonnees: { telephone: '0102030405' } }]) {
-      await expect(
+      await refuseParAcces(
         payload.update({
           collection: 'communes',
           id: communeA,
@@ -172,23 +181,23 @@ describe('le mandataire ne peut pas (I36)', () => {
           req: req(await charger(agentId)),
           overrideAccess: false,
         }),
-      ).rejects.toThrow()
+      )
     }
   })
 
   it('changer le domaine canonique', async () => {
-    await expect(
+    await refuseParAcces(
       payload.create({
         collection: 'domaines',
         data: { hostname: `autre-${Date.now()}.test`, commune: communeA, canonique: false },
         req: req(await charger(agentId)),
         overrideAccess: false,
       }),
-    ).rejects.toThrow()
+    )
   })
 
   it('gérer les utilisateurs de la commune', async () => {
-    await expect(
+    await refuseParAcces(
       payload.update({
         collection: 'users',
         id: adminA.id,
@@ -196,18 +205,18 @@ describe('le mandataire ne peut pas (I36)', () => {
         req: req(await charger(agentId)),
         overrideAccess: false,
       }),
-    ).rejects.toThrow()
+    )
   })
 
   it('accorder un mandat, même sur la commune qu’il sert', async () => {
-    await expect(
+    await refuseParAcces(
       payload.create({
         collection: 'mandats',
         data: { organisation, commune: communeA },
         req: req(await charger(agentId)),
         overrideAccess: false,
       }),
-    ).rejects.toThrow()
+    )
   })
 })
 
@@ -220,14 +229,14 @@ describe('retrait', () => {
       req: req(adminAComplet),
       overrideAccess: false,
     })
-    await expect(
+    await refuseParAcces(
       payload.create({
         collection: 'pages',
         data: page('Après retrait', communeA),
         req: req(await charger(agentId)),
         overrideAccess: false,
       }),
-    ).rejects.toThrow()
+    )
     const journal = await payload.count({
       collection: 'journal',
       where: {
@@ -242,6 +251,7 @@ describe('retrait', () => {
     expect(journal.totalDocs).toBe(1)
   })
 })
+
 describe('non-régression — lecture des comptes', () => {
   it('un admin voit les comptes qui ont un rôle réel sur sa commune, pas ceux d’une autre', async () => {
     const res = await payload.find({
