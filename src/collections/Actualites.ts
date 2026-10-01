@@ -3,6 +3,8 @@ import type { CollectionConfig } from 'payload'
 import { creerContenu, lirePublieOuAuthentifie, majContenu, supprimerContenu } from '../access'
 import { figerTenant, uniqueSlugParCommune, validerRelationsTenant } from '../hooks'
 import { bloquerPublication, memoriserModeBrouillon } from '../hooks/bloquerPublication'
+import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
+import { ROLES_REDACTION } from '../access/roles'
 
 /** I4 : image + auteur (affectation vérifiée, pas égalité fictive — I2). */
 const extraireRefsActualite = (data: Record<string, unknown>) => ({
@@ -34,7 +36,12 @@ export const Actualites: CollectionConfig = {
     // Voir Pages.ts : `draft` n'est lisible que depuis `beforeOperation`.
     beforeOperation: [memoriserModeBrouillon],
     beforeValidate: [uniqueSlugParCommune('titre')],
-    beforeChange: [figerTenant, bloquerPublication, validerRelationsTenant(extraireRefsActualite)],
+    beforeChange: [
+      verifierCommuneCreation(...ROLES_REDACTION),
+      figerTenant,
+      bloquerPublication,
+      validerRelationsTenant(extraireRefsActualite),
+    ],
   },
   fields: [
     { name: 'titre', type: 'text', required: true, label: 'Titre' },

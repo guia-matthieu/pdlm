@@ -9,6 +9,8 @@ import {
   validerRelationsTenant,
 } from '../hooks'
 import { bloquerPublication, memoriserModeBrouillon } from '../hooks/bloquerPublication'
+import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
+import { ROLES_REDACTION } from '../access/roles'
 
 /** I4 : références média exposées par les blocs d'une page. */
 const extraireRefsPages = (data: Record<string, unknown>) => ({
@@ -40,7 +42,12 @@ export const Pages: CollectionConfig = {
     // écriture sur la version publique (I3).
     beforeOperation: [memoriserModeBrouillon],
     beforeValidate: [uniqueSlugParCommune('titre')],
-    beforeChange: [figerTenant, bloquerPublication, validerRelationsTenant(extraireRefsPages)],
+    beforeChange: [
+      verifierCommuneCreation(...ROLES_REDACTION),
+      figerTenant,
+      bloquerPublication,
+      validerRelationsTenant(extraireRefsPages),
+    ],
   },
   fields: [
     { name: 'titre', type: 'text', required: true, label: 'Titre' },

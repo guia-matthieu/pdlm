@@ -2,6 +2,8 @@ import type { CollectionConfig } from 'payload'
 
 import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { figerTenant, limiterTaille } from '../hooks'
+import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
+import { ROLES_PUBLICATION } from '../access/roles'
 
 /** I5 : PDF uniquement, 20 Mo max, type vérifié sur le contenu réel. */
 export const Documents: CollectionConfig = {
@@ -19,7 +21,7 @@ export const Documents: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [limiterTaille(20)],
-    beforeChange: [figerTenant],
+    beforeChange: [verifierCommuneCreation(...ROLES_PUBLICATION), figerTenant],
   },
   upload: {
     mimeTypes: ['application/pdf'],

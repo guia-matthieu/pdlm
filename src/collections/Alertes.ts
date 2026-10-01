@@ -2,6 +2,8 @@ import type { CollectionConfig } from 'payload'
 
 import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { figerTenant } from '../hooks'
+import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
+import { ROLES_PUBLICATION } from '../access/roles'
 
 /** I3/D9 : sans workflow — écritures admin/opérateur ; fenêtre d'activité filtrée à l'affichage. */
 export const Alertes: CollectionConfig = {
@@ -18,7 +20,7 @@ export const Alertes: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeChange: [figerTenant],
+    beforeChange: [verifierCommuneCreation(...ROLES_PUBLICATION), figerTenant],
   },
   fields: [
     {

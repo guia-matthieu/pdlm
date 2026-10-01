@@ -6,6 +6,8 @@ import { creerPublication, lirePublic, majPublication, supprimerContenu } from '
 import { idDe } from '../access/roles'
 import { figerTenant, validerRelationsTenant } from '../hooks'
 import { validerUrlEditoriale } from '../lib/url'
+import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
+import { ROLES_PUBLICATION } from '../access/roles'
 
 /** XOR page/url : exactement une des deux (I9). */
 const validerXor = (
@@ -82,7 +84,11 @@ export const Menus: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [unSeulMenuParCommune],
-    beforeChange: [figerTenant, validerRelationsTenant(extraireRefsMenus)],
+    beforeChange: [
+      verifierCommuneCreation(...ROLES_PUBLICATION),
+      figerTenant,
+      validerRelationsTenant(extraireRefsMenus),
+    ],
   },
   fields: [
     { name: 'nom', type: 'text', required: true, defaultValue: 'Principal', label: 'Nom' },

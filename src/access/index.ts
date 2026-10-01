@@ -31,7 +31,8 @@ export const creerContenu: Access = ({ req, data }) => {
   // document, mesuré en e2e) — un rôle sur au moins une commune suffit alors.
   // Payload's create operation always passes data to access (payload/dist/
   // collections/operations/create.js ~l.127-130) : une écriture réelle porte sa
-  // commune, vérifiée ci-dessous ; sans commune, le champ `tenant` requis la refuse.
+  // commune, vérifiée ci-dessous ; sans commune (cookie du sélecteur), le garde
+  // `verifierCommuneCreation` (hooks/) revérifie le rôle sur la commune finale.
   const cible = cibleDe(data)
   if (data === undefined || cible === '') return ids.length > 0
   return ids.length > 0 && ids.includes(cible)
@@ -59,7 +60,8 @@ export const creerPublication: Access = ({ req, data }) => {
   // document, mesuré en e2e) — un rôle sur au moins une commune suffit alors.
   // Payload's create operation always passes data to access (payload/dist/
   // collections/operations/create.js ~l.127-130) : une écriture réelle porte sa
-  // commune, vérifiée ci-dessous ; sans commune, le champ `tenant` requis la refuse.
+  // commune, vérifiée ci-dessous ; sans commune (cookie du sélecteur), le garde
+  // `verifierCommuneCreation` (hooks/) revérifie le rôle sur la commune finale.
   const cible = cibleDe(data)
   if (data === undefined || cible === '') return ids.length > 0
   return ids.length > 0 && ids.includes(cible)

@@ -3,6 +3,8 @@ import type { CollectionConfig } from 'payload'
 import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { figerTenant, validerRelationsTenant } from '../hooks'
 import { validerUrlEditoriale } from '../lib/url'
+import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
+import { ROLES_PUBLICATION } from '../access/roles'
 
 /** Validation : la fin doit suivre le début. */
 const dateFinApresDebut = (
@@ -32,7 +34,11 @@ export const Evenements: CollectionConfig = {
   },
   hooks: {
     // I4 : pas de champ relationnel, mais la description (texte riche) peut en porter
-    beforeChange: [figerTenant, validerRelationsTenant(() => ({}))],
+    beforeChange: [
+      verifierCommuneCreation(...ROLES_PUBLICATION),
+      figerTenant,
+      validerRelationsTenant(() => ({})),
+    ],
   },
   fields: [
     { name: 'titre', type: 'text', required: true, label: 'Titre' },
