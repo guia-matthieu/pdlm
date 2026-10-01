@@ -11,12 +11,28 @@
 export interface UtilisateurAcces {
   id?: string | number
   role?: string | null
+  /** Organisation mandataire de l'utilisateur (spec RPNT section 8), ID ou objet peuplé. */
+  organisation?: unknown
   tenants?: Array<{ tenant?: unknown; roles?: readonly string[] | null } | null> | null
 }
 
-/** Rôles par commune (champ `tenants[].roles` injecté par le plugin multi-tenant). */
-export const ROLES_COMMUNE = ['admin', 'redacteur'] as const
+/**
+ * Rôles par commune (champ `tenants[].roles` injecté par le plugin multi-tenant).
+ * `mandataire` n'est jamais écrit en base : il est calculé à la lecture du
+ * compte depuis les mandats actifs de son organisation (hooks/lignesMandat.ts).
+ */
+export const ROLES_COMMUNE = ['admin', 'redacteur', 'mandataire'] as const
 export type RoleCommune = (typeof ROLES_COMMUNE)[number]
+
+/** Rôles qui rédigent (brouillons des collections à workflow). */
+export const ROLES_REDACTION: readonly RoleCommune[] = ['admin', 'redacteur', 'mandataire']
+
+/**
+ * Rôles qui écrivent dans la version publique. I36 : le mandataire publie
+ * (c'est le travail que les mairies ne font pas), mais n'est jamais admin —
+ * utilisateurs, domaine, activation et interrupteurs restent à `admin`.
+ */
+export const ROLES_PUBLICATION: readonly RoleCommune[] = ['admin', 'mandataire']
 
 /** Vrai si l'utilisateur est un opérateur (staff de l'organisation hébergeuse). */
 export function isOperateur(user: UtilisateurAcces | null | undefined): boolean {

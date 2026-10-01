@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
+import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { figerTenant } from '../hooks'
 
 /** I3/D9 : sans workflow — écritures admin/opérateur ; fenêtre d'activité filtrée à l'affichage. */
@@ -13,8 +13,8 @@ export const Alertes: CollectionConfig = {
   },
   access: {
     read: lirePublic,
-    create: creerAdmin,
-    update: majAdmin,
+    create: creerPublication,
+    update: majPublication,
     delete: supprimerContenu,
   },
   hooks: {

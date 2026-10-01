@@ -2,7 +2,7 @@ import type { CollectionBeforeValidateHook, CollectionConfig, Where } from 'payl
 
 import { ValidationError } from 'payload'
 
-import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
+import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { idDe } from '../access/roles'
 import { figerTenant, validerRelationsTenant } from '../hooks'
 import { validerUrlEditoriale } from '../lib/url'
@@ -76,8 +76,8 @@ export const Menus: CollectionConfig = {
   },
   access: {
     read: lirePublic,
-    create: creerAdmin,
-    update: majAdmin,
+    create: creerPublication,
+    update: majPublication,
     delete: supprimerContenu,
   },
   hooks: {

@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
+import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { figerTenant, validerRelationsTenant } from '../hooks'
 import { validerUrlEditoriale } from '../lib/url'
 
@@ -26,8 +26,8 @@ export const Evenements: CollectionConfig = {
   },
   access: {
     read: lirePublic,
-    create: creerAdmin,
-    update: majAdmin,
+    create: creerPublication,
+    update: majPublication,
     delete: supprimerContenu,
   },
   hooks: {

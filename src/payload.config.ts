@@ -95,6 +95,11 @@ export default buildConfig({
             options: [
               { label: 'Administrateur', value: 'admin' },
               { label: 'Rédacteur', value: 'redacteur' },
+              {
+                // Jamais enregistré : calculé depuis les mandats actifs (hooks/lignesMandat.ts).
+                label: 'Mandataire (par mandat)',
+                value: 'mandataire',
+              },
             ],
           },
         ],

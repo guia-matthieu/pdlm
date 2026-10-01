@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { creerAdmin, lirePublic, majAdmin, supprimerContenu } from '../access'
+import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { figerTenant, limiterTaille } from '../hooks'
 
 /** I5 : PDF uniquement, 20 Mo max, type vérifié sur le contenu réel. */
@@ -13,8 +13,8 @@ export const Documents: CollectionConfig = {
   },
   access: {
     read: lirePublic,
-    create: creerAdmin,
-    update: majAdmin,
+    create: creerPublication,
+    update: majPublication,
     delete: supprimerContenu,
   },
   hooks: {

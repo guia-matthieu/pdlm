@@ -1,10 +1,10 @@
 import type { CollectionBeforeChangeHook, CollectionBeforeOperationHook } from 'payload'
 
-import { aRoleSur, isOperateur } from '../access/roles'
+import { aRoleSur, isOperateur, ROLES_PUBLICATION } from '../access/roles'
 
 /**
- * Invariant I3 : l'état publié d'un contenu est du ressort de l'opérateur et
- * des admins de la commune. Un rédacteur propose des brouillons.
+ * Invariant I3 : l'état publié d'un contenu est du ressort de l'opérateur, des
+ * admins de la commune et de ses mandataires (I36). Un rédacteur propose des brouillons.
  *
  * Ce qu'il faut savoir du moteur Payload pour lire ces deux hooks :
  * une opération `update` n'écrit la table principale — c'est-à-dire la version
@@ -75,9 +75,9 @@ export const bloquerPublication: CollectionBeforeChangeHook = ({
     const commune =
       ((data as { tenant?: unknown }).tenant as string | number | undefined) ??
       ((originalDoc as { tenant?: unknown } | undefined)?.tenant as string | number | undefined)
-    if (!isOperateur(req.user) && !aRoleSur(req.user, commune, 'admin')) {
+    if (!isOperateur(req.user) && !aRoleSur(req.user, commune, ...ROLES_PUBLICATION)) {
       throw new Error(
-        'Seul un administrateur de la commune ou un opérateur peut publier ou dépublier.',
+        'Seul un administrateur de la commune, un mandataire ou un opérateur peut publier ou dépublier.',
       )
     }
   }
