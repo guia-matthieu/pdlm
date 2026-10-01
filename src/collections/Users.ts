@@ -1,8 +1,9 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, Where } from 'payload'
 
-import { isOperateur } from '../access/roles'
+import { communesAvecRole, isOperateur } from '../access/roles'
 import { figerPrivileges } from '../hooks/figerPrivileges'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
+import { ajouterLignesMandat, retirerLignesMandat } from '../hooks/lignesMandat'
 
 /**
  * Invariant I2 : en v0.1, seul l'opérateur crée/supprime des comptes et gère
@@ -24,14 +25,25 @@ export const Users: CollectionConfig = {
     useAPIKey: false,
   },
   access: {
-    read: ({ req }) => Boolean(req.user), // le plugin filtre par commune pour les non-opérateurs
+    // D3 : un compte ne lit que lui-même et les comptes des communes où il a
+    // un rôle réel. Les lignes `mandataire` n'en ouvrent aucun : un EPCI ne
+    // voit pas les agents des mairies qu'il sert (données personnelles).
+    // Le plugin y ajoute son propre filtre par commune (ET logique).
+    read: ({ req }) => {
+      if (isOperateur(req.user)) return true
+      if (!req.user) return false
+      const ids = communesAvecRole(req.user, 'admin', 'redacteur')
+      const soi: Where = { id: { equals: req.user.id } }
+      return ids.length > 0 ? { or: [soi, { 'tenants.tenant': { in: ids } }] } : soi
+    },
     create: ({ req }) => isOperateur(req.user),
     update: ({ req }) =>
       isOperateur(req.user) || (req.user ? { id: { equals: req.user.id } } : false),
     delete: ({ req }) => isOperateur(req.user),
   },
   hooks: {
-    beforeChange: [figerPrivileges],
+    beforeChange: [figerPrivileges, retirerLignesMandat],
+    afterRead: [ajouterLignesMandat],
     afterChange: [journaliser('utilisateur')],
     beforeDelete: [
       async ({ req, id }) => {
