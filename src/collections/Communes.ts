@@ -126,6 +126,16 @@ export const Communes: CollectionConfig = {
             `Suppression impossible : ${comptes.totalDocs} compte(s) sont encore rattaché(s) à cette commune. Retirez-les d’abord, ou désactivez la commune plutôt que de la supprimer.`,
           )
         }
+        const mandats = await req.payload.count({
+          collection: 'mandats',
+          where: { commune: { equals: id } },
+          overrideAccess: true,
+        })
+        if (mandats.totalDocs > 0) {
+          throw new Error(
+            `Suppression impossible : ${mandats.totalDocs} mandat(s) sont encore rattaché(s) à cette commune. Demandez à l’opérateur de les supprimer, ou désactivez la commune plutôt que de la supprimer.`,
+          )
+        }
       },
     ],
     afterChange: [journaliser('commune'), journaliserMesure],

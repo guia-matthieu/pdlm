@@ -14,7 +14,7 @@ export const Journal: CollectionConfig = {
     useAsTitle: 'message',
     defaultColumns: ['createdAt', 'type', 'message', 'commune'],
     description:
-      'Journal d’audit des changements de rôles, d’affectations et de domaines. Lecture seule.',
+      'Journal d’audit des changements de rôles, d’affectations, de domaines et de mandats. Lecture seule.',
   },
   access: {
     create: () => false,
@@ -35,6 +35,7 @@ export const Journal: CollectionConfig = {
         { label: 'Commune', value: 'commune' },
         { label: 'Utilisateur', value: 'utilisateur' },
         { label: 'Domaine', value: 'domaine' },
+        { label: 'Mandat', value: 'mandat' },
       ],
     },
     { name: 'message', type: 'text', required: true },

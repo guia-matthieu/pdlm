@@ -13,6 +13,7 @@ import { Domaines } from './collections/Domaines'
 import { Journal } from './collections/Journal'
 import { Users } from './collections/Users'
 import { Organisations } from './collections/Organisations'
+import { Mandats } from './collections/Mandats'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Actualites } from './collections/Actualites'
@@ -44,6 +45,7 @@ export default buildConfig({
     Journal,
     Users,
     Organisations,
+    Mandats,
     Media,
     Pages,
     Actualites,

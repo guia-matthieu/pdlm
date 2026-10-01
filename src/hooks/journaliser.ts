@@ -15,7 +15,7 @@ import { idDe } from '../access/roles'
  * un ROLLBACK muet et l'API répondait « succès » sur une opération annulée.
  * Aucun changement sensible sans trace (I12).
  */
-export type TypeJournal = 'commune' | 'utilisateur' | 'domaine'
+export type TypeJournal = 'commune' | 'utilisateur' | 'domaine' | 'mandat'
 
 /** Écrit une entrée de journal dans la transaction de `req` (I12). Exportée pour les messages propres à la mesure d'audience. */
 export async function ecrire(

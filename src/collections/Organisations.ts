@@ -43,6 +43,20 @@ export const Organisations: CollectionConfig = {
             true,
           )
         }
+        const mandats = await req.payload.count({
+          collection: 'mandats',
+          where: { organisation: { equals: id } },
+          overrideAccess: true,
+          req,
+        })
+        if (mandats.totalDocs > 0) {
+          throw new APIError(
+            `Suppression impossible : ${mandats.totalDocs} mandat(s) sont encore rattaché(s) à cette organisation.`,
+            400,
+            null,
+            true,
+          )
+        }
       },
     ],
   },
