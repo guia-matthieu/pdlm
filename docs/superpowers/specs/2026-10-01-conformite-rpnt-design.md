@@ -1,6 +1,6 @@
 # Conformité au référentiel de l'État (RPNT) : pdlm met la commune en règle et l'y garde (design)
 
-Date : 2026-10-01 · Statut : **brouillon, à relire par l'utilisateur** · Branche `spec-conformite-rpnt`
+Date : 2026-10-01 · Statut : **brouillon v2, à relire** (réponses de l'utilisateur du 01/10 intégrées ; reste le rôle EPCI) · Branche `spec-conformite-rpnt`
 
 ## Contexte
 
@@ -27,7 +27,7 @@ Les critères ci-dessous sont recopiés du référentiel lu le 01/10.
 | 1.6 Pas de redirection vers un site non officiel | Essentiel | Garanti : pdlm sert lui-même le domaine canonique |
 | 1.7 Redirections d'usage (`www` ↔ apex) | Recommandé | Garanti par la config des domaines, **surveillé** |
 | 1.8 Adresse déclarée en HTTPS | Recommandé | Couvert par la déclaration préparée (section 3) |
-| 2.1 à 2.8 Messagerie | — | **Affichage seul** (hors périmètre, voir plus bas) |
+| 2.1 à 2.8 Messagerie | — | **Informe et renvoie** vers les bonnes pratiques, sans agir (section 7) |
 
 L'extension souveraine (1.2) couvre `.fr` ; les régionales `.alsace`, `.bzh`, `.corsica`, `.paris`, `.eu` ; et les ultramarines `.re`, `.yt`, `.gp`, `.mq`, `.gf`, `.pm`, `.wf`, `.tf`, `.nc`, `.pf`. Les IDN (noms avec accents) ne sont pas conformes, sous leurs deux écritures.
 
@@ -50,10 +50,13 @@ Le nom de la commune est mis en minuscules, sans accent ni caractère spécial, 
 
 ## 3. Déclaration à l'annuaire (critères 1.1 et 1.8)
 
-pdlm **n'écrit jamais dans un système de l'État** (I32). Il prépare la déclaration, et un humain l'envoie :
+pdlm **n'écrit jamais dans un système de l'État** (I32). Il prépare la déclaration, et un humain l'envoie.
+
+**Le formulaire, lu le 01/10 sur la fiche de Quimper** : `<service_public_url>/demande-de-mise-a-jour`. Il est « réservé aux services publics », ne demande **ni compte ni ProConnect**, seulement une adresse électronique, et comprend une section « Contacts web » avec 5 sites possibles. L'URL de la fiche (`service_public_url`) figure dans la ligne ANCT de la commune. Le lien vers le formulaire se construit donc sans recherche.
 
 - Quand le domaine canonique d'une commune active diffère du site lu dans l'annuaire, ou si l'annuaire n'en déclare aucun, l'admin affiche une carte **« Déclarer votre site »**.
-- La carte donne le lien direct vers la fiche de la mairie (`service_public_url` de la ligne ANCT), le chemin à suivre (« Mettre cette page à jour » → section « Contacts web »), et l'adresse à coller, au format `https://<domaine canonique>`.
+- La carte donne le **lien direct vers le formulaire** et l'adresse à coller, au format `https://<domaine canonique>`, dans « Site web n°1 ».
+- La carte est visible par l'admin de la commune **et par l'opérateur**. L'EPCI est lui aussi un service public : s'il opère la plateforme, il peut envoyer la demande pour ses communes. ⚠️ On ne sait pas encore si la DILA accepte une demande venue de l'EPCI pour la fiche d'une commune. À tester sur un cas réel avant de l'écrire dans l'aide.
 - Une case « C'est envoyé » enregistre la date d'envoi.
 - pdlm relit l'annuaire, puis la ligne ANCT, jusqu'à constater la mise à jour. L'annuaire annonce un délai d'examen de 48 heures. Si rien n'a changé après 7 jours, la carte revient avec la mention « Pas encore pris en compte ».
 
@@ -75,6 +78,31 @@ Pour chaque critère 1.x, l'admin affiche un état vert, rouge ou inconnu. **Cha
 
 Quand un critère passe au rouge, une notification part vers l'admin de la commune et vers l'opérateur (l'EPCI). Un récapitulatif mensuel liste les critères rouges de toutes les communes de la plateforme.
 
+## 7. Vérification de la messagerie (information, sans action)
+
+pdlm ne gère pas les boîtes mail, mais la conformité de la commune en dépend : sa messagerie utilise le même nom de domaine que son site. Un module **« Votre messagerie »** affiche, pour le domaine canonique :
+
+| Critère | Mesure | Source |
+|---|---|---|
+| 2.4 MX configuré | Requête DNS publique | pdlm |
+| 2.5 SPF configuré | Requête DNS publique (TXT `v=spf1`) | pdlm |
+| 2.6 DMARC configuré | Requête DNS publique (`_dmarc.<domaine>`) | pdlm |
+| 2.7 DMARC en quarantaine | Politique `p=quarantine` ou `p=reject` | pdlm |
+| 2.1, 2.2, 2.3, 2.8 | Adresse déclarée, nom de domaine générique, correspondance avec le site, serveur dans l'UE | Ligne ANCT seule |
+
+Pour chaque critère au rouge, le module donne **une phrase d'explication et un lien**, jamais une manipulation à faire dans pdlm :
+
+- vers le critère du référentiel (ancre par critère, par exemple `suiteterritoriale.anct.gouv.fr/conformite/referentiel#2.6`), qui contient la rubrique « Comment s'y conformer » ;
+- vers le guide de l'ANSSI que le référentiel cite (rubrique 5.4.1). L'adresse donnée par le référentiel redirige depuis le 01/10 vers `messervices.cyber.gouv.fr/guides/recommandations-relatives-linterconnexion-dun-si-internet` : relire le lien au moment de l'implémentation.
+
+Le module s'adresse à la mairie et à son prestataire de messagerie. L'opérateur voit le même état pour toutes ses communes.
+
+## Connexion par ProConnect (piste, hors de cette spec)
+
+ProConnect est l'identifiant de l'État pour les agents publics. Il rattache chaque utilisateur au **SIRET de son organisation** (`partenaires.proconnect.gouv.fr`, lu le 01/10). Le référentiel le relie au nom de domaine : « il conditionne vos adresses de messagerie professionnelles et votre authentification sur ProConnect » (FAQ Domaines).
+
+**Il n'ouvre pas l'annuaire** : le formulaire de mise à jour ne le demande pas (section 3). Son intérêt pour pdlm est ailleurs : servir de **connexion à l'admin**. La secrétaire se connecterait avec son compte d'agent, et le SIRET de la mairie suffirait à la rattacher à la bonne commune. C'est un projet à part : il touche les rôles et le multi-tenant, et demande une inscription comme fournisseur de service ProConnect. Il mérite sa propre spec.
+
 ## Invariants
 
 - **I32** pdlm n'écrit jamais dans un système de l'État (annuaire, ANCT). Il prépare, un humain envoie.
@@ -86,20 +114,30 @@ Quand un critère passe au rouge, une notification part vers l'admin de la commu
 
 ## Hors périmètre
 
-- **Messagerie (critères 2.1 à 2.8)** : pdlm ne gère pas les boîtes mail des communes. Le tableau les affiche à partir de la ligne ANCT, sans plus.
+- **Messagerie (critères 2.1 à 2.8)** : pdlm ne gère pas les boîtes mail. Il **informe** et **renvoie** vers les bonnes pratiques (section 7), sans jamais modifier la zone DNS ni la messagerie.
+- **Connexion ProConnect** : spec à part.
 - **Achat et renouvellement du nom** : c'est un bureau d'enregistrement qui s'en charge, pas pdlm.
 - **Remontée d'informations à l'ANCT** : écartée (utilisateur, 01/10).
 
-## Questions ouvertes (à trancher par l'utilisateur)
+## Décisions et questions
 
-1. **Écriture à l'annuaire** : existe-t-il une voie pour les opérateurs (EPCI, OPSN) autre que le formulaire de la mairie ? Je n'ai rien vérifié et je ne suppose rien. La spec part du formulaire.
-2. **Destinataires des alertes** : la secrétaire, le maire, l'EPCI ? Proposition : l'admin de la commune et l'opérateur, jamais le maire par défaut.
-3. **Dépendance au fichier ANCT** : son format n'est pas versionné (une colonne `rpnt` en texte libre). Si le fichier change ou disparaît, pdlm continue avec sa seule mesure et l'indique (« mesure de l'État indisponible »). Ça convient ?
-4. **Messagerie** : doit-elle rester hors périmètre, ou pdlm propose-t-il au moins le bon enregistrement DMARC (critères 2.6 et 2.7) quand il gère la zone DNS ?
+**Tranché par l'utilisateur le 01/10** :
+- Si le fichier ANCT change ou disparaît, pdlm continue avec sa seule mesure et l'indique (« mesure de l'État indisponible »).
+- Messagerie : un module d'information avec un lien vers les bonnes pratiques (section 7).
+- ProConnect : sorti de cette spec, devient une piste à spécifier à part.
+
+**Reste à trancher : le rôle de l'EPCI.** Aujourd'hui, le code ne connaît que deux niveaux. Au niveau de la plateforme, il y a un seul rôle, `operateur` (« staff de l'organisation hébergeuse, accès à toutes les communes »). Au niveau de chaque commune, il y a `admin` et `redacteur` (`src/access/roles.ts`). Deux situations :
+- **(a) L'EPCI héberge la plateforme** (modèle Questembert). L'EPCI est l'opérateur, et aucun rôle nouveau n'est nécessaire. C'est lui qui reçoit les alertes avec l'admin de la commune.
+- **(b) La plateforme est hébergée par un OPSN qui sert plusieurs EPCI** (modèle Mégalis, ou la CdC en Corse). L'opérateur est l'OPSN, et chaque EPCI a besoin d'un rôle intermédiaire, **« intercommunalité »**. Ce rôle voit la conformité et les alertes **de ses seules communes membres**, en lecture, sans pouvoir modifier leurs contenus. Il suppose une notion de groupe de communes, qui n'existe pas encore dans le modèle.
+
+Proposition : **(a) dans cette spec**, et (b) dans une spec dédiée le jour où un OPSN est en vue. La décision (b) touche le multi-tenant, comme ProConnect : les deux gagneraient à être spécifiées ensemble.
+
+**Destinataires des alertes** : l'admin de la commune et l'opérateur. Jamais le maire par défaut.
 
 ## Tests
 
 - **Générateur de nomenclature** : accents, apostrophes (« L'Île-Rousse »), communes en `Saint-`, homonymes, codes `2A`/`2B`, rejet du nom IDN comme proposition.
 - **Rapprochement INSEE ↔ ligne ANCT** : sur le fichier réel du 01/10, aucune commune n'est perdue à cause du format du code (zéros initiaux, `2A`).
 - **Surveillance** : certificat à J-13 → alerte ; redirection `www` cassée → critère 1.7 au rouge ; domaine injoignable de l'extérieur mais joignable en local → rouge.
+- **Module messagerie** : domaine sans MX → 2.4 au rouge ; DMARC `p=none` → 2.6 vert, 2.7 rouge ; chaque critère rouge affiche un lien qui répond 200.
 - **Carte de déclaration** : elle apparaît, se masque après « C'est envoyé », et revient après 7 jours sans changement.
