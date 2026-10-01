@@ -64,5 +64,19 @@ export const Users: CollectionConfig = {
         update: ({ req }) => isOperateur(req.user),
       },
     },
+    {
+      name: 'organisation',
+      type: 'relationship',
+      relationTo: 'organisations',
+      label: 'Organisation mandataire',
+      admin: {
+        description:
+          'Le compte agit pour les communes qui ont mandaté cette organisation (collection « Mandats »). Réglé par l’opérateur.',
+      },
+      access: {
+        create: ({ req }) => isOperateur(req.user),
+        update: ({ req }) => isOperateur(req.user),
+      },
+    },
   ],
 }

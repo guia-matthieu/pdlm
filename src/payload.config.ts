@@ -12,6 +12,7 @@ import { Communes } from './collections/Communes'
 import { Domaines } from './collections/Domaines'
 import { Journal } from './collections/Journal'
 import { Users } from './collections/Users'
+import { Organisations } from './collections/Organisations'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Actualites } from './collections/Actualites'
@@ -42,6 +43,7 @@ export default buildConfig({
     Domaines,
     Journal,
     Users,
+    Organisations,
     Media,
     Pages,
     Actualites,
