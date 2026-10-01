@@ -51,6 +51,7 @@ async function upsertUser(
     name: string
     password: string
     role?: 'operateur'
+    organisation?: number
     tenants?: Array<{ tenant: number; roles: ('admin' | 'redacteur')[] }>
   },
 ): Promise<User> {
@@ -119,6 +120,44 @@ async function seed() {
     tenants: [{ tenant: saintEx.id, roles: ['redacteur'] }],
   })
 
+  // Spec RPNT section 8 : une intercommunalité qui agit pour Saint-Exupéry.
+  const ccVal =
+    (
+      await payload.find({
+        collection: 'organisations',
+        where: { siret: { equals: '20002200000000' } },
+        limit: 1,
+        overrideAccess: true,
+      })
+    ).docs[0] ??
+    (await payload.create({
+      collection: 'organisations',
+      data: {
+        nom: 'Communauté de communes du Val (démo)',
+        nature: 'epci',
+        siret: '20002200000000',
+      },
+      overrideAccess: true,
+    }))
+  await upsertUser(payload, {
+    email: 'mandataire@cc-val.fr',
+    name: 'Agent CC du Val',
+    password: MOT_DE_PASSE_DEMO,
+    organisation: ccVal.id,
+  })
+  const { totalDocs: mandatsSaintEx } = await payload.count({
+    collection: 'mandats',
+    where: { and: [{ organisation: { equals: ccVal.id } }, { commune: { equals: saintEx.id } }] },
+    overrideAccess: true,
+  })
+  if (mandatsSaintEx === 0) {
+    await payload.create({
+      collection: 'mandats',
+      data: { organisation: ccVal.id, commune: saintEx.id },
+      overrideAccess: true,
+    })
+  }
+
   await seedContenuDemo(payload, saintEx.id, valvert.id, admin.id)
 
   payload.logger.info(
@@ -127,7 +166,7 @@ async function seed() {
       : 'Seed : communes Saint-Exupéry-les-Bains et Valvert créées avec leurs comptes de démonstration.',
   )
   payload.logger.info(
-    `Comptes démo — operateur@pdlm.dev / admin@saint-ex.fr / redacteur@saint-ex.fr — mot de passe : ${MOT_DE_PASSE_DEMO}`,
+    `Comptes démo — operateur@pdlm.dev / admin@saint-ex.fr / redacteur@saint-ex.fr / mandataire@cc-val.fr — mot de passe : ${MOT_DE_PASSE_DEMO}`,
   )
   process.exit(0)
 }

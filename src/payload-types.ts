@@ -71,6 +71,8 @@ export interface Config {
     domaines: Domaine;
     journal: Journal;
     users: User;
+    organisations: Organisation;
+    mandats: Mandat;
     media: Media;
     pages: Page;
     actualites: Actualite;
@@ -89,6 +91,8 @@ export interface Config {
     domaines: DomainesSelect<false> | DomainesSelect<true>;
     journal: JournalSelect<false> | JournalSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    organisations: OrganisationsSelect<false> | OrganisationsSelect<true>;
+    mandats: MandatsSelect<false> | MandatsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     actualites: ActualitesSelect<false> | ActualitesSelect<true>;
@@ -205,8 +209,6 @@ export interface Media {
    * Obligatoire pour l’accessibilité (RGAA).
    */
   alt: string;
-  prefix?: string | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -264,14 +266,14 @@ export interface Domaine {
   createdAt: string;
 }
 /**
- * Journal d’audit des changements de rôles, d’affectations et de domaines. Lecture seule.
+ * Journal d’audit des changements de rôles, d’affectations, de domaines et de mandats. Lecture seule.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "journal".
  */
 export interface Journal {
   id: number;
-  type: 'commune' | 'utilisateur' | 'domaine';
+  type: 'commune' | 'utilisateur' | 'domaine' | 'mandat';
   message: string;
   commune?: (number | null) | Commune;
   utilisateur?: (number | null) | User;
@@ -297,10 +299,14 @@ export interface User {
    * « Opérateur » : staff de l’organisation hébergeuse (accès à toutes les communes). Les rôles par commune se règlent dans le tableau « Communes » ci-dessous.
    */
   role?: 'operateur' | null;
+  /**
+   * Le compte agit pour les communes qui ont mandaté cette organisation (collection « Mandats »). Réglé par l’opérateur.
+   */
+  organisation?: (number | null) | Organisation;
   tenants?:
     | {
         tenant: number | Commune;
-        roles?: ('admin' | 'redacteur')[] | null;
+        roles?: ('admin' | 'redacteur' | 'mandataire')[] | null;
         id?: string | null;
       }[]
     | null;
@@ -323,6 +329,40 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "organisations".
+ */
+export interface Organisation {
+  id: number;
+  nom: string;
+  nature: 'epci' | 'commune' | 'prestataire' | 'opsn' | 'autre';
+  siret: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Organisations qui agissent pour le compte d’une commune : elles rédigent, publient et suivent la conformité ; la commune garde ses utilisateurs, son domaine et ses réglages.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "mandats".
+ */
+export interface Mandat {
+  id: number;
+  organisation: number | Organisation;
+  commune: number | Commune;
+  /**
+   * Par défaut : maintenant.
+   */
+  dateDebut?: string | null;
+  /**
+   * Pour retirer le mandat tout de suite, choisir maintenant. Un mandat retiré ne se rouvre pas : en accorder un nouveau.
+   */
+  dateFin?: string | null;
+  accordePar?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -518,8 +558,6 @@ export interface Document {
    * Ex. : « 5 ans » — information reprise dans la politique de confidentialité de la commune.
    */
   dureeConservation?: string | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -613,6 +651,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'organisations';
+        value: number | Organisation;
+      } | null)
+    | ({
+        relationTo: 'mandats';
+        value: number | Mandat;
       } | null)
     | ({
         relationTo: 'media';
@@ -758,6 +804,7 @@ export interface JournalSelect<T extends boolean = true> {
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
   role?: T;
+  organisation?: T;
   tenants?:
     | T
     | {
@@ -785,13 +832,35 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "organisations_select".
+ */
+export interface OrganisationsSelect<T extends boolean = true> {
+  nom?: T;
+  nature?: T;
+  siret?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "mandats_select".
+ */
+export interface MandatsSelect<T extends boolean = true> {
+  organisation?: T;
+  commune?: T;
+  dateDebut?: T;
+  dateFin?: T;
+  accordePar?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
   tenant?: T;
   alt?: T;
-  prefix?: T;
-  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -982,8 +1051,6 @@ export interface DocumentsSelect<T extends boolean = true> {
   categorie?: T;
   dateDocument?: T;
   dureeConservation?: T;
-  prefix?: T;
-  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
