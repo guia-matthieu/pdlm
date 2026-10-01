@@ -24,6 +24,29 @@ const req = (user: unknown, context: Record<string, unknown> = {}) =>
 const args = (data?: Record<string, unknown>) =>
   ({ req: req(mandataire), data }) as unknown as Parameters<typeof creerContenu>[0]
 
+describe("droit de création évalué sans data (formulaire de l'admin)", () => {
+  const sansRole = { id: 5, tenants: [] }
+  const argsDe = (user: unknown, data?: Record<string, unknown>) =>
+    ({ req: req(user), data }) as unknown as Parameters<typeof creerContenu>[0]
+
+  it('mandataire sans data : autorisé', () => {
+    expect(creerContenu(argsDe(mandataire))).toBe(true)
+    expect(creerPublication(argsDe(mandataire))).toBe(true)
+  })
+  it('utilisateur sans rôle sans data : refusé', () => {
+    expect(creerContenu(argsDe(sansRole))).toBe(false)
+    expect(creerPublication(argsDe(sansRole))).toBe(false)
+  })
+  it("data sans commune (vue document de l'admin) : rôle requis seulement", () => {
+    expect(creerContenu(argsDe(mandataire, { _status: 'draft' }))).toBe(true)
+    expect(creerContenu(argsDe(sansRole, { _status: 'draft' }))).toBe(false)
+  })
+  it('data sur une autre commune : toujours refusé', () => {
+    expect(creerContenu(argsDe(mandataire, { tenant: 8 }))).toBe(false)
+    expect(creerPublication(argsDe(mandataire, { tenant: 8 }))).toBe(false)
+  })
+})
+
 describe('mandataire — contenus de la commune mandante', () => {
   it('crée un brouillon sur sa commune, pas sur une autre', () => {
     expect(creerContenu(args({ tenant: 7 }))).toBe(true)

@@ -26,8 +26,15 @@ const cibleDe = (data: unknown): string =>
 export const creerContenu: Access = ({ req, data }) => {
   if (isOperateur(req.user)) return true
   const ids = communesAvecRole(req.user, ...ROLES_REDACTION)
+  // Évaluation du droit « afficher le formulaire de création » : l'admin passe
+  // `undefined` (liste des permissions) ou `{ _status }` sans `tenant` (vue
+  // document, mesuré en e2e) — un rôle sur au moins une commune suffit alors.
+  // Payload's create operation always passes data to access (payload/dist/
+  // collections/operations/create.js ~l.127-130) : une écriture réelle porte sa
+  // commune, vérifiée ci-dessous ; sans commune, le champ `tenant` requis la refuse.
   const cible = cibleDe(data)
-  return ids.length > 0 && cible !== '' && ids.includes(cible)
+  if (data === undefined || cible === '') return ids.length > 0
+  return ids.length > 0 && ids.includes(cible)
 }
 
 export const majContenu: Access = ({ req }) => {
@@ -47,8 +54,15 @@ export const supprimerContenu: Access = ({ req }) => {
 export const creerPublication: Access = ({ req, data }) => {
   if (isOperateur(req.user)) return true
   const ids = communesAvecRole(req.user, ...ROLES_PUBLICATION)
+  // Évaluation du droit « afficher le formulaire de création » : l'admin passe
+  // `undefined` (liste des permissions) ou `{ _status }` sans `tenant` (vue
+  // document, mesuré en e2e) — un rôle sur au moins une commune suffit alors.
+  // Payload's create operation always passes data to access (payload/dist/
+  // collections/operations/create.js ~l.127-130) : une écriture réelle porte sa
+  // commune, vérifiée ci-dessous ; sans commune, le champ `tenant` requis la refuse.
   const cible = cibleDe(data)
-  return ids.length > 0 && cible !== '' && ids.includes(cible)
+  if (data === undefined || cible === '') return ids.length > 0
+  return ids.length > 0 && ids.includes(cible)
 }
 
 export const majPublication: Access = ({ req }) => {
