@@ -4,10 +4,12 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { fr } from '@payloadcms/translations/languages/fr'
 import path from 'path'
+import type { Access, Plugin } from 'payload'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
+import { communesAvecRole, isOperateur } from './access/roles'
 import { Communes } from './collections/Communes'
 import { Domaines } from './collections/Domaines'
 import { Journal } from './collections/Journal'
@@ -26,6 +28,30 @@ import { languesDisponiblesAdmin } from './lib/langues-admin'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+/**
+ * Décision 16 : historique des communes, posé APRÈS multiTenantPlugin. Le plugin
+ * enveloppe `readVersions` de la collection tenants avec la contrainte
+ * `version.id in [communes de l'utilisateur]`, qui sur `_communes_v` désigne
+ * l'id de ligne de version et non la commune parente : un admin lisait 0 version
+ * de sa propre commune (mesure : docs/qc/bloque-tache-02.md), et poser la règle
+ * dans la collection ne suffit pas — le plugin la combine par ET avec sa
+ * contrainte fautive. On remplace donc l'accès enveloppé. Même grain que
+ * `update` : rédacteur et mandataire (D2) ne lisent pas l'historique.
+ */
+const lireVersionsCommune: Access = ({ req }) => {
+  if (isOperateur(req.user)) return true
+  const ids = communesAvecRole(req.user, 'admin')
+  return ids.length > 0 ? { parent: { in: ids } } : false
+}
+
+const historiqueCommunes: Plugin = (config) => {
+  const communes = config.collections.find((c) => c.slug === 'communes')
+  if (communes) {
+    communes.access = { ...communes.access, readVersions: lireVersionsCommune }
+  }
+  return config
+}
 
 /** I7 : CORS/CSRF limités à l'origine admin (+ localhost en dev seulement). */
 const DEV = process.env.NODE_ENV !== 'production'
@@ -126,6 +152,8 @@ export default buildConfig({
         ],
       },
     }),
+    // Décision 16 : APRÈS multiTenantPlugin, pour remplacer son readVersions dégénéré.
+    historiqueCommunes,
     ...(process.env.S3_ENABLED === 'true'
       ? [
           s3Storage({

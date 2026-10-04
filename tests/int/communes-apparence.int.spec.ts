@@ -722,23 +722,20 @@ describe('droits — apparence et accueil (décisions 14, 15)', () => {
     expect(c.apparence?.frise?.[0]?.piece).toBe('falaise')
   })
 
-  // ⚠️ Comportement observé, NON voulu — bloqué, voir docs/qc/bloque-tache-02.md :
-  // le plugin multi-tenant contraint readVersions de la collection tenants par
-  // `version.id`, qui sur `_communes_v` est l'id de ligne de version, pas le
-  // parent : un admin ne voit même plus les versions de SA commune (0), alors
-  // qu'un opérateur ou overrideAccess les voient. Ce test épingle l'état
-  // réel pour qu'un futur correctif le fasse basculer (et échouer) ; le
-  // comportement voulu — totalDocs > 0 pour SA commune — est décrit dans le
-  // fichier bloqué.
-  it('versions : un admin ne voit aujourd’hui aucune version (y compris les siennes) — bloqué', async () => {
+  // Décision 16 : même grain que l'accès `update` — l'admin de la commune lit
+  // l'historique de SA commune, le rédacteur et le mandataire (D2) rien,
+  // l'opérateur tout. `readVersions` est remplacé après multiTenantPlugin car
+  // le plugin contraint par `version.id`, qui sur `_communes_v` est l'id de
+  // ligne de version, pas le parent (mesure : docs/qc/bloque-tache-02.md).
+  it('versions : l’admin de A lit celles de A et aucune de B ; rédacteur et mandataire refusés ; l’opérateur lit tout', async () => {
     const siennes = await payload.findVersions({
       collection: 'communes',
       where: { parent: { equals: communeA } },
       user: adminA,
       overrideAccess: false,
     })
-    expect(siennes.totalDocs).toBe(0)
-    // Celles de B : aucune fuite non plus (même contrainte dégénérée).
+    expect(siennes.totalDocs).toBeGreaterThan(0)
+    // Celles de B : aucune fuite vers une autre commune.
     const autres = await payload.findVersions({
       collection: 'communes',
       where: { parent: { equals: communeB } },
@@ -746,5 +743,37 @@ describe('droits — apparence et accueil (décisions 14, 15)', () => {
       overrideAccess: false,
     })
     expect(autres.totalDocs).toBe(0)
+    // Rédacteur et mandataire : refus 403, pas une liste vide.
+    await refusAcces(
+      payload.findVersions({
+        collection: 'communes',
+        where: { parent: { equals: communeA } },
+        user: redacteurA,
+        overrideAccess: false,
+      }),
+    )
+    await refusAcces(
+      payload.findVersions({
+        collection: 'communes',
+        where: { parent: { equals: communeA } },
+        user: mandataireA,
+        overrideAccess: false,
+      }),
+    )
+    // L'opérateur lit les versions des deux communes.
+    const operateurA = await payload.findVersions({
+      collection: 'communes',
+      where: { parent: { equals: communeA } },
+      user: operateur,
+      overrideAccess: false,
+    })
+    expect(operateurA.totalDocs).toBeGreaterThan(0)
+    const operateurB = await payload.findVersions({
+      collection: 'communes',
+      where: { parent: { equals: communeB } },
+      user: operateur,
+      overrideAccess: false,
+    })
+    expect(operateurB.totalDocs).toBeGreaterThan(0)
   })
 })
