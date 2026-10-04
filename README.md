@@ -17,6 +17,7 @@ Construit avec [Payload 3](https://payloadcms.com/) sur [Next.js 16](https://nex
 - [Variables d'environnement](#variables-denvironnement)
 - [Rôles et permissions](#rôles-et-permissions)
 - [Ajouter une commune](#ajouter-une-commune)
+- [Langues régionales](#langues-régionales)
 - [Mesure d'audience](#mesure-daudience)
 - [Politique de fichiers](#politique-de-fichiers)
 - [Accessibilité (RGAA)](#accessibilité-rgaa)
@@ -81,6 +82,19 @@ service `migrate` applique les migrations Postgres **avant** le démarrage de
 l'application (pas de synchronisation automatique de schéma en production) ;
 Caddy est l'unique point d'entrée exposé (80/443), avec certificats TLS
 automatiques (Let's Encrypt) par domaine.
+
+**Mettre à jour (nouvelle version, nouvelle migration)** : reconstruire les
+images et recréer le conteneur `migrate` dans la même commande, puis
+vérifier que la migration est bien passée :
+
+```bash
+CADDY_FILE=./Caddyfile docker compose up --build -d --force-recreate migrate app
+docker compose logs migrate   # doit lister la migration appliquée (« Migrated: … »)
+```
+
+Sans `--force-recreate`, un ancien conteneur `migrate` déjà terminé avec
+succès peut suffire à démarrer l'application sans que la nouvelle migration
+ait tourné (voir la recette des [langues régionales](#langues-régionales)).
 
 Vérification de bon fonctionnement : `GET /api/health` (utilisé par le
 healthcheck Docker de l'application).
@@ -157,6 +171,122 @@ l'utilisateur détient effectivement le rôle requis.
 5. Admin → _Communes_ → activer la commune (`actif`). Une commune inactive
    renvoie 404 sur son site public sans supprimer ses données.
 6. Créer les comptes `admin`/`redacteur` de la commune (Admin → _Utilisateurs_).
+
+## Langues régionales
+
+Une commune peut publier son site en langue régionale (le corse en v1), en
+plus du français. **Le français est toujours actif et fait foi** : c'est la
+langue de référence et la langue de repli ; les actes et l'affichage légal
+restent en français. Voir la spec :
+[`docs/superpowers/specs/2026-09-22-multilingue-socle-design.md`](docs/superpowers/specs/2026-09-22-multilingue-socle-design.md).
+
+**Activer une langue :** admin de la commune (ou opérateur), fiche commune →
+« Langues du site » → cocher la langue. Elle apparaît alors dans le
+sélecteur de langue du site, et dans le sélecteur de langue de l'admin pour
+cette commune.
+
+**Domaine en langue régionale (facultatif) :** Admin → _Domaines_ → ajouter
+le domaine (ex. `pigna.corsica`), choisir sa « Langue servie à la racine »
+(la langue doit déjà être activée pour la commune) et le marquer
+**canonique**. Un seul domaine canonique par commune **et par langue** ; le
+canonique français reste requis. Comme pour tout domaine : DNS, puis bloc
+Caddy (voir [Ajouter une commune](#ajouter-une-commune)). Sans domaine
+régional, la langue est servie sous un préfixe : `pigna.fr/co/…`. Sur un
+domaine régional, le français est servi sous `/fr/…`.
+
+**Traduire :** ouvrir la page (ou l'actualité, l'événement, le document,
+l'alerte) dans l'admin, choisir la langue dans le sélecteur de langue de
+l'admin, saisir le texte, puis passer « État de la traduction » à
+**Validée**. Seule une traduction validée est montrée au public ; « À
+relire » reste invisible. Les libellés de menu, les textes alternatifs des
+médias, le nom et les horaires de la commune se traduisent de la même
+façon, sans état de traduction.
+
+**Ce que voit le visiteur :** une page validée s'affiche entièrement dans la
+langue. Une page non validée s'affiche entièrement en français, marquée
+`lang="fr"`, précédée d'une mention écrite dans la langue choisie qui
+l'annonce : jamais de page à moitié traduite. Dans les listes, un élément
+non traduit garde son titre français, marqué `lang="fr"`. Un petit texte non
+traduit (libellé de menu, texte alternatif, nom) s'affiche en français. Le
+domaine fixe la langue d'arrivée (pas de redirection selon la langue du
+navigateur) ; le visiteur choisit ensuite dans le sélecteur de langue de
+l'en-tête. `hreflang` et `sitemap.xml` n'annoncent une langue que pour les
+pages validées.
+
+**Ajouter une langue au logiciel :** une ligne dans `src/lib/langues.ts`
+(code BCP 47, nom, nom natif ; noms de mois et de jours seulement si `Intl`
+ne connaît pas la langue), un dictionnaire `src/i18n/<code>.ts` déclaré dans
+`src/i18n/index.ts` (le typage refuse un dictionnaire incomplet), et une
+migration de base (`npm run payload -- migrate:create <nom>`). **Générer les
+migrations avec `S3_ENABLED=true`**, comme la pile de production : sans lui,
+la migration perdrait les colonnes du stockage S3 des médias et des
+documents (`prefix`, `_objectKey`). Vérifier ensuite que la migration ne perd
+rien, avec `scripts/instantane-contenu.ts` avant et après (modèle :
+`scripts/verifier-migration-multilingue.sh`). Déployer après une sauvegarde
+(`./scripts/backup.sh`), en une seule commande qui reconstruit et recrée le
+conteneur de migration, puis vérifier :
+
+```bash
+CADDY_FILE=./Caddyfile docker compose up --build -d --force-recreate migrate app
+docker compose logs migrate   # doit lister la migration appliquée (« Migrated: … »)
+```
+
+**Limites de la v1 :**
+
+- les slugs et les segments d'URL restent en français
+  (`pigna.corsica/actualites/marche-de-noel`) ;
+- sur les Pages et les Actualités, le statut de publication est commun aux
+  langues : publier la traduction publie aussi un brouillon français en
+  cours ;
+- liens internes des textes riches vers une page : rendus « # » (limite
+  préexistante, profondeur 0) ;
+- les slugs `fr`, `co` et `racine` sont réservés (refusés à la création). Une
+  page qui les porterait déjà deviendrait inaccessible : la renommer avant
+  la mise à jour.
+
+**Textes corses provisoires :** les textes d'interface en corse
+(`src/i18n/co.ts`, noms de dates dans `src/lib/langues.ts`) sont
+provisoires. Ils doivent être relus par un locuteur avant la mise en
+production.
+
+**Recette de la migration du 25 septembre 2026** (pile locale de type
+production, contenu réel créé à la main les 24 et 25 septembre) :
+
+1. `./scripts/backup.sh backups/recette-multilingue-20260925`.
+2. Instantané du contenu avec l'image de `main` :
+   `docker compose run --rm --no-deps -T -v "$PWD/scripts:/app/scripts-recette:ro" -v "<dossier>:/out" -e INSTANTANE_FICHIER=/out/avant.json migrate node node_modules/payload/bin.js run scripts-recette/instantane-contenu.ts`.
+3. `docker compose build` puis `docker compose up -d` avec la version
+   multilingue (en deux temps, voir ci-dessous) : migration
+   `20260925_182417_multilingue` appliquée.
+4. Instantané après, `diff -u avant.json apres.json` : **vide**.
+5. Retour arrière : pile repartie de l'image de `main`, puis
+   `./scripts/restore.sh backups/recette-multilingue-20260925` ; instantané,
+   `diff` avec `avant.json` : **vide** (migration multilingue absente de la
+   base).
+6. Nouveau déploiement de la version multilingue, instantané, `diff` avec
+   `avant.json` : **vide**.
+7. `select slug from pages where slug in ('fr','co','racine')` : aucun
+   résultat.
+
+Au premier `up -d`, le conteneur `migrate` s'est arrêté sans erreur, sans
+aucun message, et la migration n'était pas appliquée ; un
+`docker compose run --rm migrate` l'a appliquée. Au second déploiement, le
+service `migrate` l'a appliquée normalement. Cause probable, non prouvée :
+le déploiement en deux temps (`build`, puis `up -d`) aurait laissé un
+conteneur `migrate` déjà « terminé avec succès » satisfaire la dépendance de
+l'application, sans que la nouvelle image tourne. Le second déploiement,
+fait sous la même forme, a pourtant fonctionné, d'où la réserve. Pour
+écarter ce risque, toujours déployer une migration en une seule commande qui
+recrée le conteneur, puis vérifier le journal :
+
+```bash
+CADDY_FILE=./Caddyfile docker compose up --build -d --force-recreate migrate app
+docker compose logs migrate   # doit lister la migration appliquée (« Migrated: … »)
+```
+
+Reste à faire à l'écran : activer le corse sur une commune, lui ajouter un
+domaine corse, traduire et valider une page, la voir en corse sur `/co/…` et
+sur le domaine corse.
 
 ## Mesure d'audience
 

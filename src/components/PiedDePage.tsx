@@ -1,17 +1,29 @@
-import Link from 'next/link'
-
-import type { Commune } from '@/payload-types'
+import { cheminLangue } from '@/lib/adresses'
+import type { TexteEnLangue } from '@/lib/contenu'
+import type { ContexteLangue } from '@/lib/langue-courante'
 import { siteMesure } from '@/lib/mesure/etat'
+import type { Commune } from '@/payload-types'
 
-/** Pied de page : coordonnées de la commune + liens légaux obligatoires. */
-export function PiedDePage({ commune }: { commune: Commune }) {
+/** Pied de page : coordonnées de la commune + liens légaux obligatoires, dans la langue affichée. */
+export function PiedDePage({
+  commune,
+  identite,
+  ctx,
+}: {
+  commune: Commune
+  identite: { nom: TexteEnLangue; horaires: TexteEnLangue | null }
+  ctx: ContexteLangue
+}) {
+  const { t } = ctx
+  const lien = (chemin: string) => cheminLangue(chemin, ctx.langue, ctx.site.langueRacine)
+  const lang = (texte: TexteEnLangue) => (texte.langue !== ctx.langue ? texte.langue : undefined)
   const c = commune.coordonnees
   const annee = new Date().getFullYear()
   return (
     <footer className="pied-page">
       <div className="pied-page__colonnes">
         <div>
-          <h2>{commune.nom}</h2>
+          <h2 lang={lang(identite.nom)}>{identite.nom.texte}</h2>
           {c?.adresse && (
             <p>
               {c.adresse}
@@ -19,22 +31,23 @@ export function PiedDePage({ commune }: { commune: Commune }) {
               {c.codePostal} {c.ville}
             </p>
           )}
-          {commune.horaires && (
+          {identite.horaires && (
             <p>
-              <strong>Horaires :</strong> {commune.horaires}
+              <strong>{t.horaires}</strong>{' '}
+              <span lang={lang(identite.horaires)}>{identite.horaires.texte}</span>
             </p>
           )}
         </div>
         <div>
-          <h2>Contact</h2>
+          <h2>{t.contact}</h2>
           {c?.telephone && (
             <p>
-              Téléphone : <a href={`tel:${c.telephone.replace(/\s/g, '')}`}>{c.telephone}</a>
+              {t.telephone} <a href={`tel:${c.telephone.replace(/\s/g, '')}`}>{c.telephone}</a>
             </p>
           )}
           {c?.email && (
             <p>
-              Courriel : <a href={`mailto:${c.email}`}>{c.email}</a>
+              {t.courriel} <a href={`mailto:${c.email}`}>{c.email}</a>
             </p>
           )}
           <ul className="liens-sociaux">
@@ -62,28 +75,28 @@ export function PiedDePage({ commune }: { commune: Commune }) {
           </ul>
         </div>
         <div>
-          <h2>Informations</h2>
+          <h2>{t.informations}</h2>
           <ul>
             <li>
-              <Link href="/mentions-legales">Mentions légales</Link>
+              <a href={lien('/mentions-legales')}>{t.mentionsLegales}</a>
             </li>
             <li>
-              <Link href="/confidentialite">Politique de confidentialité</Link>
+              <a href={lien('/confidentialite')}>{t.confidentialite}</a>
             </li>
             <li>
-              <Link href="/accessibilite">Accessibilité</Link>
+              <a href={lien('/accessibilite')}>{t.accessibilite}</a>
             </li>
             {siteMesure(commune) && (
               <li>
-                <Link href="/mesure-d-audience">Mesure d’audience</Link>
+                <a href={lien('/mesure-d-audience')}>{t.mesureAudience}</a>
               </li>
             )}
           </ul>
         </div>
       </div>
       <p className="pied-page__mentions">
-        © {annee} {commune.nom} — Site propulsé par <a href="https://github.com/">pdlm</a> (logiciel
-        libre).
+        © {annee} <span lang={lang(identite.nom)}>{identite.nom.texte}</span> — {t.propulsePar}{' '}
+        <a href="https://github.com/">pdlm</a> {t.logicielLibre}
       </p>
     </footer>
   )

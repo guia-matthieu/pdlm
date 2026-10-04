@@ -3,6 +3,7 @@ import type { Endpoint } from 'payload'
 import { aRoleSur, isOperateur } from '../access/roles'
 import { ecrire } from '../hooks/journaliser'
 import { MESSAGES_MESURE } from '../hooks/mesureAudience'
+import { FRANCAIS } from '../lib/langues'
 import { effacerHistorique, UmamiIndisponible } from '../lib/umami/client'
 
 /**
@@ -28,7 +29,7 @@ export const effacerHistoriqueMesure: Endpoint = {
       )
     }
     const commune = await req.payload
-      .findByID({ collection: 'communes', id, overrideAccess: true, req })
+      .findByID({ collection: 'communes', id, locale: FRANCAIS, overrideAccess: true, req })
       .catch(() => null)
     const site = commune?.mesure?.siteUmami
     if (!commune || !site) {
@@ -38,7 +39,7 @@ export const effacerHistoriqueMesure: Endpoint = {
       )
     }
     const journaliser = (message: string) =>
-      ecrire(req, 'commune', `${message} — ${commune.nom}`, commune.id, commune.nom)
+      ecrire(req, 'commune', `${message} — ${commune.nom}`, commune.id, commune.nom ?? undefined)
 
     try {
       await journaliser(MESSAGES_MESURE.effacementDemande)

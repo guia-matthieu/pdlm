@@ -61,7 +61,7 @@ const paragraphe = (...children: unknown[]) => ({
 })
 
 /** État Lexical construit à la main : nœuds volontairement hors commune. */
-type TexteRiche = Actualite['contenu']
+type TexteRiche = NonNullable<Actualite['contenu']>
 
 const etat = (...children: unknown[]) =>
   ({

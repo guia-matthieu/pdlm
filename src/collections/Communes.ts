@@ -1,5 +1,7 @@
 import { APIError, type CollectionConfig } from 'payload'
 
+import { ValidationError } from 'payload'
+
 import { aRoleSur, communesAvecRole, idDe, isOperateur } from '../access/roles'
 import { effacerHistoriqueMesure } from '../endpoints/effacerHistoriqueMesure'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
@@ -11,6 +13,12 @@ import {
   supprimerSiteMesure,
 } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
+import {
+  creerEnFrancais,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
+import { FRANCAIS, LANGUES_REGIONALES, nomLangueMinuscule } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 
 /** Domaines réservés à la plateforme — un hostname communal ne peut pas les prendre (I6). */
@@ -56,7 +64,8 @@ export const Communes: CollectionConfig = {
   },
   endpoints: [effacerHistoriqueMesure],
   hooks: {
-    beforeOperation: [ignorerMesureNulle],
+    beforeOperation: [lectureAnonymeEnFrancais, ignorerMesureNulle],
+    beforeValidate: [creerEnFrancais],
     beforeChange: [
       async ({ data, req, originalDoc }) => {
         // Slug toujours cohérent avec le nom (généré une fois, figé ensuite — I8)
@@ -78,13 +87,48 @@ export const Communes: CollectionConfig = {
               : await req.payload.count({
                   collection: 'domaines',
                   where: {
-                    and: [{ commune: { equals: communeId } }, { canonique: { equals: true } }],
+                    and: [
+                      { commune: { equals: communeId } },
+                      { canonique: { equals: true } },
+                      { langue: { equals: FRANCAIS } },
+                    ],
                   },
                 })
           if (canoniques.totalDocs === 0) {
-            throw new Error(
-              'Activation impossible : la commune doit posséder au moins un domaine canonique.',
-            )
+            throw new ValidationError({
+              errors: [
+                {
+                  path: 'actif',
+                  message:
+                    'Activation impossible : la commune doit posséder un domaine canonique en français.',
+                },
+              ],
+            })
+          }
+        }
+
+        // I15 : pas de désactivation d'une langue qu'un domaine sert à sa racine.
+        if (originalDoc?.id && Array.isArray(data?.langues)) {
+          const retirees = ((originalDoc.langues as string[] | null) ?? []).filter(
+            (l) => !(data.langues as string[]).includes(l),
+          )
+          if (retirees.length > 0) {
+            const servis = await req.payload.find({
+              collection: 'domaines',
+              where: { and: [{ commune: { equals: originalDoc.id } }, { langue: { in: retirees } }] },
+              limit: 1,
+              overrideAccess: true,
+              req,
+            })
+            const d = servis.docs[0]
+            if (d) {
+              throw new ValidationError({
+                errors: [{
+                  path: 'langues',
+                  message: `Le ${nomLangueMinuscule(d.langue)} est servi à la racine de ${d.hostname}. Changez d’abord la langue de ce domaine.`,
+                }],
+              })
+            }
           }
         }
         return data
@@ -159,9 +203,10 @@ export const Communes: CollectionConfig = {
     {
       name: 'nom',
       type: 'text',
-      required: true,
+      localized: true,
+      validate: requisEnFrancais,
       label: 'Nom de la commune',
-      admin: { description: 'Ex. : Saint-Exupéry-les-Bains' },
+      admin: { description: 'Obligatoire en français. Ex. : Saint-Exupéry-les-Bains' },
     },
     {
       name: 'slug',
@@ -193,6 +238,17 @@ export const Communes: CollectionConfig = {
       },
     },
     {
+      name: 'langues',
+      type: 'select',
+      hasMany: true,
+      label: 'Langues du site',
+      options: LANGUES_REGIONALES.map((l) => ({ label: l.nom, value: l.code })),
+      admin: {
+        description:
+          'Le français est toujours actif. Une langue cochée ici apparaît dans le sélecteur du site ; ses pages ne sont montrées que traduites et validées.',
+      },
+    },
+    {
       name: 'logo',
       type: 'upload',
       relationTo: 'media',
@@ -213,6 +269,7 @@ export const Communes: CollectionConfig = {
     {
       name: 'horaires',
       type: 'textarea',
+      localized: true,
       label: 'Horaires d’ouverture',
       admin: { description: 'Horaires de la mairie (texte libre en v0.1).' },
     },

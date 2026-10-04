@@ -43,6 +43,34 @@ async function upsertPage(payload: Payload, data: any) {
 }
 
 /**
+ * R5 : un contenu se traduit après avoir été créé en français. Idempotent :
+ * si la version corse est déjà validée (lue sans repli — `fallbackLocale:
+ * false`), on ne réécrit rien.
+ */
+async function traduire(
+  payload: Payload,
+  collection: 'pages',
+  id: number,
+  data: Record<string, unknown>,
+) {
+  const existante = await payload.findByID({
+    collection,
+    id,
+    locale: 'co',
+    fallbackLocale: false,
+    overrideAccess: true,
+  })
+  if ((existante as { traduction?: string })?.traduction === 'validee') return
+  await payload.update({
+    collection,
+    id,
+    locale: 'co',
+    data: { ...data, traduction: 'validee', _status: 'published' },
+    overrideAccess: true,
+  })
+}
+
+/**
  * Contenu de démonstration (Saint-Exupéry-les-Bains) + gabarits légaux (J6) :
  * mentions légales, politique de confidentialité, déclaration d'accessibilité —
  * à compléter par chaque commune.
@@ -278,7 +306,7 @@ export async function seedContenuDemo(
   }
 
   // Valvert : un accueil minimal (preuve d’isolation des contenus)
-  await upsertPage(payload, {
+  const valvertAccueil = await upsertPage(payload, {
     tenant: valvertId,
     titre: 'Accueil',
     slug: 'accueil',
@@ -291,4 +319,114 @@ export async function seedContenuDemo(
       },
     ],
   })
+
+  // Valvert : page « Marché du samedi » — traduite en corse (démo multilingue).
+  const valvertMarche = await upsertPage(payload, {
+    tenant: valvertId,
+    titre: 'Marché du samedi',
+    slug: 'marche',
+    _status: 'published',
+    blocs: [
+      { blockType: 'hero', titre: 'Marché du samedi' },
+      {
+        blockType: 'texteRiche',
+        contenu: texteRich('Le marché se tient chaque samedi matin sur la place.'),
+      },
+    ],
+  })
+
+  // Valvert : page « Démarches » — jamais traduite (démo multilingue).
+  const valvertDemarches = await upsertPage(payload, {
+    tenant: valvertId,
+    titre: 'Démarches',
+    slug: 'demarches',
+    _status: 'published',
+    blocs: [
+      { blockType: 'hero', titre: 'Démarches' },
+      {
+        blockType: 'texteRiche',
+        contenu: texteRich('Pour toute démarche, adressez-vous à la mairie.'),
+      },
+    ],
+  })
+
+  // Corse (démo) — textes PROVISOIRES, à relire par un locuteur (spec § 10, point 1).
+  // `titre` (champ page, non affiché — R1) reprend le texte du hero : `exigerTraductionComplete`
+  // l'exige non vide pour valider la traduction, au même titre que `blocs`.
+  await traduire(payload, 'pages', valvertAccueil.id, {
+    titre: 'Benvenuti à Valverde',
+    blocs: [
+      {
+        blockType: 'hero',
+        titre: 'Benvenuti à Valverde',
+        sousTitre: 'Situ ufficiale di u cumunu di Valverde.',
+      },
+    ],
+  })
+  await traduire(payload, 'pages', valvertMarche.id, {
+    titre: 'Mercatu di u sabbatu',
+    blocs: [
+      { blockType: 'hero', titre: 'Mercatu di u sabbatu' },
+      {
+        blockType: 'texteRiche',
+        contenu: texteRich('U mercatu si tene ogni sabbatu matina nant’à a piazza.'),
+      },
+    ],
+  })
+  // `demarches` reste non traduite : aucun appel à `traduire` pour cette page.
+
+  // Menu de Valvert : structure créée en français (R4), libellés traduits ensuite.
+  const nbMenusValvert = await payload.count({
+    collection: 'menus',
+    where: { tenant: { equals: valvertId } },
+  })
+  const valvertMenu =
+    nbMenusValvert.totalDocs === 0
+      ? await payload.create({
+          collection: 'menus',
+          data: {
+            tenant: valvertId,
+            nom: 'Principal',
+            items: [
+              { label: 'Marché', page: valvertMarche.id },
+              { label: 'Démarches', page: valvertDemarches.id },
+            ],
+          },
+          overrideAccess: true,
+        })
+      : (
+          await payload.find({
+            collection: 'menus',
+            where: { tenant: { equals: valvertId } },
+            limit: 1,
+            overrideAccess: true,
+          })
+        ).docs[0]
+
+  // Corse (démo) — seul le premier libellé est traduit (« Mercatu »), les lignes
+  // (mêmes id, mêmes pages) restent celles créées en français (R4). Texte
+  // PROVISOIRE, à relire par un locuteur (spec § 10, point 1).
+  const menuCoExistant = await payload.findByID({
+    collection: 'menus',
+    id: valvertMenu.id,
+    locale: 'co',
+    fallbackLocale: false,
+    overrideAccess: true,
+  })
+  const items = (valvertMenu as { items?: Array<{ id?: string | null }> }).items ?? []
+  const [itemMarche, itemDemarches] = items
+  if (menuCoExistant?.items?.[0]?.label !== 'Mercatu' && itemMarche?.id && itemDemarches?.id) {
+    await payload.update({
+      collection: 'menus',
+      id: valvertMenu.id,
+      locale: 'co',
+      data: {
+        items: [
+          { id: itemMarche.id, label: 'Mercatu', page: valvertMarche.id },
+          { id: itemDemarches.id, page: valvertDemarches.id },
+        ],
+      },
+      overrideAccess: true,
+    })
+  }
 }

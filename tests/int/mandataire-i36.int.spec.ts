@@ -36,7 +36,7 @@ const charger = async (id: number) => ({
   ...(await payload.findByID({ collection: 'users', id, overrideAccess: true })),
   collection: 'users',
 })
-const contenuVide = ({
+const contenuVide = {
   root: {
     type: 'root',
     version: 1,
@@ -52,11 +52,21 @@ const contenuVide = ({
         indent: 0,
         textFormat: 0,
         textStyle: '',
-        children: [{ type: 'text', version: 1, text: 'Texte', format: 0, detail: 0, mode: 'normal', style: '' }],
+        children: [
+          {
+            type: 'text',
+            version: 1,
+            text: 'Texte',
+            format: 0,
+            detail: 0,
+            mode: 'normal',
+            style: '',
+          },
+        ],
       },
     ],
   },
-}) as unknown as Extract<NonNullable<Page['blocs']>[number], { blockType: 'texteRiche' }>['contenu']
+} as unknown as Extract<NonNullable<Page['blocs']>[number], { blockType: 'texteRiche' }>['contenu']
 /** Slug généré par le hook `uniqueSlugParCommune`. */
 const SLUG_GENERE = undefined as unknown as string
 const page = (titre: string, tenant: number) => ({
@@ -80,21 +90,33 @@ beforeAll(async () => {
   ).id
   adminA = await payload.create({
     collection: 'users',
-    data: { email: `admin-a${DOMAINE}`, password: MDP_TEST, tenants: [{ tenant: communeA, roles: ['admin'] }] },
+    data: {
+      email: `admin-a${DOMAINE}`,
+      password: MDP_TEST,
+      tenants: [{ tenant: communeA, roles: ['admin'] }],
+    },
     overrideAccess: true,
   })
   adminAComplet = await charger(adminA.id)
   redacteurA = (
     await payload.create({
       collection: 'users',
-      data: { email: `redacteur-a${DOMAINE}`, password: MDP_TEST, tenants: [{ tenant: communeA, roles: ['redacteur'] }] },
+      data: {
+        email: `redacteur-a${DOMAINE}`,
+        password: MDP_TEST,
+        tenants: [{ tenant: communeA, roles: ['redacteur'] }],
+      },
       overrideAccess: true,
     })
   ).id
   compteC = (
     await payload.create({
       collection: 'users',
-      data: { email: `compte-c${DOMAINE}`, password: MDP_TEST, tenants: [{ tenant: communeC, roles: ['redacteur'] }] },
+      data: {
+        email: `compte-c${DOMAINE}`,
+        password: MDP_TEST,
+        tenants: [{ tenant: communeC, roles: ['redacteur'] }],
+      },
       overrideAccess: true,
     })
   ).id
@@ -113,15 +135,31 @@ beforeAll(async () => {
     })
   ).id
   pageA = (
-    await payload.create({ collection: 'pages', data: page('Page A', communeA), overrideAccess: true })
+    await payload.create({
+      collection: 'pages',
+      data: page('Page A', communeA),
+      overrideAccess: true,
+    })
   ).id
 })
 
 afterAll(async () => {
   try {
-    await payload.delete({ collection: 'pages', where: { tenant: { in: [communeA, communeC] } }, overrideAccess: true })
-    await payload.delete({ collection: 'mandats', where: { organisation: { equals: organisation } }, overrideAccess: true })
-    await payload.delete({ collection: 'users', where: { email: { like: DOMAINE } }, overrideAccess: true })
+    await payload.delete({
+      collection: 'pages',
+      where: { tenant: { in: [communeA, communeC] } },
+      overrideAccess: true,
+    })
+    await payload.delete({
+      collection: 'mandats',
+      where: { organisation: { equals: organisation } },
+      overrideAccess: true,
+    })
+    await payload.delete({
+      collection: 'users',
+      where: { email: { like: DOMAINE } },
+      overrideAccess: true,
+    })
     await payload.delete({ collection: 'organisations', id: organisation, overrideAccess: true })
     await supprimerCommuneTest(payload, communeA)
     await supprimerCommuneTest(payload, communeC)
@@ -132,7 +170,11 @@ afterAll(async () => {
 
 describe('le mandataire peut', () => {
   it('voir la commune mandante, et elle seule', async () => {
-    const res = await payload.find({ collection: 'communes', req: req(await charger(agentId)), overrideAccess: false })
+    const res = await payload.find({
+      collection: 'communes',
+      req: req(await charger(agentId)),
+      overrideAccess: false,
+    })
     expect(res.docs.map((c) => c.id)).toEqual([communeA])
   })
 
@@ -147,8 +189,14 @@ describe('le mandataire peut', () => {
   })
 
   it('ne lister que les pages de la commune mandante', async () => {
-    const res = await payload.find({ collection: 'pages', req: req(await charger(agentId)), overrideAccess: false })
-    const tenants = res.docs.map((d) => (typeof d.tenant === 'object' ? (d.tenant as { id: number }).id : d.tenant))
+    const res = await payload.find({
+      collection: 'pages',
+      req: req(await charger(agentId)),
+      overrideAccess: false,
+    })
+    const tenants = res.docs.map((d) =>
+      typeof d.tenant === 'object' ? (d.tenant as { id: number }).id : d.tenant,
+    )
     expect(new Set(tenants)).toEqual(new Set([communeA]))
   })
 })
@@ -167,12 +215,21 @@ describe('le mandataire ne peut pas (I36)', () => {
 
   it('D1 : supprimer une page', async () => {
     await refuseParAcces(
-      payload.delete({ collection: 'pages', id: pageA, req: req(await charger(agentId)), overrideAccess: false }),
+      payload.delete({
+        collection: 'pages',
+        id: pageA,
+        req: req(await charger(agentId)),
+        overrideAccess: false,
+      }),
     )
   })
 
   it('activer ou désactiver la commune, ni toucher à la mesure d’audience', async () => {
-    for (const data of [{ actif: false }, { mesure: { active: true } }, { coordonnees: { telephone: '0102030405' } }]) {
+    for (const data of [
+      { actif: false },
+      { mesure: { active: true } },
+      { coordonnees: { telephone: '0102030405' } },
+    ]) {
       await refuseParAcces(
         payload.update({
           collection: 'communes',
@@ -189,7 +246,12 @@ describe('le mandataire ne peut pas (I36)', () => {
     await refuseParAcces(
       payload.create({
         collection: 'domaines',
-        data: { hostname: `autre-${Date.now()}.test`, commune: communeA, canonique: false },
+        data: {
+          hostname: `autre-${Date.now()}.test`,
+          commune: communeA,
+          langue: 'fr',
+          canonique: false,
+        },
         req: req(await charger(agentId)),
         overrideAccess: false,
       }),

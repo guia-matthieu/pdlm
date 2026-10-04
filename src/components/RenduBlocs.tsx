@@ -5,8 +5,20 @@ import { RichText } from './RichText'
 
 type Blocs = NonNullable<Page['blocs']>
 
-/** Rendu des blocs d'une page — un renderer par type de bloc. */
-export function RenduBlocs({ blocs }: { blocs: Blocs }) {
+const identite = (chemin: string) => chemin
+
+/**
+ * Rendu des blocs d'une page — un renderer par type de bloc. `lien` : préfixe
+ * de langue des liens éditoriaux internes (cheminLangue ; une URL externe
+ * reste intacte).
+ */
+export function RenduBlocs({
+  blocs,
+  lien = identite,
+}: {
+  blocs: Blocs
+  lien?: (chemin: string) => string
+}) {
   return (
     <>
       {blocs.map((bloc, i) => {
@@ -27,7 +39,7 @@ export function RenduBlocs({ blocs }: { blocs: Blocs }) {
                   {bloc.sousTitre && <p className="bloc-hero__sous-titre">{bloc.sousTitre}</p>}
                   {bloc.cta?.label && bloc.cta?.url && (
                     <p>
-                      <a className="bouton bouton--primaire" href={bloc.cta.url}>
+                      <a className="bouton bouton--primaire" href={lien(bloc.cta.url)}>
                         {bloc.cta.label}
                       </a>
                     </p>
@@ -38,7 +50,7 @@ export function RenduBlocs({ blocs }: { blocs: Blocs }) {
           case 'texteRiche':
             return (
               <section key={i} className="bloc bloc-texte">
-                <RichText data={bloc.contenu} />
+                <RichText data={bloc.contenu} lien={lien} />
               </section>
             )
           case 'image':
@@ -78,7 +90,7 @@ export function RenduBlocs({ blocs }: { blocs: Blocs }) {
                     <summary>
                       <h2>{element.titre}</h2>
                     </summary>
-                    <RichText data={element.contenu} />
+                    <RichText data={element.contenu} lien={lien} />
                   </details>
                 ))}
               </section>
@@ -90,7 +102,7 @@ export function RenduBlocs({ blocs }: { blocs: Blocs }) {
                   <a
                     key={j}
                     className={`bouton bouton--${bouton.variante ?? 'primaire'}`}
-                    href={bouton.url}
+                    href={lien(bouton.url)}
                   >
                     {bouton.label}
                   </a>

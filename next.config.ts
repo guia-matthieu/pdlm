@@ -56,6 +56,11 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   // Ne pas annoncer le framework et sa version à un attaquant en reconnaissance.
   poweredByHeader: false,
+  // Domaine propre de la démo multilingue (tâche 10, e2e) : sans ça, Next 16
+  // bloque en développement les ressources /_next/ (HMR, chunks) demandées
+  // depuis un host différent de celui du serveur. Développement seulement —
+  // n'a aucun effet en production (`output: 'standalone'`, pas de dev server).
+  ...(DEV ? { allowedDevOrigins: ['valvert.corsica'] } : {}),
   async headers() {
     return [{ source: '/(.*)', headers: enTetesSecurite }]
   },

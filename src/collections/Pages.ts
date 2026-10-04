@@ -11,6 +11,13 @@ import {
 import { bloquerPublication, memoriserModeBrouillon } from '../hooks/bloquerPublication'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_REDACTION } from '../access/roles'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 
 /** I4 : références média exposées par les blocs d'une page. */
 const extraireRefsPages = (data: Record<string, unknown>) => ({
@@ -40,17 +47,25 @@ export const Pages: CollectionConfig = {
     // `beforeOperation` est le seul point où l'argument `draft` est visible :
     // `bloquerPublication` en a besoin pour distinguer un brouillon d'une
     // écriture sur la version publique (I3).
-    beforeOperation: [memoriserModeBrouillon],
-    beforeValidate: [uniqueSlugParCommune('titre')],
+    beforeOperation: [lectureAnonymeEnFrancais, memoriserModeBrouillon],
+    beforeValidate: [creerEnFrancais, uniqueSlugParCommune('titre')],
     beforeChange: [
       verifierCommuneCreation(...ROLES_REDACTION),
       figerTenant,
       bloquerPublication,
       validerRelationsTenant(extraireRefsPages),
+      exigerTraductionComplete(['titre', 'blocs']),
     ],
   },
   fields: [
-    { name: 'titre', type: 'text', required: true, label: 'Titre' },
+    {
+      name: 'titre',
+      type: 'text',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Titre',
+      admin: { description: 'Obligatoire en français.' },
+    },
     {
       name: 'slug',
       type: 'text',
@@ -64,20 +79,26 @@ export const Pages: CollectionConfig = {
     {
       name: 'blocs',
       type: 'blocks',
-      required: true,
+      // Localisé comme un champ entier (spec § 2) : jamais bloc par bloc.
+      localized: true,
+      validate: requisEnFrancais,
       blocks: BlocsPages,
       label: 'Contenu de la page',
+      admin: { description: 'Obligatoire en français.' },
     },
     {
       name: 'metaTitle',
       type: 'text',
+      localized: true,
       label: 'Titre SEO',
       admin: { description: 'Facultatif — titre de la page dans les moteurs de recherche.' },
     },
     {
       name: 'metaDescription',
       type: 'textarea',
+      localized: true,
       label: 'Description SEO',
     },
+    champTraduction,
   ],
 }

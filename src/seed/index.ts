@@ -1,5 +1,6 @@
 import type { Commune, Domaine, User } from '../payload-types'
 
+import { FRANCAIS } from '../lib/langues'
 import { getPayloadClient } from '../lib/payload'
 import { seedContenuDemo } from './contenu-demo'
 
@@ -32,7 +33,7 @@ async function upsertCommune(
 
 async function upsertDomaine(
   payload: Payload,
-  data: { hostname: string; commune: number; canonique: boolean },
+  data: { hostname: string; commune: number; canonique: boolean; langue?: Domaine['langue'] },
 ): Promise<Domaine> {
   const existants = await payload.find({
     collection: 'domaines',
@@ -41,7 +42,11 @@ async function upsertDomaine(
     overrideAccess: true,
   })
   if (existants.docs.length > 0) return existants.docs[0]
-  return payload.create({ collection: 'domaines', data, overrideAccess: true })
+  return payload.create({
+    collection: 'domaines',
+    data: { langue: FRANCAIS, ...data },
+    overrideAccess: true,
+  })
 }
 
 async function upsertUser(
@@ -87,6 +92,28 @@ async function seed() {
     hostname: 'www.valvert.fr',
     commune: valvert.id,
     canonique: false,
+  })
+
+  // Multilingue (démo) : Valvert active le corse et reçoit un domaine .corsica
+  // — nom corse « Valverde » provisoire, à relire par un locuteur (spec § 10, point 1).
+  await payload.update({
+    collection: 'communes',
+    id: valvert.id,
+    data: { langues: ['co'] },
+    overrideAccess: true,
+  })
+  await payload.update({
+    collection: 'communes',
+    id: valvert.id,
+    locale: 'co',
+    data: { nom: 'Valverde' },
+    overrideAccess: true,
+  })
+  await upsertDomaine(payload, {
+    hostname: 'valvert.corsica',
+    commune: valvert.id,
+    canonique: true,
+    langue: 'co',
   })
 
   // Activation après création des canoniques (I6)

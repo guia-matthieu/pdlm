@@ -4,6 +4,13 @@ import { creerPublication, lirePublic, majPublication, supprimerContenu } from '
 import { figerTenant, limiterTaille } from '../hooks'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_PUBLICATION } from '../access/roles'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 
 /** I5 : PDF uniquement, 20 Mo max, type vérifié sur le contenu réel. */
 export const Documents: CollectionConfig = {
@@ -20,15 +27,27 @@ export const Documents: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeValidate: [limiterTaille(20)],
-    beforeChange: [verifierCommuneCreation(...ROLES_PUBLICATION), figerTenant],
+    beforeOperation: [lectureAnonymeEnFrancais],
+    beforeValidate: [creerEnFrancais, limiterTaille(20)],
+    beforeChange: [
+      verifierCommuneCreation(...ROLES_PUBLICATION),
+      figerTenant,
+      exigerTraductionComplete(['titre']),
+    ],
   },
   upload: {
     mimeTypes: ['application/pdf'],
     disableLocalStorage: true,
   },
   fields: [
-    { name: 'titre', type: 'text', required: true, label: 'Titre' },
+    {
+      name: 'titre',
+      type: 'text',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Titre',
+      admin: { description: 'Obligatoire en français.' },
+    },
     {
       name: 'categorie',
       type: 'select',
@@ -58,5 +77,6 @@ export const Documents: CollectionConfig = {
           'Ex. : « 5 ans » — information reprise dans la politique de confidentialité de la commune.',
       },
     },
+    champTraduction,
   ],
 }

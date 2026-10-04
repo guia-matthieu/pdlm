@@ -9,6 +9,7 @@ import {
 
 import { idDe } from '../access/roles'
 import { formaterDate } from '../lib/dates'
+import { FRANCAIS } from '../lib/langues'
 import { ecrire } from './journaliser'
 
 const temps = (v: unknown): number | null =>
@@ -52,13 +53,19 @@ export const preparerMandat: CollectionBeforeChangeHook = async ({
         and: [
           { organisation: { equals: organisation } },
           { commune: { equals: commune } },
-          { or: [{ dateFin: { exists: false } }, { dateFin: { greater_than: maintenant.toISOString() } }] },
+          {
+            or: [
+              { dateFin: { exists: false } },
+              { dateFin: { greater_than: maintenant.toISOString() } },
+            ],
+          },
         ],
       },
       overrideAccess: true,
       req,
     })
-    if (actifs.totalDocs > 0) throw refus('Cette organisation est déjà mandataire de cette commune.')
+    if (actifs.totalDocs > 0)
+      throw refus('Cette organisation est déjà mandataire de cette commune.')
   } else if (originalDoc) {
     data.organisation = idDe(originalDoc.organisation)
     data.commune = idDe(originalDoc.commune)
@@ -93,11 +100,18 @@ async function libelle(req: PayloadRequest, doc: Record<string, unknown>) {
   const commune = await req.payload.findByID({
     collection: 'communes',
     id: idDe(doc.commune)!,
+    // Nom de référence : le journal ne change pas de nom selon la langue d'édition
+    locale: FRANCAIS,
+    fallbackLocale: false,
     depth: 0,
     overrideAccess: true,
     req,
   })
-  return { texte: `${organisation.nom} pour ${commune.nom}`, communeId: commune.id, communeNom: commune.nom }
+  return {
+    texte: `${organisation.nom} pour ${commune.nom}`,
+    communeId: commune.id,
+    communeNom: commune.nom ?? undefined,
+  }
 }
 
 /** I36 : tout mandat accordé ou retiré est journalisé (I12). */
@@ -115,7 +129,7 @@ export const journaliserMandat: CollectionAfterChangeHook = async ({
     operation === 'create'
       ? `Mandat accordé — ${texte}`
       : finPosee
-        ? `Mandat retiré — ${texte} (fin : ${formaterDate(new Date(finApres), {
+        ? `Mandat retiré — ${texte} (fin : ${formaterDate(new Date(finApres), FRANCAIS, {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',

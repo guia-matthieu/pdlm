@@ -57,3 +57,44 @@ describe('I7 / I19 — chemins de la mesure d’audience', () => {
     },
   )
 })
+
+describe('proxy — aiguillage des langues', () => {
+  const avant = { ...process.env }
+  beforeEach(() => {
+    process.env.PLATFORM_DOMAIN = 'plateforme.test'
+  })
+  afterEach(() => {
+    process.env = { ...avant }
+  })
+
+  it('réécrit un chemin sans préfixe vers la sentinelle, sans rediriger', () => {
+    const reponse = proxy(requete('pigna.fr', '/marche?x=1'))
+    expect(reponse.status).toBe(200)
+    const cible = new URL(reponse.headers.get('x-middleware-rewrite') ?? '')
+    expect(cible.pathname).toBe('/racine/marche')
+    expect(cible.search).toBe('?x=1')
+    expect(reponse.headers.get('x-middleware-request-x-pdlm-chemin')).toBe('/marche?x=1')
+  })
+
+  it('laisse passer un chemin préfixé', () => {
+    const reponse = proxy(requete('pigna.fr', '/co/marche'))
+    expect(reponse.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(reponse.headers.get('x-middleware-next')).toBe('1')
+    expect(reponse.headers.get('x-middleware-request-x-pdlm-chemin')).toBe('/co/marche')
+  })
+
+  it('écrase un x-pdlm-chemin forgé par le client', () => {
+    const reponse = proxy(
+      new NextRequest('https://pigna.fr/marche', {
+        headers: { host: 'pigna.fr', 'x-pdlm-chemin': '/co/autre' },
+      }),
+    )
+    expect(reponse.headers.get('x-middleware-request-x-pdlm-chemin')).toBe('/marche')
+  })
+
+  it('ne réécrit ni le sitemap ni les routes de mesure', () => {
+    for (const chemin of ['/sitemap.xml', '/robots.txt', '/mesure/api/send']) {
+      expect(proxy(requete('pigna.fr', chemin)).headers.get('x-middleware-rewrite'), chemin).toBeNull()
+    }
+  })
+})

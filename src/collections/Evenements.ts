@@ -2,6 +2,13 @@ import type { CollectionConfig } from 'payload'
 
 import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { figerTenant, validerRelationsTenant } from '../hooks'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 import { validerUrlEditoriale } from '../lib/url'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_PUBLICATION } from '../access/roles'
@@ -33,15 +40,25 @@ export const Evenements: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
+    beforeOperation: [lectureAnonymeEnFrancais],
+    beforeValidate: [creerEnFrancais],
     // I4 : pas de champ relationnel, mais la description (texte riche) peut en porter
     beforeChange: [
       verifierCommuneCreation(...ROLES_PUBLICATION),
       figerTenant,
       validerRelationsTenant(() => ({})),
+      exigerTraductionComplete(['titre']),
     ],
   },
   fields: [
-    { name: 'titre', type: 'text', required: true, label: 'Titre' },
+    {
+      name: 'titre',
+      type: 'text',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Titre',
+      admin: { description: 'Obligatoire en français.' },
+    },
     {
       name: 'dateDebut',
       type: 'date',
@@ -58,8 +75,8 @@ export const Evenements: CollectionConfig = {
         dateFinApresDebut(valeur, siblingData as Record<string, unknown> | undefined),
       admin: { date: { pickerAppearance: 'dayAndTime' } },
     },
-    { name: 'lieu', type: 'text', label: 'Lieu' },
-    { name: 'description', type: 'richText', label: 'Description' },
+    { name: 'lieu', type: 'text', localized: true, label: 'Lieu' },
+    { name: 'description', type: 'richText', localized: true, label: 'Description' },
     {
       name: 'inscription',
       type: 'group',
@@ -69,5 +86,6 @@ export const Evenements: CollectionConfig = {
         { name: 'lien', type: 'text', label: 'Lien d’inscription', validate: validerUrlEditoriale },
       ],
     },
+    champTraduction,
   ],
 }

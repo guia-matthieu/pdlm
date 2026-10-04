@@ -1,6 +1,7 @@
 import type { CollectionAfterChangeHook, CollectionAfterDeleteHook } from 'payload'
 
 import { idDe } from '../access/roles'
+import { FRANCAIS } from '../lib/langues'
 
 /**
  * Invariant I12 : journal minimal des changements sensibles (rôles,
@@ -39,8 +40,36 @@ export async function ecrire(
   })
 }
 
-function intitule(doc: Record<string, unknown>): string {
-  return String(doc.nom ?? doc.hostname ?? doc.email ?? doc.id ?? '?')
+function intitule(doc: Record<string, unknown>, nomFrancais?: string): string {
+  return String(nomFrancais ?? doc.nom ?? doc.hostname ?? doc.email ?? doc.id ?? '?')
+}
+
+/**
+ * Nom de référence d'une commune : toujours le français, même quand l'admin
+ * édite dans une autre langue (le journal et la mesure d'audience ne changent
+ * pas de nom selon la langue d'édition). `nomLu` est le nom tel que lu dans la
+ * langue de la requête ; si la commune n'est plus lisible (suppression), on le
+ * garde faute de mieux.
+ */
+export async function nomFrancaisCommune(
+  req: Parameters<CollectionAfterChangeHook>[0]['req'],
+  communeId: number | undefined,
+  nomLu: unknown,
+): Promise<string | undefined> {
+  const lu = typeof nomLu === 'string' ? nomLu : undefined
+  if ((req.locale ?? FRANCAIS) === FRANCAIS || communeId === undefined) return lu
+  const commune = await req.payload
+    .findByID({
+      collection: 'communes',
+      id: communeId,
+      locale: FRANCAIS,
+      fallbackLocale: false,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+    .catch(() => null)
+  return typeof commune?.nom === 'string' ? commune.nom : lu
 }
 
 /**
@@ -70,11 +99,12 @@ async function nomCommune(
   brut: Record<string, unknown>,
   communeId: number | undefined,
 ): Promise<string | undefined> {
-  if (type === 'commune') return typeof brut.nom === 'string' ? brut.nom : undefined
+  if (type === 'commune') return nomFrancaisCommune(req, idDe(brut.id), brut.nom)
   if (type !== 'domaine' || communeId === undefined) return undefined
   const commune = await req.payload.findByID({
     collection: 'communes',
     id: communeId,
+    locale: FRANCAIS,
     overrideAccess: true,
     req,
   })
@@ -89,12 +119,14 @@ export const journaliser =
   async ({ req, doc, operation }) => {
     const brut = doc as unknown as Record<string, unknown>
     const commune = communeDe(type, brut)
+    const nom = await nomCommune(req, type, brut, commune)
+    const titre = intitule(brut, type === 'commune' ? nom : undefined)
     await ecrire(
       req,
       type,
-      `${operation === 'create' ? 'Création' : 'Modification'} — ${intitule(brut)}`,
+      `${operation === 'create' ? 'Création' : 'Modification'} — ${titre}`,
       commune,
-      await nomCommune(req, type, brut, commune),
+      nom,
     )
     return doc
   }
@@ -111,12 +143,8 @@ export const journaliserSuppression =
   async ({ req, doc }) => {
     const brut = doc as unknown as Record<string, unknown>
     const commune = type === 'commune' ? undefined : communeDe(type, brut)
-    await ecrire(
-      req,
-      type,
-      `Suppression — ${intitule(brut)} (#${String(brut.id)})`,
-      commune,
-      await nomCommune(req, type, brut, commune),
-    )
+    const nom = await nomCommune(req, type, brut, commune)
+    const titre = intitule(brut, type === 'commune' ? nom : undefined)
+    await ecrire(req, type, `Suppression — ${titre} (#${String(brut.id)})`, commune, nom)
     return doc
   }

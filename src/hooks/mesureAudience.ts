@@ -7,9 +7,10 @@ import {
   type PayloadRequest,
 } from 'payload'
 
+import { idDe } from '../access/roles'
 import { mesureInstallee } from '../lib/mesure/etat'
 import { creerSiteCommune, supprimerSite } from '../lib/umami/client'
-import { ecrire } from './journaliser'
+import { ecrire, nomFrancaisCommune } from './journaliser'
 
 /** I12 élargi : messages explicites, au lieu du seul « Modification — <commune> ». */
 export const MESSAGES_MESURE = {
@@ -107,7 +108,8 @@ export const preparerMesure: CollectionBeforeChangeHook = async ({
   try {
     const site = await creerSiteCommune({
       id,
-      nom: String(data.nom ?? originalDoc.nom),
+      // Nom de référence : le français, quelle que soit la langue d'édition.
+      nom: String(await nomFrancaisCommune(req, id, data.nom ?? originalDoc.nom)),
       domaine: await domaineInformatif(req, id, String(originalDoc.slug)),
     })
     mesure.siteUmami = site.siteUmami
@@ -135,7 +137,7 @@ export const journaliserMesure: CollectionAfterChangeHook = async ({
   const avant = mesureDe(previousDoc)?.active === true
   const apres = mesureDe(doc)?.active === true
   if (avant !== apres) {
-    const nom = String((doc as { nom?: unknown }).nom)
+    const nom = String(await nomFrancaisCommune(req, idDe(doc), (doc as { nom?: unknown }).nom))
     await ecrire(
       req,
       'commune',

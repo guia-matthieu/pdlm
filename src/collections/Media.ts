@@ -5,6 +5,7 @@ import { figerTenant } from '../hooks/figerTenant'
 import { limiterTaille } from '../hooks/limiterTaille'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_PUBLICATION } from '../access/roles'
+import { creerEnFrancais, lectureAnonymeEnFrancais, requisEnFrancais } from '../lib/champs-langue'
 
 /**
  * I5 : médias = images uniquement (pas de SVG — risque XSS), limite 20 Mo,
@@ -25,8 +26,9 @@ export const Media: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
+    beforeOperation: [lectureAnonymeEnFrancais],
     // I5 : limite de taille (20 Mo) — vérifiée sur le fichier réel, pas le MIME déclaré
-    beforeValidate: [limiterTaille(20)],
+    beforeValidate: [creerEnFrancais, limiterTaille(20)],
     beforeChange: [verifierCommuneCreation(...ROLES_PUBLICATION), figerTenant],
   },
   upload: {
@@ -42,9 +44,13 @@ export const Media: CollectionConfig = {
     {
       name: 'alt',
       type: 'text',
-      required: true,
+      localized: true,
+      validate: requisEnFrancais,
       label: 'Texte alternatif',
-      admin: { description: 'Obligatoire pour l’accessibilité (RGAA).' },
+      admin: {
+        description:
+          'Obligatoire en français pour l’accessibilité (RGAA). Traduire dans chaque langue du site.',
+      },
     },
   ],
 }

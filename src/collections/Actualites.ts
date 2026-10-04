@@ -5,6 +5,13 @@ import { figerTenant, uniqueSlugParCommune, validerRelationsTenant } from '../ho
 import { bloquerPublication, memoriserModeBrouillon } from '../hooks/bloquerPublication'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_REDACTION } from '../access/roles'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 
 /** I4 : image + auteur (affectation vérifiée, pas égalité fictive — I2). */
 const extraireRefsActualite = (data: Record<string, unknown>) => ({
@@ -34,17 +41,25 @@ export const Actualites: CollectionConfig = {
   },
   hooks: {
     // Voir Pages.ts : `draft` n'est lisible que depuis `beforeOperation`.
-    beforeOperation: [memoriserModeBrouillon],
-    beforeValidate: [uniqueSlugParCommune('titre')],
+    beforeOperation: [lectureAnonymeEnFrancais, memoriserModeBrouillon],
+    beforeValidate: [creerEnFrancais, uniqueSlugParCommune('titre')],
     beforeChange: [
       verifierCommuneCreation(...ROLES_REDACTION),
       figerTenant,
       bloquerPublication,
       validerRelationsTenant(extraireRefsActualite),
+      exigerTraductionComplete(['titre', 'resume', 'contenu']),
     ],
   },
   fields: [
-    { name: 'titre', type: 'text', required: true, label: 'Titre' },
+    {
+      name: 'titre',
+      type: 'text',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Titre',
+      admin: { description: 'Obligatoire en français.' },
+    },
     {
       name: 'slug',
       type: 'text',
@@ -52,9 +67,23 @@ export const Actualites: CollectionConfig = {
       index: true,
       label: 'Slug',
     },
-    { name: 'resume', type: 'textarea', required: true, label: 'Résumé' },
+    {
+      name: 'resume',
+      type: 'textarea',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Résumé',
+      admin: { description: 'Obligatoire en français.' },
+    },
     { name: 'image', type: 'upload', relationTo: 'media', label: 'Image à la une' },
-    { name: 'contenu', type: 'richText', required: true, label: 'Contenu' },
+    {
+      name: 'contenu',
+      type: 'richText',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Contenu',
+      admin: { description: 'Obligatoire en français.' },
+    },
     {
       name: 'datePublication',
       type: 'date',
@@ -62,5 +91,6 @@ export const Actualites: CollectionConfig = {
       admin: { date: { pickerAppearance: 'dayAndTime' } },
     },
     { name: 'auteur', type: 'relationship', relationTo: 'users', label: 'Auteur' },
+    champTraduction,
   ],
 }

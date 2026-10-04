@@ -1,5 +1,7 @@
 import type { Payload } from 'payload'
 
+import { FRANCAIS } from '@/lib/langues'
+
 /**
  * Commune active avec un domaine propre canonique : c'est ce qui la rend
  * résoluble par `communeDuHost` (I6 exige le domaine avant l'activation).
@@ -17,7 +19,7 @@ export async function creerCommuneActive(
   })
   await payload.create({
     collection: 'domaines',
-    data: { hostname: host, commune: id, canonique: true },
+    data: { hostname: host, commune: id, canonique: true, langue: FRANCAIS },
     overrideAccess: true,
   })
   await payload.update({ collection: 'communes', id, data: { actif: true }, overrideAccess: true })

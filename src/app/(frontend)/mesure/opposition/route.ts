@@ -1,5 +1,5 @@
 import { communeDuHost, normaliserHost } from '@/lib/commune'
-import { enteteCookieOpposition, soumissionIntersite } from '@/lib/mesure/opposition'
+import { cheminRetour, enteteCookieOpposition, soumissionIntersite } from '@/lib/mesure/opposition'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   return new Response(null, {
     status: 303,
     headers: {
-      Location: '/mesure-d-audience',
+      Location: cheminRetour(formulaire?.get('retour')),
       'Set-Cookie': enteteCookieOpposition(choix, process.env.NODE_ENV === 'production'),
     },
   })

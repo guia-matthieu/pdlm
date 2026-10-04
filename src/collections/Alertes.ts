@@ -4,6 +4,13 @@ import { creerPublication, lirePublic, majPublication, supprimerContenu } from '
 import { figerTenant } from '../hooks'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_PUBLICATION } from '../access/roles'
+import {
+  champTraduction,
+  creerEnFrancais,
+  exigerTraductionComplete,
+  lectureAnonymeEnFrancais,
+  requisEnFrancais,
+} from '../lib/champs-langue'
 
 /** I3/D9 : sans workflow — écritures admin, mandataire et opérateur (I3, I36) ; fenêtre d'activité filtrée à l'affichage. */
 export const Alertes: CollectionConfig = {
@@ -20,7 +27,13 @@ export const Alertes: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeChange: [verifierCommuneCreation(...ROLES_PUBLICATION), figerTenant],
+    beforeOperation: [lectureAnonymeEnFrancais],
+    beforeValidate: [creerEnFrancais],
+    beforeChange: [
+      verifierCommuneCreation(...ROLES_PUBLICATION),
+      figerTenant,
+      exigerTraductionComplete(['message']),
+    ],
   },
   fields: [
     {
@@ -34,7 +47,14 @@ export const Alertes: CollectionConfig = {
         { label: 'Urgence', value: 'urgence' },
       ],
     },
-    { name: 'message', type: 'textarea', required: true, label: 'Message' },
+    {
+      name: 'message',
+      type: 'textarea',
+      localized: true,
+      validate: requisEnFrancais,
+      label: 'Message',
+      admin: { description: 'Obligatoire en français.' },
+    },
     {
       name: 'dateDebut',
       type: 'date',
@@ -49,5 +69,6 @@ export const Alertes: CollectionConfig = {
       label: 'Fin d’affichage (dépublication automatique)',
       admin: { date: { pickerAppearance: 'dayAndTime' } },
     },
+    champTraduction,
   ],
 }

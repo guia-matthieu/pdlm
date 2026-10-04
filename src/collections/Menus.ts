@@ -1,10 +1,17 @@
-import type { CollectionBeforeValidateHook, CollectionConfig, Where } from 'payload'
+import type {
+  CollectionBeforeChangeHook,
+  CollectionBeforeValidateHook,
+  CollectionConfig,
+  Where,
+} from 'payload'
 
 import { ValidationError } from 'payload'
 
 import { creerPublication, lirePublic, majPublication, supprimerContenu } from '../access'
 import { idDe } from '../access/roles'
 import { figerTenant, validerRelationsTenant } from '../hooks'
+import { creerEnFrancais, lectureAnonymeEnFrancais, requisEnFrancais } from '../lib/champs-langue'
+import { FRANCAIS } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
 import { verifierCommuneCreation } from '../hooks/verifierCommuneCreation'
 import { ROLES_PUBLICATION } from '../access/roles'
@@ -58,6 +65,54 @@ const unSeulMenuParCommune: CollectionBeforeValidateHook = async ({ data, origin
   return data
 }
 
+/**
+ * Clés des lignes du menu (éléments et sous-éléments, rattachés à leur parent).
+ * Une ligne sans identifiant est une ligne nouvelle.
+ */
+function clesLignes(items: unknown): Array<string | null> {
+  const cles: Array<string | null> = []
+  if (!Array.isArray(items)) return cles
+  for (const item of items as Array<Record<string, unknown> | null>) {
+    const id = typeof item?.['id'] === 'string' && item['id'] !== '' ? item['id'] : null
+    cles.push(id)
+    const enfants = item?.['enfants']
+    if (!Array.isArray(enfants)) continue
+    for (const enfant of enfants as Array<Record<string, unknown> | null>) {
+      const idEnfant =
+        typeof enfant?.['id'] === 'string' && enfant['id'] !== '' ? enfant['id'] : null
+      cles.push(id === null || idEnfant === null ? null : `${id}>${idEnfant}`)
+    }
+  }
+  return cles
+}
+
+/**
+ * R4 : les lignes du menu sont communes à toutes les langues. Hors du
+ * français, on ne traduit que les libellés : ajouter, retirer ou déplacer une
+ * ligne changerait le menu français (et y laisserait une ligne sans libellé).
+ */
+const structureEnFrancais: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
+  if (operation !== 'update' || (req.locale ?? FRANCAIS) === FRANCAIS) return data
+  if (!data || !('items' in data)) return data
+  // Listes ORDONNÉES : l'ordre des lignes est lui aussi partagé par les langues.
+  const avant = clesLignes(originalDoc?.items)
+  const apres = clesLignes(data.items)
+  const identique =
+    avant.length === apres.length && apres.every((cle, i) => cle !== null && cle === avant[i])
+  if (!identique) {
+    throw new ValidationError({
+      errors: [
+        {
+          path: 'items',
+          message:
+            'La structure du menu (ajout, retrait ou changement d’ordre d’éléments) se modifie en français. Dans cette langue, traduisez seulement les libellés.',
+        },
+      ],
+    })
+  }
+  return data
+}
+
 /** Validateurs typés pour les champs page/url des items de menu (XOR + schéma). */
 type OptsValidation = { siblingData?: Record<string, unknown> }
 
@@ -83,9 +138,11 @@ export const Menus: CollectionConfig = {
     delete: supprimerContenu,
   },
   hooks: {
-    beforeValidate: [unSeulMenuParCommune],
+    beforeOperation: [lectureAnonymeEnFrancais],
+    beforeValidate: [creerEnFrancais, unSeulMenuParCommune],
     beforeChange: [
       verifierCommuneCreation(...ROLES_PUBLICATION),
+      structureEnFrancais,
       figerTenant,
       validerRelationsTenant(extraireRefsMenus),
     ],
@@ -99,7 +156,16 @@ export const Menus: CollectionConfig = {
       label: 'Éléments',
       labels: { singular: 'Élément', plural: 'Éléments' },
       fields: [
-        { name: 'label', type: 'text', required: true, label: 'Libellé' },
+        {
+          name: 'label',
+          type: 'text',
+          // Seul le libellé change d'une langue à l'autre : les lignes du menu
+          // (tableau non localisé) sont communes à toutes les langues.
+          localized: true,
+          validate: requisEnFrancais,
+          label: 'Libellé',
+          admin: { description: 'Obligatoire en français.' },
+        },
         {
           name: 'page',
           type: 'relationship',
@@ -120,7 +186,14 @@ export const Menus: CollectionConfig = {
           labels: { singular: 'Sous-élément', plural: 'Sous-éléments' },
           admin: { description: 'Un seul niveau d’imbrication.' },
           fields: [
-            { name: 'label', type: 'text', required: true, label: 'Libellé' },
+            {
+              name: 'label',
+              type: 'text',
+              localized: true,
+              validate: requisEnFrancais,
+              label: 'Libellé',
+              admin: { description: 'Obligatoire en français.' },
+            },
             {
               name: 'page',
               type: 'relationship',
