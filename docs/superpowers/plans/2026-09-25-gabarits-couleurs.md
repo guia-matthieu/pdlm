@@ -14,17 +14,24 @@
 
 ## État d'exécution — à lire avant toute tâche
 
+**Mis à jour le 04/10/2026 : la porte de déblocage est OUVERTE.** L'état « bloqué » décrit ici jusqu'au 03/10 est périmé.
+
 | Tâche | Étape spec § 5 | Statut | Où |
 |---|---|---|---|
-| 1 — `couleurs.ts` + tests | 1 | **prête, exécutable maintenant** — paire test/code **exécutée** le 25/09 (voir « Preuve » dans la tâche) | branche `gabarits-couleurs` (base `main`), worktree `~/Projects/glm.gabarits` |
-| Porte de déblocage | — | **bloquée** | — |
-| 2 à 10 | 2 à 6 | **bloquées** sur la porte de déblocage | idem, après rebase |
+| 1 — `couleurs.ts` + tests | 1 | **faite et relue** (25/09), verte après rebase (04/10) | branche `gabarits-couleurs`, worktree `~/Projects/glm.gabarits` |
+| Porte de déblocage | — | **ouverte le 04/10** | `main` = `56d20a2` |
+| 2 à 10 | 2 à 6 | **à faire, dans l'ordre**, une tâche à la fois | idem |
 
-**⛔ Ne rien faire dans `~/Projects/glm`** : ce checkout est sur `umami-collecte`, travail d'une autre session.
+**Ce que `main` contient depuis le 04/10** (`56d20a2`) : la mesure d'audience, le **socle multilingue** (`src/i18n/`, routes `(frontend)/[lang]/`, `src/lib/champs-langue.ts`, `src/lib/langues.ts`) et les **mandats** (collections `organisations` et `mandats`, rôle `mandataire`, `src/hooks/verifierCommuneCreation.ts`). `gabarits-couleurs` est rebasée dessus (9 commits).
 
-**🔴 Le blocage est plus lourd que « attendre une fusion ».** Mesuré le 25/09 : `umami-collecte` a 30 commits d'avance sur `main` (code réel : `Communes.ts`, `layout.tsx`, `lib/commune.ts`, `PiedDePage.tsx`, migration `20260923_165520_mesure_audience`). **`multilingue-socle` n'a que 2 commits, et ils ne contiennent que sa spec** (`docs/superpowers/specs/2026-09-22-multilingue-socle-design.md`) : ni `src/i18n/`, ni groupe de routes `[lang]`, ni `resolveCommune` étendu n'existent encore, nulle part. Les tâches 4 à 10 consomment ces trois éléments. La porte de déblocage est donc : **multilingue implémenté ET fusionné**, pas seulement sa branche fusionnée.
+**État mesuré du worktree le 04/10, après rebase** : `typecheck` 0 erreur · `test:unit` 152/152 · `test:int` 193/193 · 6 migrations jouées sur base vierge, puis `migrate:create` répond « No schema changes detected ».
 
-**Conséquence sur ce plan.** La tâche 1 est écrite en code complet et exécutée. Les tâches 2 à 10 portent : les fichiers vérifiés dans le code le 25/09 (sur `main` et `umami-collecte`), les décisions tranchées, les interfaces, et les tests à écrire. Leur code d'implémentation n'a **pas** été exécuté — il ne peut pas l'être contre un code qui n'existe pas encore. **Au déblocage, chaque tâche commence par une étape « re-vérifier les ancres » ; si une ancre a bougé, on corrige la tâche avant d'écrire du code**, jamais pendant.
+**Environnement du worktree** : `.env` posé le 04/10 (non versionné), bases dédiées `pdlm_gabarits_dev` (migrée et semée, sert à `npm run dev` et aux tests de bout en bout) et `pdlm_test_gabarits` (tests d'intégration). Démarrer les services : `docker compose -f docker-compose.dev.yml up -d postgres minio createbuckets`.
+- ⚠️ **Après toute modification du schéma, le premier `npm run test:int` peut échouer** sur `CREATE TABLE … already exists` ou `CREATE TYPE … already exists` : plusieurs fichiers de test poussent le schéma en même temps. Ce n'est pas un défaut du code : relancer une fois. Un échec qui survit à la relance est réel.
+- ⚠️ **`npm run lint` affiche 2 erreurs dans `.superpowers/`** (fichiers de sonde du 25/09, non versionnés). Elles ne sont pas à corriger. Le critère est : 0 erreur dans `src/` et `tests/`.
+- ⛔ **Ne rien faire dans `~/Projects/glm`, `~/Projects/glm.conformite`, `~/Projects/glm.multilingue`** : autres checkouts. ⛔ Ne jamais pointer `DATABASE_URI` sur la base `pdlm` (base de démonstration).
+
+**Chaque tâche commence par l'étape « re-vérifier les ancres »** : les fichiers et lignes cités ont été relevés le 25/09, avant le multilingue et les mandats. Une ancre qui a seulement changé de place se corrige dans la tâche (un commit sur le plan), puis on code. Une ancre dont le changement **remet en cause une décision** du plan : on s'arrête, voir « Porte bloqué » du brief.
 
 ## Global Constraints
 
@@ -56,6 +63,9 @@
 11. **Onglet « Apparence » = onglet Payload non nommé** (`type: 'tabs'`, onglet sans `name`) : la forme des données (`apparence`, `accueil` à la racine) ne change pas.
 12. **I4 sur les nouvelles relations** : `validerRelationsTenant` n'accepte qu'un `champMedia` par appel ; on pose **un hook par champ** (`apparence.photoAccueil`, `accueil.mosaique`), à côté de celui du logo.
 13. **Ajout à la spec, défense en profondeur** : `proxy.ts` répond 404 à `/apercu/*` hors du domaine de la plateforme, comme il le fait déjà pour `/api/*`. I28 reste la garantie ; ceci retire la route des domaines communaux. **Ajout validé le 25/09.**
+
+14. **Textes de l'accueil et langues (ajout du 04/10, le plan datait d'avant le socle multilingue).** `accueil.demarches[].titre` et `accueil.mosaique[].libelle` sont `localized: true` avec `validate: requisEnFrancais` (comme `Communes.nom`). Les **lignes** (ajout, retrait, ordre, picto, lien, illustration, photo) sont communes à toutes les langues et ne se modifient qu'en français : même règle R4 que les menus — modèle à suivre, `structureEnFrancais` et `clesLignes` dans `src/collections/Menus.ts`. Les valeurs par défaut et la migration écrivent le français. Aucun autre champ d'`apparence` n'est traduit (couleurs, gabarit, frise, photo).
+15. **Mandataire et apparence (rappel, décision D2 du plan des mandats).** Le mandataire ne modifie pas la fiche commune, donc ni l'apparence ni l'accueil. L'accès `update` de `Communes` n'est **pas** modifié par ce plan : opérateur et admin de la commune, comme aujourd'hui ; `gabarit` et `frise` restent à l'opérateur seul.
 
 ## Questions tranchées par l'utilisateur le 25/09 (ex-questions ouvertes)
 
@@ -653,19 +663,19 @@ transférerait pas) ; un gris saisi reste un gris exact."
 
 ### Porte de déblocage (avant la tâche 2)
 
-**Statut : bloquée.** Conditions, toutes vérifiées par commande, jamais de mémoire :
+**Statut : ouverte le 04/10/2026.** Conditions vérifiées par commande ce jour-là :
 
-- [ ] **`umami-collecte` fusionnée dans `main`** : `git log --oneline main..umami-collecte | wc -l` → `0`.
-- [ ] **Multilingue implémenté et fusionné** : `git ls-tree -r --name-only main | grep -cE '^src/i18n/(fr|co)\.ts$'` → `2` ; `git ls-tree -r --name-only main | grep -c '(frontend)/\[lang\]/'` → ≥ 1.
-- [ ] **Rebase** : `git rebase main` sur `gabarits-couleurs` ; `npm run test:unit` vert (la tâche 1 doit rester verte).
-- [ ] **Re-vérifier les ancres** listées dans chaque tâche (colonne « Ancre vérifiée le 25/09 ») ; toute ancre qui a bougé → corriger la tâche d'abord.
-- [x] **Relire les questions ouvertes Q1-Q3** : leurs réponses doivent être dans ce plan avant les tâches 4, 5 et 8. Tranchées le 25/09 (section « Questions tranchées »).
+- [x] **`umami-collecte` fusionnée dans `main`** : `git log --oneline main..umami-collecte | wc -l` → `0`.
+- [x] **Multilingue implémenté et fusionné** : `src/i18n/(fr|co).ts` → `2` ; fichiers sous `(frontend)/[lang]/` → `8`.
+- [x] **Rebase** : `gabarits-couleurs` rebasée sur `main` (`56d20a2`) ; `npm run test:unit` → 152/152.
+- [ ] **Re-vérifier les ancres** : se fait **tâche par tâche**, à l'étape 1 de chacune (voir « État d'exécution »).
+- [x] **Questions Q1-Q3** : tranchées le 25/09. Décisions 14 et 15 ajoutées le 04/10.
 
 ---
 
 ### Task 2: Données, droits, versions, préremplissage (spec § 1)
 
-**Statut : bloquée (porte de déblocage).**
+**Statut : à faire (porte ouverte le 04/10). Lire les décisions 14 et 15 avant de poser les champs.**
 
 **Files:**
 - Modify: `src/collections/Communes.ts` — groupe `apparence` (ancre vérifiée le 25/09 sur `umami-collecte` : `name: 'apparence'`, 2 champs `couleurPrincipale` / `couleurAccent`, validation `^#[0-9a-fA-F]{6}$`) ; `hooks.beforeChange` (ancre : `validerRelationsTenant((data) => ({ media: data['logo'] … champMedia: 'logo' }), ({ originalDoc }) => idDe(originalDoc) ?? null)`).
@@ -893,7 +903,7 @@ for (const [ordre, d] of DEMARCHES_DEFAUT.entries()) {
 
 ### Task 3: Le layout injecte `deriver()` ; anciens noms en alias (spec § 2)
 
-**Statut : bloquée.** Le layout public aura été déplacé par le multilingue (`app/(frontend)/[lang]/layout.tsx` selon sa spec § 3) : **l'ancre est à relire au déblocage**.
+**Statut : à faire (porte ouverte le 04/10).** Le layout public aura été déplacé par le multilingue (`app/(frontend)/[lang]/layout.tsx` selon sa spec § 3) : **l'ancre est à relire au déblocage**.
 
 **Files:**
 - Modify: le layout qui pose `<body style={{ '--couleur-principale': … }}>` (sur `umami-collecte` : `src/app/(frontend)/layout.tsx`, bloc `// Couleur non saisie : variable non posée…`).
@@ -941,7 +951,7 @@ const { variables } = deriver(
 
 ### Task 4: Moteur de gabarits, sections communes, contrat et suite de conformité (spec § 3, § 6)
 
-**Statut : bloquée** (porte + réponse à Q3).
+**Statut : à faire** (porte ouverte le 04/10 ; réponse à Q3 : tranchées le 25/09).
 
 **Files:**
 - Create: `src/gabarits/types.ts` — `NomSection = 'heros' | 'demarches' | 'mairie' | 'texteLibre' | 'actualites' | 'agenda' | 'mosaique'`, `Taille = 'petite' | 'moyenne' | 'grande'`, `Gabarit = { nom: string; libelle: string; versionContrat: number; polices: string[]; accueil: { section: NomSection; variante?: string }[]; cadrageHeros: 'haut' | 'panorama' }`, `Kit = { horizon(): string; pieces: Record<string, (x: number, sol: number, taille: Taille) => { formes: string[]; traits: string[] }>; ornements?: Record<string, () => string> }`, `Illustrations = { scene(nom: Scene, largeur: number, hauteur: number): string; heros(largeur: number, hauteur: number): string }`.
@@ -1016,7 +1026,7 @@ describe('composerFrise', () => {
 
 ### Task 5: Gabarit Village (spec § 3)
 
-**Statut : bloquée** (porte + réponses à Q1 et Q2).
+**Statut : à faire** (porte ouverte le 04/10 ; réponses à Q1 et Q2 : tranchées le 25/09).
 
 **Files:**
 - Create: `src/gabarits/village/{gabarit.ts, theme.css, frise.ts, illustrations.ts, README.md}`, `src/gabarits/village/polices/` (Bricolage Grotesque + Atkinson Hyperlegible Next, OFL, depuis `G-maquette-v2/polices/` avec leurs licences), `src/gabarits/village/maquette/` (copie de référence de `G-maquette-v2/accueil.html` + captures).
@@ -1033,7 +1043,7 @@ describe('composerFrise', () => {
 
 ### Task 6: Cadrages d'image `heros-haut` et `panorama` (spec § 3)
 
-**Statut : bloquée.**
+**Statut : à faire (porte ouverte le 04/10).**
 
 **Files:** Modify `src/collections/Media.ts` (ancre du 25/09 sur `main` : `imageSizes: [thumbnail 400×300, card 800×1000, hero 1600×900]`, tous `position: 'centre'`) ; Create `scripts/regenerer-tailles.ts` ; Test `tests/int/media-tailles.int.spec.ts`.
 
@@ -1048,7 +1058,7 @@ describe('composerFrise', () => {
 
 ### Task 7: Frise Village dans l'admin — champ, avertissements, aperçu SVG (spec § 3, étape 4)
 
-**Statut : bloquée.**
+**Statut : à faire (porte ouverte le 04/10).**
 
 **Files:** Create `src/components/admin/FriseApercu.tsx` (composant client, pattern du dépôt : `admin.components.Field: '/components/admin/FriseApercu#FriseApercu'`, cf. `EffacerHistorique` sur `umami-collecte`) ; Modify `src/collections/Communes.ts` (champ `frise`, `admin.components.beforeInput` ou champ `ui` voisin) ; regénérer `importMap.js` ; Test `tests/e2e/frise-admin.e2e.spec.ts`.
 
@@ -1060,7 +1070,7 @@ describe('composerFrise', () => {
 
 ### Task 8: Gabarit Littoral (spec § 3, étape 5)
 
-**Statut : bloquée** (porte + Q2 + Q3).
+**Statut : à faire** (porte ouverte le 04/10 ; Q2 + Q3 : tranchées le 25/09).
 
 **Files:** `src/gabarits/littoral/{gabarit.ts, theme.css, frise.ts, illustrations.ts, README.md, polices/, maquette/}` ; ajouter `'littoral'` à `GABARITS` et aux options du select `gabarit` (seul changement de schéma admis par I26).
 
@@ -1074,7 +1084,7 @@ describe('composerFrise', () => {
 
 ### Task 9: Onglet Apparence, route d'aperçu, en-têtes (spec § 4)
 
-**Statut : bloquée.**
+**Statut : à faire (porte ouverte le 04/10).**
 
 **Files:**
 - Create: `src/app/(apercu)/layout.tsx` (layout racine propre : `(frontend)` et `(payload)` ont chacun le leur ; sous l'hôte admin, `resolveCommune()` rend `null`), `src/app/(apercu)/apercu/apparence/page.tsx`, `src/lib/apercu.ts` (`lireParametresApercu(params, enBase): { gabarit; choix; forcees; lang; communeId }` — pure).
@@ -1093,7 +1103,7 @@ describe('composerFrise', () => {
 
 ### Task 10: README, captures regardées, audit final (spec § 5)
 
-**Statut : bloquée.**
+**Statut : à faire (porte ouverte le 04/10).**
 
 - [ ] **Step 1:** réécrire `README.md` § « Accessibilité (RGAA) » (l. 167-182 le 25/09) : retirer la consigne de vérifier le contraste à la main (« Une couleur trop claire… vérifier avant d'activer la commune ») ; dire ce que garantit la dérivation (I24, I25), ce qu'elle ne garantit pas (une couleur **forcée**), et garder la phrase « seule une recette manuelle (grille RGAA officielle) fait foi ».
 - [ ] **Step 2:** captures Playwright de l'accueil, 1440 et 390, par gabarit × 2 jeux de couleurs très différents (`#2a7f9e/#f2b134/#d2462f` et `#9b3d57/#7fc4c9/#e08a2c`, ceux des maquettes) × avec et sans photos = 16 captures, montées en planche-contact ; **les regarder** et les montrer à l'utilisateur avant fusion.
