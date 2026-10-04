@@ -543,7 +543,9 @@ export const Communes: CollectionConfig = {
                       label: 'Titre',
                       admin: { description: 'Obligatoire en français.' },
                     },
-                    { name: 'precision', type: 'text', label: 'Précision' },
+                    // Traduisible, facultatif dans toutes les langues
+                    // (décision 14) — pas de `requisEnFrancais`.
+                    { name: 'precision', type: 'text', localized: true, label: 'Précision' },
                     {
                       name: 'lien',
                       type: 'text',

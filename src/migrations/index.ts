@@ -4,7 +4,7 @@ import * as migration_20260921_212414_couleur_par_defaut_neutre from './20260921
 import * as migration_20260923_165520_mesure_audience from './20260923_165520_mesure_audience'
 import * as migration_20260925_182417_multilingue from './20260925_182417_multilingue'
 import * as migration_20261001_171239_mandats from './20261001_171239_mandats'
-import * as migration_20261004_133203_gabarits_couleurs from './20261004_133203_gabarits_couleurs'
+import * as migration_20261004_144904_gabarits_couleurs from './20261004_144904_gabarits_couleurs'
 
 export const migrations = [
   {
@@ -38,8 +38,8 @@ export const migrations = [
     name: '20261001_171239_mandats',
   },
   {
-    up: migration_20261004_133203_gabarits_couleurs.up,
-    down: migration_20261004_133203_gabarits_couleurs.down,
-    name: '20261004_133203_gabarits_couleurs',
+    up: migration_20261004_144904_gabarits_couleurs.up,
+    down: migration_20261004_144904_gabarits_couleurs.down,
+    name: '20261004_144904_gabarits_couleurs',
   },
 ]

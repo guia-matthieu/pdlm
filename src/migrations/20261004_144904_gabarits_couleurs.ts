@@ -1,6 +1,42 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
-import { DEMARCHES_DEFAUT, MOSAIQUE_DEFAUT } from '../lib/accueil-defauts'
+/**
+ * Préremplissement de l'accueil des communes existantes (spec § 1, décision
+ * 10). Une migration est figée : ces valeurs sont des littéraux, la migration
+ * n'importe rien de `src/lib/` (décision 14).
+ * `tests/unit/accueil-defauts.spec.ts` les compare à `DEMARCHES_DEFAUT` et
+ * `MOSAIQUE_DEFAUT` : un écart futur entre les deux sources se voit là.
+ */
+export const DEMARCHES_MIGRATION = [
+  { ordre: 1, picto: 'dechets', lien: null, titre: 'Déchets' },
+  {
+    ordre: 2,
+    picto: 'identite',
+    lien: 'https://www.service-public.fr/particuliers/vosdroits/N358',
+    titre: 'Papiers d’identité',
+  },
+  {
+    ordre: 3,
+    picto: 'etat-civil',
+    lien: 'https://www.service-public.fr/particuliers/vosdroits/N359',
+    titre: 'État civil',
+  },
+  {
+    ordre: 4,
+    picto: 'urbanisme',
+    lien: 'https://www.service-public.fr/particuliers/vosdroits/N319',
+    titre: 'Urbanisme',
+  },
+  { ordre: 5, picto: 'ecole', lien: null, titre: 'École et cantine' },
+  { ordre: 6, picto: 'conseil', lien: null, titre: 'Conseil municipal' },
+]
+
+export const MOSAIQUE_MIGRATION = [
+  { ordre: 1, illustration: 'sentiers', libelle: 'Balades et sentiers' },
+  { ordre: 2, illustration: 'patrimoine', libelle: 'Patrimoine' },
+  { ordre: 3, illustration: 'commerces', libelle: 'Commerces' },
+  { ordre: 4, illustration: 'associations', libelle: 'Associations' },
+]
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
@@ -27,12 +63,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
   	"picto" "enum_communes_accueil_demarches_picto",
-  	"precision" varchar,
   	"lien" varchar
   );
   
   CREATE TABLE "communes_accueil_demarches_locales" (
   	"titre" varchar,
+  	"precision" varchar,
   	"id" serial PRIMARY KEY NOT NULL,
   	"_locale" "_locales" NOT NULL,
   	"_parent_id" varchar NOT NULL
@@ -76,13 +112,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_parent_id" integer NOT NULL,
   	"id" serial PRIMARY KEY NOT NULL,
   	"picto" "enum__communes_v_version_accueil_demarches_picto",
-  	"precision" varchar,
   	"lien" varchar,
   	"_uuid" varchar
   );
   
   CREATE TABLE "_communes_v_version_accueil_demarches_locales" (
   	"titre" varchar,
+  	"precision" varchar,
   	"id" serial PRIMARY KEY NOT NULL,
   	"_locale" "_locales" NOT NULL,
   	"_parent_id" integer NOT NULL
@@ -212,18 +248,17 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "communes" ADD CONSTRAINT "communes_apparence_photo_accueil_id_media_id_fk" FOREIGN KEY ("apparence_photo_accueil_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   CREATE INDEX "communes_apparence_apparence_photo_accueil_idx" ON "communes" USING btree ("apparence_photo_accueil_id");`)
 
-  // Préremplissage de l'accueil des communes existantes (spec § 1, décision 10) :
-  // même contenu que le `defaultValue` des champs, depuis la même source, en
-  // français (décision 14 — titres et libellés vivent dans les tables
-  // `*_locales`). En SQL pur : un `payload.update` déclencherait les hooks
-  // (Umami, journal) pour chaque commune. Une seule instruction par liste : le
-  // garde-fou « sans lignes » porte sur la commune entière, pas sur la ligne
-  // (une boucle ligne à ligne ne trouverait plus aucune commune cible dès la
-  // deuxième itération).
+  // Préremplissage (spec § 1, décision 10) : même contenu que le
+  // `defaultValue` des champs, en français (décision 14 — titres et libellés
+  // vivent dans les tables `*_locales`). En SQL pur : un `payload.update`
+  // déclencherait les hooks (Umami, journal) pour chaque commune. Une seule
+  // instruction par liste : le garde-fou « sans lignes » porte sur la commune
+  // entière, pas sur la ligne (une boucle ligne à ligne ne trouverait plus
+  // aucune commune cible dès la deuxième itération).
   const valeursDemarches = sql.join(
-    DEMARCHES_DEFAUT.map(
-      (d, i) =>
-        sql`(${i + 1}::int, ${d.picto}::"enum_communes_accueil_demarches_picto", ${d.lien ?? null}, ${d.titre})`,
+    DEMARCHES_MIGRATION.map(
+      (d) =>
+        sql`(${d.ordre}::int, ${d.picto}::"enum_communes_accueil_demarches_picto", ${d.lien}, ${d.titre})`,
     ),
     sql`, `,
   )
@@ -245,9 +280,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   `)
 
   const valeursMosaique = sql.join(
-    MOSAIQUE_DEFAUT.map(
-      (t, i) =>
-        sql`(${i + 1}::int, ${t.illustration}::"enum_communes_accueil_mosaique_illustration", ${t.libelle})`,
+    MOSAIQUE_MIGRATION.map(
+      (t) =>
+        sql`(${t.ordre}::int, ${t.illustration}::"enum_communes_accueil_mosaique_illustration", ${t.libelle})`,
     ),
     sql`, `,
   )
