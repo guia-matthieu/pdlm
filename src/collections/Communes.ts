@@ -1,4 +1,4 @@
-import { APIError, type CollectionConfig } from 'payload'
+import { APIError, type CollectionBeforeChangeHook, type CollectionConfig } from 'payload'
 
 import { ValidationError } from 'payload'
 
@@ -14,12 +14,69 @@ import {
 } from '../hooks/mesureAudience'
 import { validerRelationsTenant } from '../hooks/validerRelationsTenant'
 import {
-  creerEnFrancais,
-  lectureAnonymeEnFrancais,
-  requisEnFrancais,
-} from '../lib/champs-langue'
+  DEMARCHES_DEFAUT,
+  LIBELLES_PICTOS,
+  LIBELLES_SCENES,
+  MOSAIQUE_DEFAUT,
+  PICTOS,
+  SCENES,
+} from '../lib/accueil-defauts'
+import { creerEnFrancais, lectureAnonymeEnFrancais, requisEnFrancais } from '../lib/champs-langue'
 import { FRANCAIS, LANGUES_REGIONALES, nomLangueMinuscule } from '../lib/langues'
 import { validerUrlEditoriale } from '../lib/url'
+
+/** I24 : la seule validation d'une couleur est sa forme — une couleur illisible passe. */
+const validerCouleur = (v: string | null | undefined) =>
+  !v || /^#[0-9a-fA-F]{6}$/.test(v) || 'Format attendu : #RRGGBB'
+
+/**
+ * Clés des lignes d'une liste de l'accueil (démarches, tuiles). Une ligne sans
+ * identifiant est une ligne nouvelle. Modèle : `clesLignes` de `Menus`.
+ */
+function clesLignesAccueil(lignes: unknown): Array<string | null> {
+  if (!Array.isArray(lignes)) return []
+  return (lignes as Array<Record<string, unknown> | null>).map((l) =>
+    typeof l?.['id'] === 'string' && l['id'] !== '' ? l['id'] : null,
+  )
+}
+
+/**
+ * R4 (décision 14) : les lignes de l'accueil (démarches, mosaïque) sont
+ * communes à toutes les langues. Hors du français, on ne traduit que les
+ * titres et libellés : ajouter, retirer ou déplacer une ligne changerait
+ * l'accueil français, qui y garderait une ligne sans titre.
+ */
+const structureAccueilEnFrancais: CollectionBeforeChangeHook = ({
+  data,
+  originalDoc,
+  operation,
+  req,
+}) => {
+  if (operation !== 'update' || (req.locale ?? FRANCAIS) === FRANCAIS) return data
+  if (!data || !('accueil' in data)) return data
+  const envoye = data['accueil'] as Record<string, unknown>
+  const existant = (originalDoc?.['accueil'] as Record<string, unknown> | undefined) ?? {}
+  for (const liste of ['demarches', 'mosaique'] as const) {
+    if (!(liste in envoye)) continue
+    // Liste ordonnée : l'ordre des lignes est lui aussi partagé par les langues.
+    const avant = clesLignesAccueil(existant[liste])
+    const apres = clesLignesAccueil(envoye[liste])
+    const identique =
+      avant.length === apres.length && apres.every((cle, i) => cle !== null && cle === avant[i])
+    if (!identique) {
+      throw new ValidationError({
+        errors: [
+          {
+            path: `accueil.${liste}`,
+            message:
+              'Les lignes de l’accueil (ajout, retrait ou changement d’ordre) se modifient en français. Dans cette langue, traduisez seulement les titres.',
+          },
+        ],
+      })
+    }
+  }
+  return data
+}
 
 /** Domaines réservés à la plateforme — un hostname communal ne peut pas les prendre (I6). */
 export function hostnamesReserves(): string[] {
@@ -63,6 +120,9 @@ export const Communes: CollectionConfig = {
     delete: ({ req }) => isOperateur(req.user),
   },
   endpoints: [effacerHistoriqueMesure],
+  // Versions sans brouillons (spec § 1) : l'historique couvre toute la fiche,
+  // y compris l'apparence et l'accueil — restaurable depuis l'admin.
+  versions: { maxPerDoc: 20 },
   hooks: {
     beforeOperation: [lectureAnonymeEnFrancais, ignorerMesureNulle],
     beforeValidate: [creerEnFrancais],
@@ -115,7 +175,9 @@ export const Communes: CollectionConfig = {
           if (retirees.length > 0) {
             const servis = await req.payload.find({
               collection: 'domaines',
-              where: { and: [{ commune: { equals: originalDoc.id } }, { langue: { in: retirees } }] },
+              where: {
+                and: [{ commune: { equals: originalDoc.id } }, { langue: { in: retirees } }],
+              },
               limit: 1,
               overrideAccess: true,
               req,
@@ -123,10 +185,12 @@ export const Communes: CollectionConfig = {
             const d = servis.docs[0]
             if (d) {
               throw new ValidationError({
-                errors: [{
-                  path: 'langues',
-                  message: `Le ${nomLangueMinuscule(d.langue)} est servi à la racine de ${d.hostname}. Changez d’abord la langue de ce domaine.`,
-                }],
+                errors: [
+                  {
+                    path: 'langues',
+                    message: `Le ${nomLangueMinuscule(d.langue)} est servi à la racine de ${d.hostname}. Changez d’abord la langue de ce domaine.`,
+                  },
+                ],
               })
             }
           }
@@ -140,6 +204,30 @@ export const Communes: CollectionConfig = {
           media: data['logo'] ? [data['logo'] as string | number] : [],
           champMedia: 'logo',
         }),
+        ({ originalDoc }) => idDe(originalDoc) ?? null,
+      ),
+      structureAccueilEnFrancais,
+      // I4 : la photo d'accueil et les photos de la mosaïque sont des médias de
+      // la commune elle-même (même règle que le logo).
+      validerRelationsTenant(
+        (data) => {
+          const photo = (data['apparence'] as Record<string, unknown> | undefined)?.['photoAccueil']
+          return {
+            media: photo ? [photo as string | number] : [],
+            champMedia: 'apparence.photoAccueil',
+          }
+        },
+        ({ originalDoc }) => idDe(originalDoc) ?? null,
+      ),
+      validerRelationsTenant(
+        (data) => {
+          const lignes = ((data['accueil'] as Record<string, unknown> | undefined)?.['mosaique'] ??
+            []) as Array<Record<string, unknown>>
+          return {
+            media: lignes.flatMap((l) => (l?.['photo'] ? [l['photo'] as string | number] : [])),
+            champMedia: 'accueil.mosaique',
+          }
+        },
         ({ originalDoc }) => idDe(originalDoc) ?? null,
       ),
       preparerMesure,
@@ -293,29 +381,225 @@ export const Communes: CollectionConfig = {
       ],
     },
     {
-      name: 'apparence',
-      type: 'group',
-      label: 'Apparence du site public',
-      fields: [
+      type: 'tabs',
+      tabs: [
         {
-          name: 'couleurPrincipale',
-          type: 'text',
-          // Même défaut que styles.css (:root) — jamais le bleu France, réservé à l'État
-          defaultValue: '#264653',
-          label: 'Couleur principale (hex)',
-          validate: (v: string | null | undefined) =>
-            !v || /^#[0-9a-fA-F]{6}$/.test(v) || 'Format attendu : #RRGGBB',
-          admin: {
-            description:
-              'Contraste RGAA : vérifier un rapport suffisant avec le texte blanc (voir README).',
-          },
-        },
-        {
-          name: 'couleurAccent',
-          type: 'text',
-          label: 'Couleur d’accent (hex)',
-          validate: (v: string | null | undefined) =>
-            !v || /^#[0-9a-fA-F]{6}$/.test(v) || 'Format attendu : #RRGGBB',
+          // Onglet sans `name` (décision 11) : `apparence` et `accueil`
+          // restent des clés de premier niveau de la fiche commune.
+          label: 'Apparence',
+          fields: [
+            {
+              name: 'apparence',
+              type: 'group',
+              label: 'Apparence du site public',
+              fields: [
+                {
+                  name: 'gabarit',
+                  type: 'select',
+                  defaultValue: 'village',
+                  label: 'Gabarit',
+                  options: [
+                    { label: 'Village', value: 'village' },
+                    { label: 'Littoral', value: 'littoral' },
+                  ],
+                  access: {
+                    // Décision 15 : le gabarit reste à l'opérateur seul.
+                    update: ({ req }) => isOperateur(req.user),
+                  },
+                  admin: { description: 'Composition de l’accueil du site public.' },
+                },
+                {
+                  name: 'frise',
+                  type: 'array',
+                  label: 'Frise du territoire',
+                  labels: { singular: 'Pièce de frise', plural: 'Pièces de frise' },
+                  access: {
+                    // Décision 15 : la frise reste à l'opérateur seul.
+                    update: ({ req }) => isOperateur(req.user),
+                  },
+                  admin: {
+                    description:
+                      'L’ordre des lignes est l’ordre de gauche à droite. Frise vide = pas de frise.',
+                  },
+                  fields: [
+                    // `piece` en texte libre (pas un select) : un select Postgres
+                    // imposerait une migration par kit, contraire à I26.
+                    // L'appartenance au kit se vérifie au rendu.
+                    { name: 'piece', type: 'text', required: true, label: 'Pièce' },
+                    {
+                      name: 'taille',
+                      type: 'select',
+                      defaultValue: 'moyenne',
+                      label: 'Taille',
+                      options: [
+                        { label: 'Petite', value: 'petite' },
+                        { label: 'Moyenne', value: 'moyenne' },
+                        { label: 'Grande', value: 'grande' },
+                      ],
+                    },
+                    { name: 'ecart', type: 'number', min: 0, label: 'Écart (px)' },
+                  ],
+                },
+                {
+                  name: 'couleurPrincipale',
+                  type: 'text',
+                  label: 'Couleur principale (hex)',
+                  validate: validerCouleur,
+                },
+                {
+                  name: 'couleurAccent',
+                  type: 'text',
+                  label: 'Couleur d’accent (hex)',
+                  validate: validerCouleur,
+                },
+                {
+                  name: 'couleurTerre',
+                  type: 'text',
+                  label: 'Couleur de terre (hex)',
+                  validate: validerCouleur,
+                },
+                {
+                  type: 'collapsible',
+                  label: 'Réglages avancés',
+                  admin: { initCollapsed: true },
+                  fields: [
+                    {
+                      name: 'couleursForcees',
+                      type: 'group',
+                      label: 'Couleurs forcées',
+                      admin: {
+                        description:
+                          'Vide = couleur dérivée des trois choisies. Une couleur forcée est utilisée telle quelle (I24) : le contraste est sous votre responsabilité.',
+                      },
+                      fields: [
+                        { name: 'texte', type: 'text', label: 'Texte', validate: validerCouleur },
+                        {
+                          name: 'pale',
+                          type: 'text',
+                          label: 'Fond pâle',
+                          validate: validerCouleur,
+                        },
+                        {
+                          name: 'profond',
+                          type: 'text',
+                          label: 'Fond profond',
+                          validate: validerCouleur,
+                        },
+                        ...([1, 2, 3, 4, 5, 6] as const).map((n) => ({
+                          name: `picto${n}`,
+                          type: 'text' as const,
+                          label: `Pictogramme ${n}`,
+                          validate: validerCouleur,
+                        })),
+                      ],
+                    },
+                  ],
+                },
+                {
+                  name: 'photoAccueil',
+                  type: 'upload',
+                  relationTo: 'media',
+                  label: 'Photo d’accueil',
+                  admin: {
+                    description:
+                      'Photo du héros du site public ; le texte alternatif est celui du média.',
+                  },
+                },
+              ],
+            },
+            {
+              name: 'accueil',
+              type: 'group',
+              label: 'Accueil',
+              fields: [
+                {
+                  name: 'demarches',
+                  type: 'array',
+                  maxRows: 8,
+                  defaultValue: DEMARCHES_DEFAUT,
+                  label: 'Démarches',
+                  labels: { singular: 'Démarche', plural: 'Démarches' },
+                  admin: {
+                    description:
+                      'Préremplies à la création (spec § 1). Sans lien, une démarche n’est pas cliquable.',
+                  },
+                  fields: [
+                    {
+                      name: 'picto',
+                      type: 'select',
+                      label: 'Pictogramme',
+                      options: PICTOS.map((picto) => ({
+                        value: picto,
+                        label: LIBELLES_PICTOS[picto],
+                      })),
+                    },
+                    // Seul le titre change d'une langue à l'autre : les lignes du
+                    // tableau (picto, lien) ne se modifient qu'en français (R4).
+                    {
+                      name: 'titre',
+                      type: 'text',
+                      localized: true,
+                      validate: requisEnFrancais,
+                      label: 'Titre',
+                      admin: { description: 'Obligatoire en français.' },
+                    },
+                    { name: 'precision', type: 'text', label: 'Précision' },
+                    {
+                      name: 'lien',
+                      type: 'text',
+                      label: 'Lien',
+                      validate: validerUrlEditoriale,
+                    },
+                  ],
+                },
+                {
+                  name: 'mosaique',
+                  type: 'array',
+                  maxRows: 4,
+                  defaultValue: MOSAIQUE_DEFAUT,
+                  label: 'Mosaïque',
+                  labels: { singular: 'Tuile', plural: 'Tuiles' },
+                  admin: {
+                    description:
+                      'Sans photo, la tuile affiche l’illustration du kit (I30). Sans lien, elle n’est pas cliquable.',
+                  },
+                  fields: [
+                    // Seul le libellé change d'une langue à l'autre (R4).
+                    {
+                      name: 'libelle',
+                      type: 'text',
+                      localized: true,
+                      validate: requisEnFrancais,
+                      label: 'Libellé',
+                      admin: { description: 'Obligatoire en français.' },
+                    },
+                    {
+                      name: 'lien',
+                      type: 'text',
+                      label: 'Lien',
+                      validate: validerUrlEditoriale,
+                    },
+                    {
+                      name: 'photo',
+                      type: 'upload',
+                      relationTo: 'media',
+                      label: 'Photo',
+                    },
+                    {
+                      name: 'illustration',
+                      type: 'select',
+                      required: true,
+                      label: 'Illustration',
+                      options: SCENES.map((scene) => ({
+                        value: scene,
+                        label: LIBELLES_SCENES[scene],
+                      })),
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
         },
       ],
     },

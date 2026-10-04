@@ -180,17 +180,80 @@ export interface Commune {
   };
   apparence?: {
     /**
-     * Contraste RGAA : vérifier un rapport suffisant avec le texte blanc (voir README).
+     * Composition de l’accueil du site public.
      */
+    gabarit?: ('village' | 'littoral') | null;
+    /**
+     * L’ordre des lignes est l’ordre de gauche à droite. Frise vide = pas de frise.
+     */
+    frise?:
+      | {
+          piece: string;
+          taille?: ('petite' | 'moyenne' | 'grande') | null;
+          ecart?: number | null;
+          id?: string | null;
+        }[]
+      | null;
     couleurPrincipale?: string | null;
     couleurAccent?: string | null;
+    couleurTerre?: string | null;
+    /**
+     * Vide = couleur dérivée des trois choisies. Une couleur forcée est utilisée telle quelle (I24) : le contraste est sous votre responsabilité.
+     */
+    couleursForcees?: {
+      texte?: string | null;
+      pale?: string | null;
+      profond?: string | null;
+      picto1?: string | null;
+      picto2?: string | null;
+      picto3?: string | null;
+      picto4?: string | null;
+      picto5?: string | null;
+      picto6?: string | null;
+    };
+    /**
+     * Photo du héros du site public ; le texte alternatif est celui du média.
+     */
+    photoAccueil?: (number | null) | Media;
+  };
+  accueil?: {
+    /**
+     * Préremplies à la création (spec § 1). Sans lien, une démarche n’est pas cliquable.
+     */
+    demarches?:
+      | {
+          picto?: ('dechets' | 'identite' | 'etat-civil' | 'urbanisme' | 'ecole' | 'conseil') | null;
+          /**
+           * Obligatoire en français.
+           */
+          titre?: string | null;
+          precision?: string | null;
+          lien?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * Sans photo, la tuile affiche l’illustration du kit (I30). Sans lien, elle n’est pas cliquable.
+     */
+    mosaique?:
+      | {
+          /**
+           * Obligatoire en français.
+           */
+          libelle?: string | null;
+          lien?: string | null;
+          photo?: (number | null) | Media;
+          illustration: 'sentiers' | 'patrimoine' | 'commerces' | 'associations' | 'ecole' | 'mer' | 'nature';
+          id?: string | null;
+        }[]
+      | null;
   };
   /**
    * Sans cookie ni bandeau, dans l’exemption de la CNIL. Page d’information publique : /mesure-d-audience.
    */
   mesure?: {
     /**
-     * Couper n’efface rien : l’historique reste jusqu’à sa purge à 25 mois.
+     * Mesure d’audience non installée sur cette plateforme
      */
     active?: boolean | null;
     siteUmami?: string | null;
@@ -827,8 +890,54 @@ export interface CommunesSelect<T extends boolean = true> {
   apparence?:
     | T
     | {
+        gabarit?: T;
+        frise?:
+          | T
+          | {
+              piece?: T;
+              taille?: T;
+              ecart?: T;
+              id?: T;
+            };
         couleurPrincipale?: T;
         couleurAccent?: T;
+        couleurTerre?: T;
+        couleursForcees?:
+          | T
+          | {
+              texte?: T;
+              pale?: T;
+              profond?: T;
+              picto1?: T;
+              picto2?: T;
+              picto3?: T;
+              picto4?: T;
+              picto5?: T;
+              picto6?: T;
+            };
+        photoAccueil?: T;
+      };
+  accueil?:
+    | T
+    | {
+        demarches?:
+          | T
+          | {
+              picto?: T;
+              titre?: T;
+              precision?: T;
+              lien?: T;
+              id?: T;
+            };
+        mosaique?:
+          | T
+          | {
+              libelle?: T;
+              lien?: T;
+              photo?: T;
+              illustration?: T;
+              id?: T;
+            };
       };
   mesure?:
     | T
