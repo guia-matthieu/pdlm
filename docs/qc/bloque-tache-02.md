@@ -1,5 +1,7 @@
 # Bloqué — tâche 2, point B10 : un admin de commune ne lit aucune version de SA commune
 
+> **TRANCHÉ le 04/10/2026 — voir la décision 16 du plan.** L'option 2 recommandée ci-dessous ne suffit pas telle quelle : le plugin combine par ET l'accès de la collection et sa contrainte fautive. Le correctif retenu remplace `readVersions` dans un plugin local placé après `multiTenantPlugin`. Ce fichier reste comme trace de la mesure.
+
 Découvert le 04/10/2026 en corrigeant la tâche 2 après relecture (point B10 :
 « un admin de commune, avec `overrideAccess: false`, lit les versions de SA
 commune après une modification (`payload.findVersions`), et ne lit pas celles
