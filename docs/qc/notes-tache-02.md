@@ -240,3 +240,120 @@ Le fichier `tests/int/communes-apparence.int.spec.ts` compte 14 tests
   le modèle `picto()` de la maquette et revient aux tâches 4-5.
 - **`npm run test:e2e`** : non lancé — l'étape 7 de la tâche ne le demande
   pas (le critère de la tâche est `test:int` + `typecheck` + `lint`).
+
+## Corrections après relecture (04/10 soir, commit 0cbfefa)
+
+Relecture acceptée sur le fond ; corrections A/B/C du pilote appliquées.
+Décision 14 précisée relue d'abord (commit `7ba4880`).
+
+### A. Schéma et migration
+
+- `accueil.demarches[].precision` : `localized: true`, facultatif dans toutes
+  les langues (aucun validateur).
+- Migration `20261004_133203` non fusionnée nulle part : `migrate:down` sur
+  `pdlm_gabarits_dev`, fichiers supprimés (y compris l'entrée `index.ts`),
+  recréée en `20261004_144904_gabarits_couleurs`. SQL **lu en entier** :
+  périmètre identique à la première, `precision` en plus dans
+  `communes_accueil_demarches_locales` (et sa copie `_communes_v`), la table
+  principale ne la porte plus.
+- Préremplissage : mêmes instructions CTE, valeurs en **littéraux** exportés
+  (`DEMARCHES_MIGRATION`, `MOSAIQUE_MIGRATION`), aucun import de `src/lib/`
+  (migration figée). Exporter ces littéraux ne pose aucun problème au
+  chargeur de migrations (il ne lit que `up`/`down`).
+- Nouveau test unitaire `tests/unit/accueil-defauts.spec.ts` comparant les
+  littéraux à `DEMARCHES_DEFAUT`/`MOSAIQUE_DEFAUT` — écrit d'abord, vu
+  échouer (exports inexistants), puis passant.
+
+```
+$ npx vitest run tests/unit/accueil-defauts.spec.ts   [avant les littéraux]
+ FAIL ... AssertionError: expected undefined to deeply equal [ { ordre: 1, …(3) }, …(5) ]
+      Tests  2 failed
+$ [après ajout des littéraux]  Tests  2 passed
+```
+
+- Aller/retour/aller refait (43 ms / 27 ms / 43 ms), préremplissage vérifié
+  (12 démarches, 8 tuiles, 12 titres fr), `migrate:create controle` →
+  « No schema changes detected », répondu N.
+- `payload-types.ts` régénéré **avec** `UMAMI_URL=http://stats.localhost
+  S3_ENABLED=true` : `git diff 429377e -- src/payload-types.ts` = 2 hunks
+  (interface `Commune`, `CommunesSelect`), 110 insertions / 1 suppression, et
+  **zéro** occurrence de « Couper n'efface rien » ni « non installée » —
+  l'effacement de la description « mesure » commis en cca7775 (génération
+  sans UMAMI_URL par un outil passé après moi) est corrigé.
+
+### B. Tests ajoutés dans `tests/int/communes-apparence.int.spec.ts` (24 au total)
+
+1. I4 positif : photo de A acceptée dans `photoAccueil` et dans une tuile ;
+   mosaïque mêlant photo de A et photo de B refusée.
+2. Opérateur : pose `gabarit: 'littoral'` + frise (relu) ; l'admin change
+   ensuite une couleur — gabarit et frise survivent.
+3. Rédacteur : refus typé `status === 403` (helper `refusAcces`), plus de
+   `toThrow()` nu.
+4. Admin : modifie réellement l'accueil (un titre + une ligne ajoutée,
+   relus) ; admin de A sur commune B → 403.
+5. Mandataire (via organisation + mandat, rôles calculés) : ni apparence ni
+   accueil (403 ×2).
+6. Formats : `#fff` et `#12345678` refusés, `#7FC8A0` accepté **tel quel**
+   (relu), couleur forcée acceptée puis mot refusé.
+7. `lien` de démarche : `javascript:alert(1)` et `//hote.example` refusés
+   (`URL invalide`, chemin `accueil.demarches.0.lien`).
+8. R4 : remplacement d'une ligne par une ligne nouvelle (même longueur, sans
+   id) refusé ; `precision` traduite en corse, valeur française relue
+   inchangée.
+9. Prérempli à la création : liens des 6 démarches (N358/N359/N319 sur les
+   lignes 2-4, null ailleurs) et libellés des 4 tuiles vérifiés.
+10. Versions : **bloqué**, voir `docs/qc/bloque-tache-02.md` et ci-dessous.
+
+### C. Chaque test nouveau peut échouer — code cassé une fois par famille, constaté, rétabli
+
+```
+Casse validateur couleurs (validerCouleur → true) :
+     × accepte une couleur illisible et des majuscules, refuse les formats invalides
+     × couleurs forcées : un hexa passe, un mot est refusé
+      Tests  2 failed | 1 passed | 21 skipped
+
+Casse hooks I4 (tout média posé accompagné d'un id inexistant → tout refus) :
+     × accepte une photo d’accueil et des photos de mosaïque de la commune
+ValidationError: The following field is invalid: apparence.photoAccueil
+      Tests  1 failed | 23 passed
+(NB : une première casse trop large — id bidon aussi sur les lignes sans
+photo — faisait échouer la CRÉATION des communes dans beforeAll et laissait
+tout le fichier « skipped » ; resserrée pour ne viser que les photos posées.)
+
+Casse accès gabarit/frise (update: () => false, opérateur compris) :
+     × l’opérateur pose le gabarit et la frise, l’admin ne les écrase pas
+AssertionError: expected 'village' to be 'littoral'
+      Tests  1 failed | 23 skipped
+```
+
+Rétabli ensuite ; run final du fichier : **24 passed**.
+
+### Bloqué — B10 : versions invisibles pour un admin de commune
+
+`payload.findVersions` avec `user: adminA, overrideAccess: false` renvoie
+**0** version de SA commune (2 existent ; opérateur → 2 ; override → 2).
+Cause lue dans le plugin : contrainte `version.id in [communes]` pour le
+`readVersions` de la collection tenants — `version.id` est l'id de **ligne**
+de version, pas le parent. Non corrigé (consigne) ; le test épingle l'état
+observé (0) avec renvoi au fichier bloqué, qui porte la requête, la sortie,
+trois options et la recommandation (`access.readVersions` explicite sur
+`Communes` par `{ parent: { in: ids } }`).
+
+### Vérifications finales (sorties réelles)
+
+```
+$ npm run test:int
+      Tests  217 passed (217)      [dont 24 dans communes-apparence]
+$ npm run test:unit
+      Tests  154 passed (154)      [dont les 2 nouveaux accueil-defauts]
+$ npm run typecheck
+— aucune sortie, 0 erreur
+$ npm run lint
+✖ 50 problems (2 errors, 48 warnings)  — les 2 erreurs : sondes .superpowers/
+  connues ; 0 erreur dans src/ et tests/
+$ echo N | npm run payload migrate:create controle
+? No schema changes detected. … no
+$ git status --short
+— vide après remise à zéro du hors-périmètre (re-vérifié octet-identique au
+  prettier du contenu commité : 22/22)
+```
