@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { idRelation } from './relation'
 import type { Actualite, Alerte, Commune, Evenement, Media, Menu, Page } from '../payload-types'
 import type { DataFromCollectionSlug, Where } from 'payload'
 
@@ -153,12 +154,16 @@ export async function mediaDe(
   ref: unknown,
   langue: CodeLangue = FRANCAIS,
 ): Promise<(Media & { langueAlt: CodeLangue }) | null> {
-  if (ref === undefined || ref === null || ref === '') return null
+  // La commune du site est lue avec ses relations peuplées (photo d'accueil,
+  // tuiles de la mosaïque) : on repart toujours de l'identifiant, pour que le
+  // contrôle d'appartenance ci-dessous s'applique dans les deux cas.
+  const idMedia = idRelation(ref)
+  if (idMedia === null) return null
   const payload = await getPayloadClient()
   const media = await payload
     .findByID({
       collection: 'media',
-      id: ref as string | number,
+      id: idMedia,
       depth: 0,
       overrideAccess: true,
     })
@@ -172,7 +177,14 @@ export async function mediaDe(
   if (tenant !== id) return null
   if (langue === FRANCAIS) return { ...media, langueAlt: FRANCAIS }
   const enL = await payload
-    .findByID({ collection: 'media', id: media.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+    .findByID({
+      collection: 'media',
+      id: media.id,
+      locale: langue,
+      fallbackLocale: false,
+      depth: 0,
+      overrideAccess: true,
+    })
     .catch(() => null)
   const altL = enL?.alt
   return { ...media, alt: altL || media.alt, langueAlt: altL ? langue : FRANCAIS }
@@ -229,7 +241,11 @@ export async function domainesCommune(id: IdCommune): Promise<DomaineLangue[]> {
     limit: 50,
     overrideAccess: true,
   })
-  return res.docs.map((d) => ({ hostname: d.hostname, langue: d.langue ?? FRANCAIS, canonique: d.canonique === true }))
+  return res.docs.map((d) => ({
+    hostname: d.hostname,
+    langue: d.langue ?? FRANCAIS,
+    canonique: d.canonique === true,
+  }))
 }
 
 /** Sous-domaine de la plateforme (repli quand aucun domaine canonique n'existe). */
@@ -284,7 +300,8 @@ export async function versionsEnLangue<C extends Traduisible>(
   docsFr: DataFromCollectionSlug<C>[],
   langue: CodeLangue,
 ): Promise<EnLangue<DataFromCollectionSlug<C>>[]> {
-  if (langue === FRANCAIS || docsFr.length === 0) return docsFr.map((doc) => ({ doc, langue: FRANCAIS }))
+  if (langue === FRANCAIS || docsFr.length === 0)
+    return docsFr.map((doc) => ({ doc, langue: FRANCAIS }))
   const payload = await getPayloadClient()
   const res = await payload.find({
     collection,
@@ -322,7 +339,9 @@ export async function languesDisponibles(
   for (const langue of languesSite.filter((l) => l !== FRANCAIS)) {
     const res = await payload.find({
       collection,
-      where: { and: [baseCommune(idCommune), { id: { in: ids } }, { traduction: { equals: 'validee' } }] },
+      where: {
+        and: [baseCommune(idCommune), { id: { in: ids } }, { traduction: { equals: 'validee' } }],
+      },
       locale: langue,
       fallbackLocale: false,
       depth: 0,
@@ -341,7 +360,11 @@ export interface TexteEnLangue {
 }
 
 /** Règle 3 : petit texte traduit s'il existe, sinon le français, marqué. */
-function texteEnLangue(enL: string | null | undefined, fr: string, langue: CodeLangue): TexteEnLangue {
+function texteEnLangue(
+  enL: string | null | undefined,
+  fr: string,
+  langue: CodeLangue,
+): TexteEnLangue {
   return enL ? { texte: enL, langue } : { texte: fr, langue: FRANCAIS }
 }
 
@@ -367,7 +390,14 @@ export async function menuEnLangue(
   const enL =
     langue === FRANCAIS
       ? fr
-      : await payload.findByID({ collection: 'menus', id: fr.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+      : await payload.findByID({
+          collection: 'menus',
+          id: fr.id,
+          locale: langue,
+          fallbackLocale: false,
+          depth: 0,
+          overrideAccess: true,
+        })
   const labelsL = new Map<string, string | null | undefined>()
   for (const item of enL.items ?? []) {
     if (item.id) labelsL.set(item.id, item.label)
@@ -382,7 +412,10 @@ export async function menuEnLangue(
       label: texteEnLangue(labelsL.get(item.id ?? ''), item.label ?? '', langue),
       href: href(item.page, item.url),
       enfants: (item.enfants ?? [])
-        .map((e) => ({ label: texteEnLangue(labelsL.get(e.id ?? ''), e.label ?? '', langue), href: href(e.page, e.url) }))
+        .map((e) => ({
+          label: texteEnLangue(labelsL.get(e.id ?? ''), e.label ?? '', langue),
+          href: href(e.page, e.url),
+        }))
         .filter((e) => e.href),
     }))
     .filter((e) => e.href)
@@ -396,7 +429,16 @@ export async function communeEnLangue(
   const enL =
     langue === FRANCAIS
       ? commune
-      : await (await getPayloadClient()).findByID({ collection: 'communes', id: commune.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+      : await (
+          await getPayloadClient()
+        ).findByID({
+          collection: 'communes',
+          id: commune.id,
+          locale: langue,
+          fallbackLocale: false,
+          depth: 0,
+          overrideAccess: true,
+        })
   return {
     nom: texteEnLangue(enL.nom, commune.nom ?? '', langue),
     horaires: commune.horaires ? texteEnLangue(enL.horaires, commune.horaires, langue) : null,
@@ -419,23 +461,42 @@ export interface AccueilEnLangue {
  * photo) viennent toujours du document français. Les lignes s'apparient par
  * leur `id` : la structure ne se modifie qu'en français (R4).
  */
-export async function accueilEnLangue(commune: Commune, langue: CodeLangue): Promise<AccueilEnLangue> {
+export async function accueilEnLangue(
+  commune: Commune,
+  langue: CodeLangue,
+): Promise<AccueilEnLangue> {
   const fr: AccueilEnLangue = {
     demarches: (commune.accueil?.demarches ?? []).map((d) => ({ ...d, langue: FRANCAIS })),
     mosaique: (commune.accueil?.mosaique ?? []).map((t) => ({ ...t, langue: FRANCAIS })),
   }
   if (langue === FRANCAIS) return fr
-  const enL = await (await getPayloadClient())
-    .findByID({ collection: 'communes', id: commune.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+  const enL = await (
+    await getPayloadClient()
+  )
+    .findByID({
+      collection: 'communes',
+      id: commune.id,
+      locale: langue,
+      fallbackLocale: false,
+      depth: 0,
+      overrideAccess: true,
+    })
     .catch(() => null)
   const demarchesL = new Map(
     (enL?.accueil?.demarches ?? []).filter((d) => d.id).map((d) => [d.id as string, d]),
   )
-  const mosaiqueL = new Map((enL?.accueil?.mosaique ?? []).filter((t) => t.id).map((t) => [t.id as string, t]))
+  const mosaiqueL = new Map(
+    (enL?.accueil?.mosaique ?? []).filter((t) => t.id).map((t) => [t.id as string, t]),
+  )
   return {
     demarches: fr.demarches.map((d) => {
       const l = d.id ? demarchesL.get(d.id) : undefined
-      return { ...d, titre: l?.titre || d.titre, precision: l?.precision ?? d.precision, langue: l?.titre ? langue : FRANCAIS }
+      return {
+        ...d,
+        titre: l?.titre || d.titre,
+        precision: l?.precision ?? d.precision,
+        langue: l?.titre ? langue : FRANCAIS,
+      }
     }),
     mosaique: fr.mosaique.map((t) => {
       const l = t.id ? mosaiqueL.get(t.id) : undefined
@@ -480,7 +541,11 @@ export async function construireSitemap(site: Site): Promise<string> {
     },
     ...pages.docs
       .filter((p) => p.slug !== 'accueil')
-      .map((p) => ({ chemin: `/${p.slug}`, langues: dispoPages.get(p.id) ?? [FRANCAIS], priorite: '0.7' })),
+      .map((p) => ({
+        chemin: `/${p.slug}`,
+        langues: dispoPages.get(p.id) ?? [FRANCAIS],
+        priorite: '0.7',
+      })),
     { chemin: '/actualites', langues: languesSite, priorite: '0.8' },
     ...actus.docs.map((a) => ({
       chemin: `/actualites/${a.slug}`,
@@ -490,5 +555,10 @@ export async function construireSitemap(site: Site): Promise<string> {
     { chemin: '/agenda', langues: languesSite, priorite: '0.6' },
     { chemin: '/documents', langues: languesSite, priorite: '0.5' },
   ]
-  return sitemapXml(ressources, langueRacine, await domainesCommune(commune.id), basePlateforme(commune.slug))
+  return sitemapXml(
+    ressources,
+    langueRacine,
+    await domainesCommune(commune.id),
+    basePlateforme(commune.slug),
+  )
 }

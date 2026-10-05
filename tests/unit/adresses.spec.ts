@@ -44,9 +44,16 @@ describe('aiguiller (proxy)', () => {
       '/mesure/api/send',
       '/mesure/script.js',
       '/mesure/opposition',
+      // Fichiers de public/ : les pictogrammes des démarches (masques CSS).
+      '/pictos/dechets.svg',
     ]) {
       expect(aiguiller(chemin), chemin).toBeNull()
     }
+  })
+
+  it('hors de ses fichiers, /pictos reste un chemin de page', () => {
+    expect(aiguiller('/pictos')).toBe(`/${RACINE}/pictos`)
+    expect(aiguiller('/pictos/a/b.svg')).toBe(`/${RACINE}/pictos/a/b.svg`)
   })
 })
 

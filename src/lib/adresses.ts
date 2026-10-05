@@ -9,7 +9,13 @@ import { FRANCAIS, estCodeLangue, type CodeLangue } from './langues'
 export const RACINE = 'racine'
 
 /** Routes qui vivent hors de `[lang]` : jamais réécrites. */
-const HORS_LANGUE = [/^\/sitemap\.xml$/, /^\/robots\.txt$/, /^\/mesure\/(api\/send|script\.js|opposition)$/]
+const HORS_LANGUE = [
+  /^\/sitemap\.xml$/,
+  /^\/robots\.txt$/,
+  /^\/mesure\/(api\/send|script\.js|opposition)$/,
+  // Fichiers de public/ : pictogrammes des démarches, chargés en masque CSS.
+  /^\/pictos\/[^/]+\.svg$/,
+]
 
 /** Proxy : chemin de réécriture interne, ou null si le chemin passe tel quel. */
 export function aiguiller(pathname: string): string | null {
@@ -74,7 +80,8 @@ export function choisirLangue({
 }): Decision {
   if (param === RACINE) return { type: 'afficher', langue: langueRacine }
   if (!estCodeLangue(param) || !languesSite.includes(param)) return { type: 'introuvable' }
-  if (param === langueRacine) return { type: 'rediriger', vers: cheminSansPrefixe(cheminDemande).reste }
+  if (param === langueRacine)
+    return { type: 'rediriger', vers: cheminSansPrefixe(cheminDemande).reste }
   return { type: 'afficher', langue: param }
 }
 
@@ -166,11 +173,18 @@ export function sitemapXml(
       if (!loc || !origineIci || new URL(loc).origin !== origineIci) continue
       const liens = [...r.langues, 'x-default' as const]
         .map((autre) => {
-          const href = adresseCanonique(autre === 'x-default' ? FRANCAIS : autre, r.chemin, domaines, basePlateforme)
+          const href = adresseCanonique(
+            autre === 'x-default' ? FRANCAIS : autre,
+            r.chemin,
+            domaines,
+            basePlateforme,
+          )
           return `<xhtml:link rel="alternate" hreflang="${autre}" href="${echapperXml(href)}"/>`
         })
         .join('')
-      lignes.push(`  <url><loc>${echapperXml(loc)}</loc>${liens}<priority>${r.priorite}</priority></url>`)
+      lignes.push(
+        `  <url><loc>${echapperXml(loc)}</loc>${liens}<priority>${r.priorite}</priority></url>`,
+      )
     }
   }
   return `<?xml version="1.0" encoding="UTF-8"?>
