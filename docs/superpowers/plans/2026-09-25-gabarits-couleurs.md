@@ -970,7 +970,7 @@ body {
 - Create: `src/gabarits/frise.ts` — `composerFrise(kit: Kit, lignes: { piece: string; taille: Taille; ecart?: number | null }[], largeur = 1440): { svg: string | null; ignorees: string[] }` : pièce hors kit → ignorée et listée ; aucune ligne valide → `svg: null`.
 - Create: `src/gabarits/sections/{Heros,Demarches,Mairie,TexteLibre,Actualites,Agenda,Mosaique}.tsx` et `src/gabarits/Accueil.tsx` (rend les sections dans l'ordre de `gabarit.accueil`).
 - Create: `src/gabarits/CONTRAT.md` (version 1 : contenu de la spec § 6 « Le contrat de gabarit », plus l'export `ornements` si Q3 est acceptée).
-- Modify: `src/app/(frontend)/[lang]/page.tsx` (ancre à relire : aujourd'hui `src/app/(frontend)/page.tsx`, qui rend `pageAccueil(commune.id)` ou « Le site est en cours de construction »).
+- Modify: `src/app/(frontend)/[lang]/page.tsx` (ancre revérifiée le 05/10 : la page est sous `[lang]/` depuis le multilingue et rend `pageAccueil(commune.id)` via `versionEnLangue`, ou « Le site est en cours de construction » — `contenu.ts` expose `pageAccueil` l. 45).
 - Modify: `src/i18n/fr.ts`, `src/i18n/co.ts` — clés `accueil.demarches` (« Vos démarches »), `accueil.agenda` (« Au village ce mois-ci »), `accueil.actualites` (« Actualités »), `accueil.mosaique` (« Vivre à {commune} »), `accueil.toutAgenda` (« Tout l’agenda »). Textes corses : à faire relire (question ouverte n° 1 de la spec multilingue).
 - Test: `tests/unit/gabarits-frise.spec.ts`, `tests/e2e/gabarits-conformite.e2e.spec.ts`
 
