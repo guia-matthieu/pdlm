@@ -187,6 +187,88 @@ $ git status --short
 — vide
 ```
 
+## Corrections après relecture (05/10)
+
+Relecture acceptée (écarts déclarés justifiés, suite e2e complète rejouée :
+31 verts). Trois corrections, un commit chacune, après lecture de la
+**décision 17** posée par le relecteur (`0101086`) : sur un fond `--pale`
+(alias `--couleur-fond-alt`), texte, titres et liens en `--encre` ;
+`--principale-sure` ne sert de couleur de texte que sur blanc.
+
+### 1. Décision 17 appliquée aux zones à fond pâle (`02ab7cf`)
+
+Grep de `--couleur-fond-alt` dans `styles.css` : **trois zones** citées par le
+relecteur — `.bandeau-alertes`, `.bloc-contact`, `.pied-page` — plus un emploi
+au **survol** de la navigation (`.nav-principale a:hover,
+.nav-deroulant summary:hover`), relevé et laissé tel quel : état transitoire
+et non une zone de contenu ; le texte de nav y est `--couleur-texte`
+(#161616 sur pâle ≈ 13:1), la décision n'est pas en jeu.
+
+Le pied de page de la commune de démonstration **a des liens** (mentions
+légales, etc. dans `.pied-page__mentions`) : le test vise
+`.pied-page__mentions a`. **Test écrit et vu échouer d'abord** :
+
+```
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+    Expected: >= 4.5
+    Received:    4.1084351542232636
+    > 95 |       expect(contrasteWcag(pied.couleurLien, pied.fond)).toBeGreaterThanOrEqual(4.5)
+```
+
+(4,11 = `#3c8460` sur le pâle par défaut, conforme à la mesure d'origine du
+relecteur « environ 4,1 ».) Correctif : liens des trois zones en
+`var(--encre)` soulignés (règle groupée après le `a` global), `h2` du pied de
+page en `var(--encre)`. `couleurs.ts` et ses tests inchangés. Repassé : **2
+passed**.
+
+### 2. Appels API par le navigateur (`7a74362`)
+
+L'`Origin` calculée depuis `E2E_PORT` ne correspondait à la liste CSRF de
+`src/payload.config.ts` que par coïncidence de port. Les trois appels API du
+test passent désormais par `page.evaluate(fetch(..., { credentials:
+'include' }))` — helper `apiCommunes` — : le navigateur porte la session et
+ses propres en-têtes, acceptés de Payload. `Origin` posée à la main retirée
+(le bloc `PORT`/`ORIGINE`/`API` disparaît). **Ça passe** : couleurs 2 passed
+(GET et PATCH), donc la limite prévue par le relecteur (« si ça ne passe
+pas, garde la forme actuelle ») n'a pas eu lieu d'être.
+
+### 3. Alias épinglés et restauration sans masquage (`fda8160`)
+
+Le test des défauts asserte maintenant **les quatre alias lus sur
+`document.body`** : `--couleur-principale` `#264653`, `--couleur-accent`
+`#e2a72e`, `--couleur-fond-alt` `#e6f7fe` (sorties du prototype épinglées en
+unitaire), `--couleur-erreur` `#b3261e` (fixe `--alerte`). Dans le `finally`,
+un échec de restauration du seed ne remplace plus l'erreur d'origine : il ne
+fait échouer le test que si le corps est passé (drapeau `corpsVerifie`),
+sinon signalé sur stderr. Vert : **2 passed**.
+
+### Sans objet
+
+`--focus` : la spec juge l'anneau de focus existant suffisant, aucune
+variable à poser (aucun changement).
+
+### Vérifications finales après corrections (sorties réelles)
+
+```
+$ npm run typecheck
+> pdlm@0.1.0 typecheck
+> tsc --noEmit
+— aucune sortie, 0 erreur
+
+$ npm run lint
+  — 0 erreur dans src/ et tests/ ; les 2 erreurs du compteur global restent
+    les sondes .superpowers/ (probe-review.ts 44:3, probe-review2.ts 22:3)
+
+$ npm run test:unit
+      Tests  154 passed (154)
+
+$ npm run test:e2e   [suite complète, une fois]
+  31 passed (49.3s)
+
+$ git status --short
+— vide
+```
+
 ## Ce que je n'ai pas pu vérifier
 
 - **L'onglet « Versions » dans l'UI admin** (ce que voit un admin de commune
