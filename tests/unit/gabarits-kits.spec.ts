@@ -43,7 +43,7 @@ describe.each(Object.entries(GABARITS))('kit du gabarit %s', (nom, { gabarit, ki
     // `constructor`, `toString`… existent sur tout objet via le prototype.
     for (const nomInconnu of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) {
       bienForme(
-        illustrations.scene(nomInconnu, 480, 600),
+        illustrations.scene(nomInconnu as never, 480, 600),
         `${nom} scène « ${nomInconnu} » (repli nature)`,
       )
     }
