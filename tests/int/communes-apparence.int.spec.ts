@@ -508,7 +508,6 @@ describe('droits — apparence et accueil (décisions 14, 15)', () => {
   let mandataireA: User
   let operateur: User
   let organisation: number
-  let mandat: number
   const SIRET_TEST = '34000000000004'
 
   // Rejouable après une exécution interrompue : l'opérateur n'est rattaché à
@@ -576,13 +575,11 @@ describe('droits — apparence et accueil (décisions 14, 15)', () => {
         overrideAccess: true,
       })
     ).id
-    mandat = (
-      await payload.create({
-        collection: 'mandats',
-        data: { organisation, commune: communeA },
-        overrideAccess: true,
-      })
-    ).id
+    await payload.create({
+      collection: 'mandats',
+      data: { organisation, commune: communeA },
+      overrideAccess: true,
+    })
     mandataireA = await payload.create({
       collection: 'users',
       data: {
