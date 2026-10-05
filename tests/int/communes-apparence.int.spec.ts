@@ -509,8 +509,35 @@ describe('droits — apparence et accueil (décisions 14, 15)', () => {
   let operateur: User
   let organisation: number
   let mandat: number
+  const SIRET_TEST = '34000000000004'
+
+  // Rejouable après une exécution interrompue : l'opérateur n'est rattaché à
+  // aucune commune, il survit à la suppression des communes de test et ferait
+  // échouer la création suivante (e-mail déjà pris).
+  const purger = async () => {
+    await payload.delete({
+      collection: 'users',
+      where: { email: { like: '@apparence.pdlm.invalid' } },
+      overrideAccess: true,
+    })
+    const restes = await payload.find({
+      collection: 'organisations',
+      where: { siret: { equals: SIRET_TEST } },
+      overrideAccess: true,
+      depth: 0,
+    })
+    for (const o of restes.docs) {
+      await payload.delete({
+        collection: 'mandats',
+        where: { organisation: { equals: o.id } },
+        overrideAccess: true,
+      })
+      await payload.delete({ collection: 'organisations', id: o.id, overrideAccess: true })
+    }
+  }
 
   beforeAll(async () => {
+    await purger()
     const mkUser = (
       suffixe: string,
       roles: Array<'admin' | 'redacteur' | 'mandataire'>,
@@ -544,7 +571,8 @@ describe('droits — apparence et accueil (décisions 14, 15)', () => {
     organisation = (
       await payload.create({
         collection: 'organisations',
-        data: { nom: 'CC Apparence', nature: 'epci', siret: '32000000000002' },
+        // SIRET propre à ce fichier : `lignes-mandat` crée '32000000000002' en parallèle.
+        data: { nom: 'CC Apparence', nature: 'epci', siret: SIRET_TEST },
         overrideAccess: true,
       })
     ).id
@@ -568,13 +596,11 @@ describe('droits — apparence et accueil (décisions 14, 15)', () => {
   })
 
   afterAll(async () => {
-    for (const u of [adminA, redacteurA, mandataireA, operateur]) {
-      await payload.delete({ collection: 'users', id: u.id, overrideAccess: true })
-    }
-    // Avant la commune (beforeDelete refuse un mandat vivant) et avant
-    // l'organisation (liée par le mandat).
-    await payload.delete({ collection: 'mandats', id: mandat, overrideAccess: true })
-    await payload.delete({ collection: 'organisations', id: organisation, overrideAccess: true })
+    // Par critère et non par identifiant : si `beforeAll` a échoué en route,
+    // les variables sont indéfinies et un nettoyage par `id` laisserait des restes.
+    // Mandat avant la commune (beforeDelete refuse un mandat vivant) et avant
+    // l'organisation (liée par le mandat) : `purger` respecte cet ordre.
+    await purger()
   })
 
   it('le rédacteur ne modifie pas la fiche commune (refus 403)', async () => {
