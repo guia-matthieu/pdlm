@@ -294,10 +294,9 @@ export async function seedContenuDemo(
       data: {
         tenant: saintExId,
         nom: 'Principal',
-        items: [
-          { label: 'Vie municipale', page: vieMunicipale.docs[0]?.id },
-          { label: 'Documents', url: '/documents' },
-        ],
+        // Actualités, Agenda et Documents sont des liens fixes de Navigation :
+        // les remettre ici les afficherait deux fois.
+        items: [{ label: 'Vie municipale', page: vieMunicipale.docs[0]?.id }],
       },
       overrideAccess: true,
     })
