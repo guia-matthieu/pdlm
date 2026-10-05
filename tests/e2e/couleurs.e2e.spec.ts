@@ -57,7 +57,15 @@ test.describe('Couleurs — le site public sert les variables dérivées', () =>
     // Sans saisie, la principale sûre vaut le défaut ardoise.
     expect(await variableDuCorps(page, '--principale-sure')).toBe('#264653')
 
-    // Alias : --couleur-principale suit la dérivée, un lien en prend la couleur
+    // Les quatre alias résolus aux valeurs dérivées par défaut (sortie du
+    // prototype épinglée en tests unitaires : pale #e6f7fe, accent #e2a72e ;
+    // erreur = fixe --alerte).
+    expect(await variableDuCorps(page, '--couleur-principale')).toBe('#264653')
+    expect(await variableDuCorps(page, '--couleur-accent')).toBe('#e2a72e')
+    expect(await variableDuCorps(page, '--couleur-fond-alt')).toBe('#e6f7fe')
+    expect(await variableDuCorps(page, '--couleur-erreur')).toBe('#b3261e')
+
+    // L'alias --couleur-principale colore réellement les liens sur fond blanc
     // (#264653 = rgb(38, 70, 83)). Le titre de l'en-tête est un lien sans
     // règle de couleur propre — pas le lien d'évitement, blanc par design.
     const couleurLien = await page.evaluate(() => {
@@ -74,6 +82,7 @@ test.describe('Couleurs — le site public sert les variables dérivées', () =>
     const commune = JSON.parse(communes.corps).docs[0]
     const avant = commune.apparence?.couleurPrincipale ?? null
 
+    let corpsVerifie = false
     try {
       const patch = await apiCommunes(page, `/api/communes/${commune.id}`, {
         method: 'PATCH',
@@ -100,14 +109,21 @@ test.describe('Couleurs — le site public sert les variables dérivées', () =>
       })
       expect(pied.couleurLien, 'un lien du pied de page').not.toBe('')
       expect(contrasteWcag(pied.couleurLien, pied.fond)).toBeGreaterThanOrEqual(4.5)
+      corpsVerifie = true
     } finally {
-      // L'état du seed est remis tel qu'avant le test.
+      // L'état du seed est remis tel qu'avant le test. Un échec ici ne doit pas
+      // masquer l'erreur d'origine : il ne fait échouer le test que si le corps
+      // est passé ; sinon il est signalé sans relancer l'assertion.
       const restaure = await apiCommunes(page, `/api/communes/${commune.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apparence: { couleurPrincipale: avant } }),
       })
-      expect(restaure.ok, restaure.corps).toBe(true)
+      if (!restaure.ok) {
+        const message = `état du seed non remis (${restaure.statut}) : ${restaure.corps}`
+        if (corpsVerifie) throw new Error(message)
+        console.error(message, '— signalé sans masquer l’erreur d’origine du test')
+      }
     }
   })
 })
