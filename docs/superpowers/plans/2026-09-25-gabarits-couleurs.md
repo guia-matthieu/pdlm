@@ -96,7 +96,7 @@ Les cinq entrées que la spec implique et qu'un utilisateur rencontrera, les plu
 
 ### Task 1: Dérivation des couleurs (`src/lib/couleurs.ts`)
 
-**Statut : prête.** À faire maintenant, sur `gabarits-couleurs` dans `~/Projects/glm.gabarits` (fichiers neufs, aucun conflit possible avec les deux autres chantiers).
+**Statut : fait et relu le 25/09.**
 
 **Files:**
 - Create: `src/lib/couleurs.ts`
@@ -681,7 +681,7 @@ transférerait pas) ; un gris saisi reste un gris exact."
 
 ### Task 2: Données, droits, versions, préremplissage (spec § 1)
 
-**Statut : à faire (porte ouverte le 04/10). Lire les décisions 14 et 15 avant de poser les champs.**
+**Statut : fait les 04-05/10, corrigé après relecture le 04/10 soir. Notes : `docs/qc/notes-tache-02.md`.**
 
 **Files:**
 - Modify: `src/collections/Communes.ts` — groupe `apparence` (ancre vérifiée le 25/09 sur `umami-collecte` : `name: 'apparence'`, 2 champs `couleurPrincipale` / `couleurAccent`, validation `^#[0-9a-fA-F]{6}$`) ; `hooks.beforeChange` (ancre : `validerRelationsTenant((data) => ({ media: data['logo'] … champMedia: 'logo' }), ({ originalDoc }) => idDe(originalDoc) ?? null)`).
@@ -909,7 +909,7 @@ for (const [ordre, d] of DEMARCHES_DEFAUT.entries()) {
 
 ### Task 3: Le layout injecte `deriver()` ; anciens noms en alias (spec § 2)
 
-**Statut : à faire (porte ouverte le 04/10).** Le layout public aura été déplacé par le multilingue (`app/(frontend)/[lang]/layout.tsx` selon sa spec § 3) : **l'ancre est à relire au déblocage**.
+**Statut : fait le 05/10, relu puis corrigé le même jour (décision 17 du relecteur). Notes : `docs/qc/notes-tache-03.md`.**
 
 **Files:**
 - Modify: le layout qui pose `<body style={{ '--couleur-principale': … }}>` (sur `umami-collecte` : `src/app/(frontend)/layout.tsx`, bloc `// Couleur non saisie : variable non posée…`).
@@ -962,7 +962,7 @@ body {
 
 ### Task 4: Moteur de gabarits, sections communes, contrat et suite de conformité (spec § 3, § 6)
 
-**Statut : à faire** (porte ouverte le 04/10 ; réponse à Q3 : tranchées le 25/09).
+**Statut : fait le 05/10 (deux sessions), relu et corrigé le même jour. Notes : `docs/qc/notes-tache-04.md`.** (Réponse à Q3 : tranchée le 25/09.)
 
 **Files:**
 - Create: `src/gabarits/types.ts` — `NomSection = 'heros' | 'demarches' | 'mairie' | 'texteLibre' | 'actualites' | 'agenda' | 'mosaique'`, `Taille = 'petite' | 'moyenne' | 'grande'`, `Gabarit = { nom: string; libelle: string; versionContrat: number; polices: string[]; accueil: { section: NomSection; variante?: string }[]; cadrageHeros: 'haut' | 'panorama' }`, `Kit = { horizon(): string; pieces: Record<string, (x: number, sol: number, taille: Taille) => { formes: string[]; traits: string[] }>; ornements?: Record<string, () => string> }`, `Illustrations = { scene(nom: Scene, largeur: number, hauteur: number): string; heros(largeur: number, hauteur: number): string }`.
@@ -1118,8 +1118,9 @@ describe('composerFrise', () => {
 
 - [ ] **Step 1:** réécrire `README.md` § « Accessibilité (RGAA) » (l. 167-182 le 25/09) : retirer la consigne de vérifier le contraste à la main (« Une couleur trop claire… vérifier avant d'activer la commune ») ; dire ce que garantit la dérivation (I24, I25), ce qu'elle ne garantit pas (une couleur **forcée**), et garder la phrase « seule une recette manuelle (grille RGAA officielle) fait foi ».
 - [ ] **Step 2:** captures Playwright de l'accueil, 1440 et 390, par gabarit × 2 jeux de couleurs très différents (`#2a7f9e/#f2b134/#d2462f` et `#9b3d57/#7fc4c9/#e08a2c`, ceux des maquettes) × avec et sans photos = 16 captures, montées en planche-contact ; **les regarder** et les montrer à l'utilisateur avant fusion.
-- [ ] **Step 3:** `npm run lint && npm run typecheck && npm test` — sortie collée dans la PR.
-- [ ] **Step 4: Commit** — `"README — accessibilité : ce que garantit la dérivation des couleurs"`.
+- [ ] **Step 3:** lancer la suite de conformité (`gabarits-conformite.e2e.spec.ts`) contre un **build de production** (`npm run build` puis `next start`) : l'égalité des scripts entre accueil et page intérieure (I27, point 2) y est vérifiée **sans le filtre des chunks** — les noms de chunks sont stables en prod, contrairement au dev turbopack qui les nomme par route (mesuré en tâche 4 : les deux listes filtrées sont vides en dev). Axe et contrastes y sont aussi mesurés dans les conditions réelles.
+- [ ] **Step 4:** `npm run lint && npm run typecheck && npm test` — sortie collée dans la PR.
+- [ ] **Step 5: Commit** — `"README — accessibilité : ce que garantit la dérivation des couleurs"`.
 
 ---
 
