@@ -8,7 +8,17 @@ export const co: Dictionnaire = {
   evitement: 'Andà à u cuntenutu',
   menuPrincipal: 'Menu principale',
   selecteurLangue: 'Lingua di u situ',
-  accueil: 'Accolta',
+  accueil: {
+    // Textes de l'accueil composé — PROVISOIRES en corse, à faire relire.
+    lien: 'Accolta',
+    demarches: 'E vostre pratiche',
+    mairie: 'A municipalità',
+    actualites: 'Nutizie',
+    toutesActualites: 'Tutte e nutizie',
+    agenda: 'In u paese stu mese',
+    toutAgenda: 'Tuttu l’agenda',
+    mosaique: (nom: string) => `Campà in ${nom}`,
+  },
   actualites: 'Nutizie',
   agenda: 'Agenda',
   documents: 'Ducumenti',

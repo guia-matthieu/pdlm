@@ -20,7 +20,7 @@ export function Navigation({ elements, ctx }: { elements: ElementMenu[]; ctx: Co
     <nav aria-label={ctx.t.menuPrincipal} id="menu-principal">
       <ul className="nav-principale">
         <li>
-          <a href={lien('/')}>{ctx.t.accueil}</a>
+          <a href={lien('/')}>{ctx.t.accueil.lien}</a>
         </li>
         {elements.map((entete) => (
           <li key={entete.href + entete.label.texte}>

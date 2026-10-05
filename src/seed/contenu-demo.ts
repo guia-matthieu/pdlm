@@ -83,17 +83,15 @@ export async function seedContenuDemo(
 ) {
   const J = 86_400_000
 
+  // La page « accueil » alimente la section texte libre de l'accueil composé
+  // par le gabarit (le héros vient du gabarit) : pas de bloc hero ici, il
+  // serait doublé sur la page d'accueil du site.
   await upsertPage(payload, {
     tenant: saintExId,
     titre: 'Accueil',
     slug: 'accueil',
     _status: 'published',
     blocs: [
-      {
-        blockType: 'hero',
-        titre: 'Bienvenue à Saint-Exupéry-les-Bains',
-        sousTitre: 'Site officiel de la commune — actualités, agenda et démarches.',
-      },
       {
         blockType: 'texteRiche',
         contenu: texteRich(
@@ -305,7 +303,8 @@ export async function seedContenuDemo(
     })
   }
 
-  // Valvert : un accueil minimal (preuve d’isolation des contenus)
+  // Valvert : un accueil minimal (preuve d’isolation des contenus). Pas de
+  // bloc hero : le héros de l'accueil vient du gabarit.
   const valvertAccueil = await upsertPage(payload, {
     tenant: valvertId,
     titre: 'Accueil',
@@ -313,9 +312,10 @@ export async function seedContenuDemo(
     _status: 'published',
     blocs: [
       {
-        blockType: 'hero',
-        titre: 'Bienvenue à Valvert',
-        sousTitre: 'Site officiel de la commune de Valvert.',
+        blockType: 'texteRiche',
+        contenu: texteRich(
+          'Bienvenue à Valvert. Retrouvez ici les actualités et l’agenda de la commune.',
+        ),
       },
     ],
   })
@@ -351,15 +351,16 @@ export async function seedContenuDemo(
   })
 
   // Corse (démo) — textes PROVISOIRES, à relire par un locuteur (spec § 10, point 1).
-  // `titre` (champ page, non affiché — R1) reprend le texte du hero : `exigerTraductionComplete`
-  // l'exige non vide pour valider la traduction, au même titre que `blocs`.
+  // `titre` (champ page, non affiché — R1) reste non vide : `exigerTraductionComplete`
+  // l'exige pour valider la traduction, au même titre que `blocs`.
   await traduire(payload, 'pages', valvertAccueil.id, {
     titre: 'Benvenuti à Valverde',
     blocs: [
       {
-        blockType: 'hero',
-        titre: 'Benvenuti à Valverde',
-        sousTitre: 'Situ ufficiale di u cumunu di Valverde.',
+        blockType: 'texteRiche',
+        contenu: texteRich(
+          'Benvenuti à Valverde. Trovate quì e nutizie è l’agenda di u cumunu.',
+        ),
       },
     ],
   })

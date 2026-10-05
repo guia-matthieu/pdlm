@@ -10,6 +10,7 @@
   /* Fixes, jamais issus de la commune. */
   --alerte: #b3261e;
   --alerte-texte: #ffffff;
+  --focus: #161616;
 }
 
 /*
@@ -70,7 +71,8 @@ a {
 a:focus-visible,
 summary:focus-visible,
 button:focus-visible {
-  outline: 2px solid var(--couleur-texte);
+  /* --focus : variable fixe du contrat de gabarit (décision 5), anneau bicolore. */
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
   box-shadow: 0 0 0 2px var(--couleur-fond);
 }
@@ -491,4 +493,370 @@ main {
   margin: 1rem auto;
   max-width: 46rem;
   padding: 0.5rem 1rem;
+}
+
+/*
+ * Accueil composé par le gabarit (spec gabarits-couleurs § 3). Couleurs : par
+ * les variables du contrat uniquement. Décision 17 : sur un fond pâle
+ * (--couleur-fond-alt), textes, titres et liens sont en --encre ;
+ * --principale-sure ne colore du texte que sur fond blanc.
+ */
+
+/* Héros */
+.section-heros {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: clamp(20rem, 42vw, 32rem);
+  margin-bottom: 2.5rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  /* Fond opaque garantissant le texte blanc, photo ou pas (décision 17). */
+  background: var(--couleur-principale);
+}
+
+.section-heros__image,
+.section-heros__scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.section-heros__scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.section-heros__texte {
+  position: relative;
+  z-index: 2;
+  max-width: 34rem;
+  margin: 0 clamp(1rem, 4vw, 3rem) clamp(4.5rem, 9vw, 7rem);
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  background: var(--profond);
+}
+
+.section-heros__texte h1 {
+  margin: 0;
+  color: var(--couleur-texte-blanc);
+  font-size: clamp(1.8rem, 4.5vw, 3rem);
+  line-height: 1.15;
+}
+
+/* Frise du territoire : silhouette blanche en bas du héros ; sans elle, un fondu. */
+.section-heros__frise,
+.section-heros__fondu {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  height: clamp(4.5rem, 9vw, 8rem);
+}
+
+.section-heros__frise svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.section-heros__fondu {
+  background: linear-gradient(transparent, var(--couleur-fond));
+}
+
+.section-heros .frise__horizon {
+  fill: var(--couleur-texte-blanc);
+  opacity: 0.55;
+}
+
+.section-heros .frise__formes path {
+  fill: var(--couleur-texte-blanc);
+}
+
+.section-heros .frise__traits path {
+  fill: none;
+  stroke: var(--couleur-texte-blanc);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+/* Scènes d'illustration du kit (repli sans photo, I30) */
+.scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.i-ciel {
+  fill: var(--pale);
+}
+
+.i-soleil {
+  fill: var(--couleur-accent);
+}
+
+.i-loin {
+  fill: color-mix(in oklab, var(--couleur-principale) 20%, var(--pale));
+}
+
+.i-mi {
+  fill: color-mix(in oklab, var(--couleur-principale) 42%, var(--pale));
+}
+
+.i-sol {
+  fill: var(--couleur-principale);
+}
+
+.i-eau {
+  fill: color-mix(in oklab, var(--couleur-principale) 55%, var(--pale));
+}
+
+.i-premier {
+  fill: var(--profond);
+}
+
+.i-formes path {
+  fill: var(--profond);
+}
+
+.i-traits path {
+  fill: none;
+  stroke: var(--accent-sur-profond);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+/* Titre de section + lien « tout voir » */
+.entete-section {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.entete-section h2 {
+  margin: 0;
+}
+
+/* Vos démarches */
+.section-demarches {
+  margin-bottom: 2.5rem;
+}
+
+.demarches {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.demarches a {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--couleur-bordure);
+  border-radius: 0.5rem;
+  background: var(--couleur-fond);
+  text-decoration: none;
+}
+
+.demarches a:hover,
+.demarches a:focus-visible {
+  border-color: var(--couleur-principale);
+}
+
+.demarche__pastille {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 0.6rem;
+  background: var(--ton, var(--terre-sure));
+}
+
+.demarche__picto {
+  width: 1.7rem;
+  height: 1.7rem;
+  background-color: var(--couleur-texte-blanc);
+  -webkit-mask: var(--picto-url) center / contain no-repeat;
+  mask: var(--picto-url) center / contain no-repeat;
+}
+
+.demarche__corps {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.demarche__corps b {
+  font-size: 1.02rem;
+}
+
+.demarche__corps small {
+  color: var(--couleur-texte);
+  opacity: 0.75;
+  font-size: 0.85rem;
+}
+
+/* Carte mairie */
+.section-mairie {
+  margin-bottom: 2.5rem;
+  padding: 1.5rem 1.75rem;
+  border-top: 4px solid var(--couleur-accent);
+  border-radius: 0.5rem;
+  background: var(--couleur-fond);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+}
+
+.section-mairie h2 {
+  margin: 0 0 0.75rem;
+}
+
+.mairie__tel {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Texte libre : les blocs de la page « accueil » se suffisent. */
+.section-texte-libre {
+  margin-bottom: 2.5rem;
+}
+
+/* Actualités — bande pâle : décision 17, textes et liens en encre. */
+.section-actualites {
+  margin-bottom: 2.5rem;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  background: var(--couleur-fond-alt);
+  color: var(--encre);
+}
+
+.section-actualites a {
+  color: var(--encre);
+  text-decoration: underline;
+}
+
+.section-actualites ul {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.section-actualites h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.section-actualites__date {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.section-actualites li > p:last-child {
+  margin: 0;
+}
+
+/* Agenda — fond profond (spec § 2) : texte blanc, dates grandes en accent. */
+.section-agenda {
+  margin-bottom: 2.5rem;
+  padding: 2rem 2rem 1.75rem;
+  border-radius: 0.5rem;
+  background: var(--profond);
+  color: var(--couleur-texte-blanc);
+}
+
+.section-agenda a {
+  color: var(--couleur-texte-blanc);
+  text-decoration: underline;
+}
+
+.section-agenda ol {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.section-agenda__date {
+  margin: 0 0 0.35rem;
+  /* --accent-sur-profond est réservé au texte large (contrat) : 24 px en gras. */
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-sur-profond);
+}
+
+.section-agenda h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.section-agenda__lieu {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Mosaïque « Vivre à {commune} » */
+.section-mosaique {
+  margin-bottom: 2.5rem;
+}
+
+.mosaique {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+}
+
+.mosaique__tuile,
+.mosaique a {
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--couleur-bordure);
+}
+
+.mosaique a {
+  text-decoration: none;
+}
+
+.mosaique a:hover,
+.mosaique a:focus-visible {
+  border-color: var(--couleur-principale);
+}
+
+.mosaique img,
+.mosaique__scene svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+
+.mosaique__libelle {
+  padding: 0.6rem 0.8rem;
+  background: var(--couleur-fond-alt);
+  color: var(--encre);
+  font-weight: 600;
 }

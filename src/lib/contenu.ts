@@ -403,6 +403,47 @@ export async function communeEnLangue(
   }
 }
 
+type DemarcheAccueil = NonNullable<NonNullable<Commune['accueil']>['demarches']>[number]
+type TuileAccueil = NonNullable<NonNullable<Commune['accueil']>['mosaique']>[number]
+
+export interface AccueilEnLangue {
+  /** `langue` par ligne : celle du titre / libellé montré (RGAA 8.7). */
+  demarches: Array<DemarcheAccueil & { langue: CodeLangue }>
+  mosaique: Array<TuileAccueil & { langue: CodeLangue }>
+}
+
+/**
+ * Lignes de l'accueil (démarches, mosaïque) dans la langue affichée (règle 3,
+ * décision 14) : titre et libellé traduits ligne à ligne quand la traduction
+ * existe, sinon le français ; les champs communs (picto, lien, illustration,
+ * photo) viennent toujours du document français. Les lignes s'apparient par
+ * leur `id` : la structure ne se modifie qu'en français (R4).
+ */
+export async function accueilEnLangue(commune: Commune, langue: CodeLangue): Promise<AccueilEnLangue> {
+  const fr: AccueilEnLangue = {
+    demarches: (commune.accueil?.demarches ?? []).map((d) => ({ ...d, langue: FRANCAIS })),
+    mosaique: (commune.accueil?.mosaique ?? []).map((t) => ({ ...t, langue: FRANCAIS })),
+  }
+  if (langue === FRANCAIS) return fr
+  const enL = await (await getPayloadClient())
+    .findByID({ collection: 'communes', id: commune.id, locale: langue, fallbackLocale: false, depth: 0, overrideAccess: true })
+    .catch(() => null)
+  const demarchesL = new Map(
+    (enL?.accueil?.demarches ?? []).filter((d) => d.id).map((d) => [d.id as string, d]),
+  )
+  const mosaiqueL = new Map((enL?.accueil?.mosaique ?? []).filter((t) => t.id).map((t) => [t.id as string, t]))
+  return {
+    demarches: fr.demarches.map((d) => {
+      const l = d.id ? demarchesL.get(d.id) : undefined
+      return { ...d, titre: l?.titre || d.titre, precision: l?.precision ?? d.precision, langue: l?.titre ? langue : FRANCAIS }
+    }),
+    mosaique: fr.mosaique.map((t) => {
+      const l = t.id ? mosaiqueL.get(t.id) : undefined
+      return { ...t, libelle: l?.libelle || t.libelle, langue: l?.libelle ? langue : FRANCAIS }
+    }),
+  }
+}
+
 /** Sitemap du domaine d'un site (spec § 3) : pages, actualités et rubriques, par langue disponible. */
 export async function construireSitemap(site: Site): Promise<string> {
   const { commune, langueRacine } = site
