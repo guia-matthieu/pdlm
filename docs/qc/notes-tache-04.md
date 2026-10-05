@@ -204,3 +204,49 @@ nutizie è l’agenda di u cumunu. »
   l'absence d'emplacement vide, pas l'esthétique.
 - **`testssl` au premier déploiement réel** : reste reporté (hors tâche, déjà
   noté dans le mémoire du projet).
+
+## Relecture (05/10 soir, sur `3756b01`)
+
+**Correctif appliqué** (commit `182b778`) : `composerFrise` plantait au rendu
+de l'accueil pour un nom de pièce hérité de la chaîne de prototypes
+(`apparence.frise[].piece` est un champ texte libre ; `constructor`,
+`toString`, `hasOwnProperty`, `__proto__` existent sur tout objet) —
+contraire à I30. Deux tests ajoutés, vus échouer avant correctif :
+
+```
+ ❯ tests/unit/gabarits-frise.spec.ts (5 tests | 1 failed) 7ms
+     × noms hérités d’Object.prototype : ignorés et listés, sans exception (I30) 1ms
+ ❯ tests/unit/gabarits-kits.spec.ts (18 tests | 1 failed) 24ms
+     × scène de nom hérité d’Object.prototype : repli « nature », sans exception 2ms
+```
+
+Corrigé par `Object.hasOwn` (même garde que `gabaritDe`, `registre.ts:24`) dans
+`frise.ts` (pièce ignorée et listée) et `scene()` de `village/illustrations.ts`
+(repli « nature » pour tout nom). Mes trois jugements validés par le relecteur
+(garde mairie, points 1-2 fusionnés, démarches sans liens).
+
+**Décisions appliquées** : textes corses laissés « PROVISOIRES » (relecture
+avec le multilingue) ; I27 reporté à la tâche 10, suite de conformité contre
+un build de production, égalité des scripts sans filtre — inscrit dans le plan
+(`187936b`, avec les statuts « fait » des tâches 1-4) ; `.superpowers/` ajouté
+aux ignores d'`eslint.config.mjs` (`f0ec5e8`), rien supprimé (`progress.md`
+sert à la reprise).
+
+**Noté sans corriger** : « Documents » apparaît deux fois dans le menu de la
+capture — le menu de la démo (collection `menus`, item « Documents ») se
+double du lien `/documents` codé en dur dans `Navigation.tsx` ; les
+coordonnées visibles sur les captures sont celles qu'injecte le test
+(`beforeAll`), la commune de démonstration n'en a pas en base.
+
+**Vérifications après correctif** :
+
+```
+$ npm run test:unit
+      Tests  177 passed (177)
+
+$ npm run test:e2e -- gabarits-conformite
+  7 passed (22.9s)
+
+$ npm run lint
+✖ 40 problems (0 errors, 40 warnings)
+```
