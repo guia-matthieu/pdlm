@@ -15,6 +15,8 @@ const HORS_LANGUE = [
   /^\/mesure\/(api\/send|script\.js|opposition)$/,
   // Fichiers de public/ : pictogrammes des démarches, chargés en masque CSS.
   /^\/pictos\/[^/]+\.svg$/,
+  // Décision 19 : feuille et polices d'un gabarit, fichiers statiques de l'origine.
+  /^\/gabarits\/[^/]+\/(theme\.css|polices\/[^/]+)$/,
 ]
 
 /** Proxy : chemin de réécriture interne, ou null si le chemin passe tel quel. */

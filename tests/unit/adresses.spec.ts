@@ -46,14 +46,22 @@ describe('aiguiller (proxy)', () => {
       '/mesure/opposition',
       // Fichiers de public/ : les pictogrammes des démarches (masques CSS).
       '/pictos/dechets.svg',
+      // Décision 19 : la feuille et les polices d'un gabarit, fichiers de l'origine.
+      '/gabarits/village/theme.css',
+      '/gabarits/village/polices/bricolage-grotesque-latin-wght.woff2',
     ]) {
       expect(aiguiller(chemin), chemin).toBeNull()
     }
   })
 
-  it('hors de ses fichiers, /pictos reste un chemin de page', () => {
+  it('hors des fichiers de gabarit, /gabarits reste un chemin de page', () => {
     expect(aiguiller('/pictos')).toBe(`/${RACINE}/pictos`)
     expect(aiguiller('/pictos/a/b.svg')).toBe(`/${RACINE}/pictos/a/b.svg`)
+    expect(aiguiller('/gabarits')).toBe(`/${RACINE}/gabarits`)
+    expect(aiguiller('/gabarits/village')).toBe(`/${RACINE}/gabarits/village`)
+    expect(aiguiller('/gabarits/village/polices/a/b.woff2')).toBe(
+      `/${RACINE}/gabarits/village/polices/a/b.woff2`,
+    )
   })
 })
 

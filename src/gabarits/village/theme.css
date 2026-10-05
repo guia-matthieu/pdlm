@@ -1,0 +1,851 @@
+/*
+ * Gabarit « Village » — mise en forme de la maquette validée
+ * (maquette/accueil.html), portée sur le balisage des sections communes.
+ * Chargée après styles.css, pour la commune en Village seulement (décision 19).
+ * Zéro script, zéro ressource tierce, polices de l'origine (I27).
+ * Couleurs : variables du contrat uniquement (CONTRAT.md) — aucune couleur
+ * littérale hors #fff ; les transparences passent par color-mix().
+ */
+
+@font-face {
+  font-family: 'Bricolage';
+  src: url(polices/bricolage-grotesque-latin-wght.woff2) format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Next';
+  src: url(polices/AtkinsonHyperlegibleNext-Regular-latin.woff2) format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+/*
+ * Variables locales, posées sur body et non sur :root : les variables de la
+ * commune sont en inline sur body, :root ne les verrait pas.
+ */
+body {
+  --titres: 'Bricolage', 'Atkinson Next', system-ui, sans-serif;
+  --corps: 'Atkinson Next', system-ui, sans-serif;
+  --largeur: 76rem;
+  /* Marge qui aligne le contenu d'une bande pleine largeur sur la colonne centrale. */
+  --gouttiere: max(1.25rem, calc((100% - var(--largeur)) / 2 + 1.25rem));
+  /* Texte secondaire : l'encre adoucie (≥ 4,5:1 sur blanc comme sur --pale). */
+  --doux: color-mix(in oklab, var(--encre) 72%, #fff);
+  /* Ombres et voiles : l'encre, jamais un noir en dur. */
+  --ombre: color-mix(in oklab, var(--encre) 16%, transparent);
+  --voile: color-mix(in oklab, var(--encre) 72%, transparent);
+  --voile-leger: color-mix(in oklab, var(--encre) 35%, transparent);
+  --filet-clair: color-mix(in oklab, #fff 25%, transparent);
+  /* Texte secondaire sur fond profond : un blanc rabattu, opaque. */
+  --blanc-doux: color-mix(in oklab, #fff 80%, var(--profond));
+}
+
+html {
+  font-size: 112.5%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+body {
+  font-family: var(--corps);
+  color: var(--encre);
+  line-height: 1.55;
+  overflow-x: clip;
+}
+img {
+  display: block;
+  max-width: 100%;
+}
+a {
+  text-underline-offset: 0.18em;
+}
+a:focus-visible,
+summary:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px #fff;
+  border-radius: 4px;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--titres);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+}
+
+/* Bandeau d'alertes : sur fond pâle, texte en encre (décision 17). */
+.bandeau-alertes {
+  padding: 0.55rem var(--gouttiere);
+  border-bottom: 3px solid var(--terre-sure);
+  font-size: 0.92rem;
+}
+
+/* En-tête */
+.entete-site {
+  max-width: var(--largeur);
+  margin: 0 auto;
+  padding: 0.9rem 1.25rem;
+  gap: 0.4rem 2rem;
+  border-bottom: 0;
+}
+.entete-site__marque {
+  margin-right: auto;
+}
+.entete-site__titre {
+  font-family: var(--titres);
+  font-weight: 750;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  color: var(--encre);
+}
+.nav-principale {
+  gap: 0.2rem 0.5rem;
+}
+.nav-principale a,
+.nav-deroulant summary {
+  padding: 0.45rem 0.75rem;
+  border-radius: 99px;
+  font-weight: 650;
+  color: var(--encre);
+}
+.nav-deroulant ul {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.6rem;
+  box-shadow: 0 12px 40px var(--ombre);
+}
+.selecteur-langue {
+  font-size: 0.9rem;
+}
+@media (max-width: 860px) {
+  /* Le menu reste une rangée qui passe à la ligne, pas une colonne. */
+  .entete-site {
+    flex-direction: row;
+    align-items: center;
+  }
+  .entete-site > nav:last-of-type {
+    flex-basis: 100%;
+  }
+  .nav-principale {
+    flex-direction: row;
+    gap: 0 0.1rem;
+    margin: 0 -0.55rem;
+  }
+  .nav-principale a,
+  .nav-deroulant summary {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.95rem;
+  }
+}
+
+/* Pages intérieures : même colonne que l'en-tête. */
+main {
+  max-width: var(--largeur);
+  padding: 2.5rem 1.25rem 3rem;
+}
+main h1 {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.bouton {
+  border-radius: 99px;
+  font-weight: 700;
+}
+.bouton--primaire:hover {
+  background: var(--profond);
+  color: #fff;
+}
+
+/*
+ * Accueil : une grille à quatre colonnes — deux marges, le contenu, la carte
+ * mairie. Une section est soit une bande pleine largeur (héros, actualités,
+ * agenda), soit posée dans la colonne centrale.
+ */
+main:has(> [data-section]) {
+  max-width: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns:
+    minmax(1.25rem, 1fr) minmax(0, 49.5rem) minmax(0, 24rem)
+    minmax(1.25rem, 1fr);
+}
+main > [data-section] {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+main > .section-demarches,
+main > .section-texte-libre,
+main > .section-mosaique {
+  grid-column: 2 / 4;
+}
+[data-section] :is(h1, h2, h3) {
+  margin: 0;
+}
+.entete-section h2,
+.section-demarches > h2 {
+  font-size: clamp(1.9rem, 3.4vw, 2.7rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.entete-section {
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 2.2rem;
+}
+.entete-section a {
+  font-weight: 700;
+}
+
+/* Héros : la photo se termine sur la silhouette du village. */
+.section-heros {
+  display: block;
+  height: min(78vh, 660px);
+  min-height: 24rem;
+  border-radius: 0;
+  overflow: visible;
+  /* Décision 17 : fond opaque sous le texte blanc, photo chargée ou non. */
+  background: var(--profond);
+  color: #fff;
+}
+.section-heros__image {
+  object-position: 50% 60%;
+}
+.section-heros--photo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(100deg, var(--voile) 0%, var(--voile-leger) 45%, transparent 70%);
+}
+.section-heros__texte {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 28%;
+  z-index: 2;
+  max-width: none;
+  margin: 0;
+  padding: 0 var(--gouttiere);
+  border-radius: 0;
+  background: none;
+}
+.section-heros__texte h1 {
+  max-width: 11ch;
+  color: inherit;
+  font-size: clamp(2.2rem, 7.5vw, 6rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  overflow-wrap: anywhere;
+}
+.section-heros__action {
+  display: inline-block;
+  margin-top: 1.6rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 99px;
+  background: #fff;
+  color: var(--profond);
+  font-weight: 700;
+  text-decoration: none;
+}
+.section-heros__action:hover {
+  background: var(--pale);
+  color: var(--encre);
+}
+.section-heros__frise {
+  bottom: -1px;
+  z-index: 3;
+  height: clamp(90px, 13vw, 190px);
+}
+.section-heros__fondu {
+  z-index: 3;
+  height: clamp(60px, 9vw, 130px);
+  background: linear-gradient(transparent, #fff);
+}
+.section-heros .frise__horizon {
+  fill: #fff;
+  opacity: 0.55;
+}
+.section-heros .frise__formes path {
+  fill: #fff;
+}
+.section-heros .frise__traits path {
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+/* Héros sans photo : la grande scène du kit, texte en encre sur le ciel pâle. */
+.section-heros--illustre {
+  background: var(--pale);
+  color: var(--encre);
+}
+.section-heros--illustre .section-heros__texte {
+  top: 20%;
+}
+.section-heros--illustre .section-heros__action {
+  background: var(--principale-sure);
+  color: #fff;
+}
+.section-heros--illustre .section-heros__action:hover {
+  background: var(--profond);
+  color: #fff;
+}
+
+/* Vos démarches */
+.section-demarches {
+  padding: 3rem 0 0;
+}
+main:has(> .section-mairie) > .section-demarches {
+  grid-column: 2;
+  padding-right: 3rem;
+}
+.section-demarches > h2 {
+  margin-bottom: 1.6rem;
+}
+.demarches {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem 1.2rem;
+}
+.demarches a {
+  gap: 1rem;
+  padding: 0.7rem 0.8rem 0.7rem 0.6rem;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  color: var(--encre);
+}
+.demarches a:hover {
+  background: var(--pale);
+}
+.demarche__pastille {
+  width: 3.6rem;
+  height: 3.6rem;
+  /* Le fond (ton du picto, posé par la section) vient de styles.css. */
+  border-radius: 50%;
+}
+.demarche__picto {
+  width: 2.1rem;
+  height: 2.1rem;
+  background-color: #fff;
+}
+.demarche__corps b {
+  font-family: var(--titres);
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.demarche__corps small {
+  color: var(--doux);
+  opacity: 1;
+  font-size: 0.88rem;
+}
+
+/* Carte mairie : elle chevauche la frise du héros. */
+main > .section-mairie {
+  grid-column: 3;
+  align-self: start;
+  position: relative;
+  z-index: 4;
+  margin-top: -7.5rem;
+  padding: 1.6rem 1.7rem;
+  border-top: 6px solid var(--accent);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 50px var(--ombre);
+}
+.section-mairie h2 {
+  margin-bottom: 0.9rem;
+  font-size: 1.35rem;
+}
+.mairie__tel {
+  display: block;
+  margin-bottom: 0.7rem;
+  font-family: var(--titres);
+  font-size: 1.9rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--profond);
+  text-decoration: none;
+}
+.mairie__tel:hover {
+  text-decoration: underline;
+}
+.section-mairie p {
+  margin: 0 0 0.5rem;
+}
+.section-mairie p:has(> strong) {
+  color: var(--doux);
+  font-size: 0.92rem;
+}
+.section-mairie p:last-child {
+  margin-bottom: 0;
+}
+
+/* Texte libre : la page « accueil » du rédacteur, dans la colonne. */
+.section-texte-libre {
+  padding-top: 3rem;
+}
+
+/* Actualités sur une bande pâle au bord arrondi (décision 17 : texte en encre). */
+.section-actualites {
+  position: relative;
+  margin-top: 4rem;
+  padding: 5rem var(--gouttiere) 4.5rem;
+  border-radius: 0;
+  background: var(--pale);
+}
+.section-actualites::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -40px;
+  height: 41px;
+  background: var(--pale);
+  clip-path: ellipse(75% 100% at 50% 100%);
+}
+.section-actualites ul {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 2rem;
+}
+.actu__visuel img,
+.actu__scene {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  object-fit: cover;
+}
+.actu__scene > .scene {
+  position: absolute;
+  inset: 0;
+}
+/* Sur la bande pâle, le ciel d'une scène passe au blanc : sinon il s'y fond. */
+.section-actualites .i-ciel {
+  fill: #fff;
+}
+.actu__texte p {
+  margin: 0;
+  color: var(--doux);
+}
+.actu h3 {
+  margin: 0.2rem 0 0.3rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.actu h3 a {
+  text-decoration: none;
+}
+.actu h3 a:hover {
+  text-decoration: underline;
+}
+.actu .section-actualites__date {
+  color: var(--encre);
+  font-size: 0.9rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* Variante « une » : la une à gauche, les brèves empilées à droite. */
+.section-actualites--une ul {
+  grid-template-columns: 1.35fr 1fr;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 1.6rem 3rem;
+}
+.section-actualites--une ul:has(> .actu:only-child) {
+  grid-template-columns: minmax(0, 42rem);
+}
+.section-actualites--une .actu:first-child {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+.section-actualites--une .actu:first-child .actu__visuel {
+  position: relative;
+}
+/* L'aplat d'accent décalé derrière la photo de la une. */
+.section-actualites--une .actu:first-child .actu__visuel::before {
+  content: '';
+  position: absolute;
+  inset: 1.4rem -1.4rem -1.4rem 1.4rem;
+  border-radius: 22px;
+  background: var(--accent);
+}
+.section-actualites--une .actu:first-child :is(.actu__visuel img, .actu__scene) {
+  border-radius: 22px;
+}
+.section-actualites--une .actu:first-child .actu__texte {
+  position: relative;
+  margin: -5rem 2.5rem 0 -1rem;
+  padding: 1.4rem 1.6rem;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 40px var(--ombre);
+}
+.section-actualites--une .actu:first-child h3 {
+  margin: 0.3rem 0 0.6rem;
+  font-size: 1.55rem;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+/* Sur la carte blanche de la une, la date peut prendre la couleur de la commune. */
+.section-actualites--une .actu:first-child .section-actualites__date {
+  color: var(--principale-sure);
+}
+.section-actualites--une .actu:not(:first-child) {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  gap: 1.1rem;
+  align-items: center;
+}
+.section-actualites--une .actu:not(:first-child) :is(.actu__visuel img, .actu__scene) {
+  aspect-ratio: 1;
+}
+
+/* Agenda sur fond profond */
+.section-agenda {
+  padding: 4.5rem var(--gouttiere);
+  border-radius: 0;
+  background: var(--profond);
+  color: #fff;
+}
+.section-agenda ol {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1.5rem;
+}
+.section-agenda li {
+  border-top: 2px solid var(--filet-clair);
+  padding-top: 1.1rem;
+}
+/* --accent-sur-profond : texte large seulement (contrat) — 64,8 px et 19,8 px en gras. */
+.section-agenda__date {
+  margin: 0;
+  font-family: var(--titres);
+  line-height: 1;
+  color: var(--accent-sur-profond);
+}
+.section-agenda__date time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+}
+.section-agenda__jour {
+  font-size: 3.6rem;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+.section-agenda__mois {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.section-agenda h3 {
+  margin: 0.7rem 0 0.3rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.section-agenda__lieu {
+  color: var(--blanc-doux);
+  font-size: 0.95rem;
+}
+
+/* Mosaïque « Vivre ici » : des tuiles pleines, le libellé posé sur l'image. */
+.section-mosaique {
+  padding: 5rem 0 2rem;
+}
+.mosaique {
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 15rem;
+  gap: 1rem;
+}
+.mosaique--une-haute > li:nth-child(1) {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.mosaique--une-haute > li:nth-child(2) {
+  grid-row: span 2;
+}
+.mosaique__tuile,
+.mosaique a {
+  position: relative;
+  display: block;
+  height: 100%;
+  border: 0;
+  border-radius: 20px;
+  /* Décision 17 : fond opaque sous le libellé blanc, image chargée ou non. */
+  background: var(--profond);
+  color: #fff;
+}
+.mosaique img,
+.mosaique__scene {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+.mosaique__scene svg {
+  aspect-ratio: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mosaique a:hover :is(img, .mosaique__scene) {
+    transform: scale(1.04);
+  }
+}
+.mosaique__tuile::after,
+.mosaique a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--voile), transparent 55%);
+}
+.mosaique__libelle {
+  position: absolute;
+  left: 1.2rem;
+  right: 1.2rem;
+  bottom: 1rem;
+  z-index: 1;
+  padding: 0;
+  background: none;
+  color: #fff;
+  font-family: var(--titres);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.mosaique--une-haute > li:nth-child(1) .mosaique__libelle {
+  font-size: 2rem;
+}
+
+/* Pied de page : la frise au trait, puis le fond profond. */
+.pied-page {
+  margin-top: 5rem;
+  padding: 0;
+  border-top: 0;
+  background: var(--profond);
+  color: #fff;
+}
+.pied-page__frise {
+  height: clamp(60px, 9vw, 130px);
+  background: #fff;
+}
+.pied-page__frise svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pied-page__frise .frise__horizon {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+.pied-page__frise .frise__formes path {
+  fill: #fff;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.pied-page__frise .frise__traits path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+.pied-page__colonnes {
+  max-width: var(--largeur);
+  grid-template-columns: 1.1fr 1.2fr 1fr;
+  gap: 2.5rem;
+  padding: 3rem 1.25rem 2rem;
+}
+.pied-page h2 {
+  margin: 0 0 0.9rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #fff;
+}
+.pied-page a {
+  color: #fff;
+}
+.pied-page p {
+  margin: 0 0 0.4rem;
+}
+.pied-page ul {
+  display: grid;
+  gap: 0.4rem;
+}
+.pied-page .liens-sociaux {
+  display: flex;
+}
+.pied-page__mentions {
+  max-width: var(--largeur);
+  margin: 0 auto;
+  padding: 1rem 1.25rem 1.6rem;
+  border-top: 1px solid var(--filet-clair);
+  font-size: 0.85rem;
+  color: var(--blanc-doux);
+}
+
+/* Illustrations du kit : le repli quand une photo manque (I30). */
+.scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.i-ciel {
+  fill: var(--pale);
+}
+.i-soleil {
+  fill: var(--accent);
+}
+.i-loin {
+  fill: color-mix(in oklab, var(--principale-sure) 20%, var(--pale));
+}
+.i-mi {
+  fill: color-mix(in oklab, var(--principale-sure) 42%, var(--pale));
+}
+.i-sol {
+  fill: var(--principale-sure);
+}
+.i-premier {
+  fill: var(--profond);
+}
+.i-chemin {
+  fill: color-mix(in oklab, var(--accent) 35%, var(--pale));
+}
+.i-formes path {
+  fill: var(--profond);
+}
+.i-traits path {
+  fill: none;
+  stroke: var(--accent-sur-profond);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.i-accents {
+  fill: var(--accent);
+}
+.i-rangs {
+  fill: none;
+  stroke: color-mix(in oklab, var(--principale-sure) 70%, var(--pale));
+  stroke-width: 3;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+}
+.i-oiseaux {
+  fill: none;
+  stroke: var(--profond);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.i-eau {
+  fill: color-mix(in oklab, var(--principale-sure) 55%, var(--pale));
+}
+.i-rides {
+  fill: none;
+  stroke: var(--pale);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+/* Écrans moyens : la carte mairie garde sa colonne, les démarches passent sur une. */
+@media (max-width: 1100px) {
+  main:has(> [data-section]) {
+    grid-template-columns:
+      minmax(1.25rem, 1fr) minmax(0, 49.5rem) minmax(0, 21rem)
+      minmax(1.25rem, 1fr);
+  }
+  main:has(> .section-mairie) > .section-demarches {
+    padding-right: 2rem;
+  }
+  .demarches {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Téléphone */
+@media (max-width: 860px) {
+  main:has(> [data-section]) {
+    grid-template-columns: 1.25rem minmax(0, 1fr) 1.25rem;
+  }
+  main > .section-demarches,
+  main > .section-texte-libre,
+  main > .section-mosaique,
+  main:has(> .section-mairie) > .section-demarches,
+  main > .section-mairie {
+    grid-column: 2;
+    padding-right: 0;
+  }
+  /* La carte mairie remonte sous le héros, avant les démarches (maquette). */
+  main > .section-heros {
+    order: -2;
+  }
+  main > .section-mairie {
+    order: -1;
+    margin-top: 1.5rem;
+  }
+  .section-heros--photo .section-heros__texte {
+    top: auto;
+    bottom: clamp(90px, 22vw, 150px);
+  }
+  .section-heros--illustre .section-heros__texte {
+    top: 9%;
+  }
+  .section-heros--illustre .i-soleil {
+    display: none;
+  }
+  .section-actualites--une ul,
+  .section-actualites--une ul:has(> .actu:only-child) {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+  .section-actualites--une .actu:first-child,
+  .section-actualites--une .actu:not(:first-child) {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .section-actualites--une .actu:first-child .actu__visuel::before {
+    inset: 0.9rem -0.6rem -0.9rem 0.9rem;
+  }
+  .section-actualites--une .actu:first-child .actu__texte {
+    margin: -3rem 0.8rem 0;
+  }
+  .section-actualites--une .actu:not(:first-child) {
+    grid-template-columns: 6rem 1fr;
+  }
+  .section-agenda ol {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mosaique {
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 11rem;
+  }
+  .mosaique--une-haute > li:nth-child(2) {
+    grid-row: span 1;
+  }
+  .mosaique__libelle {
+    left: 0.9rem;
+    right: 0.9rem;
+    font-size: 1.1rem;
+  }
+  .mosaique--une-haute > li:nth-child(1) .mosaique__libelle {
+    font-size: 1.6rem;
+  }
+  .pied-page__colonnes {
+    grid-template-columns: 1fr;
+  }
+}

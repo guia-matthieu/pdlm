@@ -19,6 +19,9 @@ import { contexteLangue } from '@/lib/langue-courante'
 import { siteMesure } from '@/lib/mesure/etat'
 import { COOKIE_OPPOSITION, estOppose } from '@/lib/mesure/opposition'
 import { deriver } from '@/lib/couleurs'
+import { adressesGabarit } from '@/gabarits/fichiers'
+import { composerFrise, lignesFrise } from '@/gabarits/frise'
+import { gabaritDe } from '@/gabarits/registre'
 
 import '../styles.css'
 
@@ -79,8 +82,30 @@ export default async function LayoutLangue({ children, params }: Props) {
   const oppose = estOppose((await cookies()).get(COOKIE_OPPOSITION)?.value)
   const siteUmami = oppose ? null : siteMesure(commune)
 
+  // Décision 19 : la commune ne reçoit que la feuille et les polices de son
+  // gabarit, servies depuis son origine (I27).
+  const { gabarit, kit } = gabaritDe(commune.apparence?.gabarit)
+  const fichiers = adressesGabarit(gabarit)
+  const friseAuPied = gabarit.friseAuPied
+    ? composerFrise(kit, lignesFrise(commune.apparence?.frise)).svg
+    : null
+
   return (
     <html lang={ctx.langue}>
+      <head>
+        {/* `precedence` : React range la feuille après celles de Next (styles.css), dans le <head>. */}
+        <link rel="stylesheet" href={fichiers.feuille} precedence="gabarit" />
+        {fichiers.polices.map((police) => (
+          <link
+            key={police}
+            rel="preload"
+            href={police}
+            as="font"
+            type="font/woff2"
+            crossOrigin="anonymous"
+          />
+        ))}
+      </head>
       <body style={variables as React.CSSProperties}>
         <a href="#contenu" className="lien-evitement">
           {ctx.t.evitement}
@@ -100,7 +125,7 @@ export default async function LayoutLangue({ children, params }: Props) {
           <Navigation elements={elements} ctx={ctx} />
         </header>
         <main id="contenu">{children}</main>
-        <PiedDePage commune={commune} identite={identite} ctx={ctx} />
+        <PiedDePage commune={commune} identite={identite} ctx={ctx} frise={friseAuPied} />
         {siteUmami && (
           <script
             defer

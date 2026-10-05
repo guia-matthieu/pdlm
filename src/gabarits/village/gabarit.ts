@@ -11,9 +11,9 @@ export const gabarit: Gabarit = {
   nom: 'village',
   libelle: 'Village',
   versionContrat: 1,
-  // Polices chargées par la tâche 5 (Bricolage Grotesque + Atkinson
-  // Hyperlegible Next) ; provisoirement le système de styles.css.
-  polices: [],
+  // Décision 19 : les fichiers de `polices/` servis et préchargés — Bricolage
+  // Grotesque (titres) et Atkinson Hyperlegible Next (texte), variables, OFL.
+  polices: ['bricolage-grotesque-latin-wght.woff2', 'AtkinsonHyperlegibleNext-Regular-latin.woff2'],
   accueil: [
     { section: 'heros' },
     { section: 'demarches' },
