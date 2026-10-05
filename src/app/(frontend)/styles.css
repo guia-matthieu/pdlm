@@ -454,6 +454,24 @@ main {
   padding-top: 1rem;
 }
 
+/* Frise au trait en tête du pied, pour un gabarit qui la demande (friseAuPied). */
+.pied-page__frise {
+  height: clamp(3rem, 8vw, 6rem);
+  margin-bottom: 1.5rem;
+}
+
+.pied-page__frise svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pied-page__frise path {
+  fill: none;
+  stroke: var(--encre);
+  stroke-width: 1.5;
+}
+
 /* Ajustements mobiles */
 @media (max-width: 48rem) {
   .entete-site {
@@ -545,6 +563,18 @@ main {
   color: var(--couleur-texte-blanc);
   font-size: clamp(1.8rem, 4.5vw, 3rem);
   line-height: 1.15;
+}
+
+/* Bouton du héros vers les démarches : fond blanc opaque, texte en encre. */
+.section-heros__action {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  background: var(--couleur-fond);
+  color: var(--encre);
+  font-weight: 600;
+  text-decoration: none;
 }
 
 /* Frise du territoire : silhouette blanche en bas du héros ; sans elle, un fondu. */
@@ -761,6 +791,19 @@ main {
 .section-actualites h3 {
   margin: 0 0 0.25rem;
   font-size: 1.1rem;
+}
+
+/* Visuel d'une actualité : son image, sinon une scène du kit (I30). */
+.actu__visuel img,
+.actu__scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  margin-bottom: 0.6rem;
+  border-radius: 0.35rem;
+  overflow: hidden;
+  object-fit: cover;
 }
 
 .section-actualites__date {

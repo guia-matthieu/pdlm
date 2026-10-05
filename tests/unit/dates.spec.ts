@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formaterDate } from '@/lib/dates'
+import { formaterDate, jourEtMois } from '@/lib/dates'
 
 // 10:00 UTC = 12:00 à Paris (heure d'été) ; un mardi.
 const DATE = '2026-09-22T10:00:00.000Z'
@@ -39,5 +39,22 @@ describe('formaterDate', () => {
     expect(() => formaterDate(DATE, 'co', { dateStyle: 'short' })).toThrow()
     // timeStyle seul (sans dateStyle) rendrait à tort une date complète + l'heure.
     expect(() => formaterDate(DATE, 'co', { timeStyle: 'short' })).toThrow()
+  })
+})
+
+describe('jourEtMois', () => {
+  it('sépare le jour et le mois, en français via Intl', () => {
+    expect(jourEtMois(DATE, 'fr')).toEqual({ jour: '22', mois: 'septembre' })
+    expect(jourEtMois('2026-10-04T08:00:00.000Z', 'fr')).toEqual({ jour: '4', mois: 'octobre' })
+  })
+
+  it('en corse : les noms de la liste', () => {
+    expect(jourEtMois(DATE, 'co')).toEqual({ jour: '22', mois: 'settembre' })
+  })
+
+  it('applique le fuseau de Paris (jour et mois qui changent à minuit)', () => {
+    // 22:30 UTC le 30 septembre = 00:30 le 1er octobre à Paris
+    expect(jourEtMois('2026-09-30T22:30:00.000Z', 'fr')).toEqual({ jour: '1', mois: 'octobre' })
+    expect(jourEtMois('2026-09-30T22:30:00.000Z', 'co')).toEqual({ jour: '1', mois: 'ottobre' })
   })
 })

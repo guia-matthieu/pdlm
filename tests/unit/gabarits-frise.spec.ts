@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { composerFrise } from '@/gabarits/frise'
+import { composerFrise, lignesFrise } from '@/gabarits/frise'
 import type { Kit } from '@/gabarits/types'
 
 const kit: Kit = {
@@ -19,7 +19,10 @@ describe('composerFrise', () => {
   })
 
   it('pièce hors kit : ignorée et listée, sans erreur', () => {
-    const r = composerFrise(kit, [{ piece: 'phare', taille: 'moyenne' }, { piece: 'maison', taille: 'grande' }])
+    const r = composerFrise(kit, [
+      { piece: 'phare', taille: 'moyenne' },
+      { piece: 'maison', taille: 'grande' },
+    ])
     expect(r.ignorees).toEqual(['phare'])
     expect(r.svg).toContain('aria-hidden="true"')
   })
@@ -28,7 +31,10 @@ describe('composerFrise', () => {
     // `piece` est un champ texte libre : ces noms existent sur tout objet via
     // la chaîne de prototypes et ne sont pas des pièces du kit.
     const noms = ['constructor', 'toString', 'hasOwnProperty', '__proto__']
-    const r = composerFrise(kit, noms.map((piece) => ({ piece, taille: 'moyenne' })))
+    const r = composerFrise(
+      kit,
+      noms.map((piece) => ({ piece, taille: 'moyenne' })),
+    )
     expect(r.ignorees).toEqual(noms)
     expect(r.svg).toBeNull()
   })
@@ -41,5 +47,24 @@ describe('composerFrise', () => {
     const { svg } = composerFrise(kit, [{ piece: 'maison', taille: 'petite', ecart: 12 }])
     const doc = new DOMParser().parseFromString(svg!, 'image/svg+xml')
     expect(doc.getElementsByTagName('parsererror')).toHaveLength(0)
+  })
+})
+
+describe('lignesFrise', () => {
+  it('champ vide ou absent : aucune ligne', () => {
+    expect(lignesFrise(null)).toEqual([])
+    expect(lignesFrise(undefined)).toEqual([])
+  })
+
+  it('taille absente : « moyenne » ; l’écart est gardé', () => {
+    expect(
+      lignesFrise([
+        { piece: 'maison', taille: null },
+        { piece: 'eglise', taille: 'grande', ecart: 12 },
+      ]),
+    ).toEqual([
+      { piece: 'maison', taille: 'moyenne', ecart: undefined },
+      { piece: 'eglise', taille: 'grande', ecart: 12 },
+    ])
   })
 })

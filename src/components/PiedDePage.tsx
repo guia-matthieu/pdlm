@@ -4,15 +4,21 @@ import type { ContexteLangue } from '@/lib/langue-courante'
 import { siteMesure } from '@/lib/mesure/etat'
 import type { Commune } from '@/payload-types'
 
-/** Pied de page : coordonnées de la commune + liens légaux obligatoires, dans la langue affichée. */
+/**
+ * Pied de page : coordonnées de la commune + liens légaux obligatoires, dans
+ * la langue affichée. `frise` : la frise de la commune, quand son gabarit la
+ * demande aussi en tête du pied (`friseAuPied`) — un décor, `aria-hidden`.
+ */
 export function PiedDePage({
   commune,
   identite,
   ctx,
+  frise = null,
 }: {
   commune: Commune
   identite: { nom: TexteEnLangue; horaires: TexteEnLangue | null }
   ctx: ContexteLangue
+  frise?: string | null
 }) {
   const { t } = ctx
   const lien = (chemin: string) => cheminLangue(chemin, ctx.langue, ctx.site.langueRacine)
@@ -21,6 +27,7 @@ export function PiedDePage({
   const annee = new Date().getFullYear()
   return (
     <footer className="pied-page">
+      {frise && <div className="pied-page__frise" dangerouslySetInnerHTML={{ __html: frise }} />}
       <div className="pied-page__colonnes">
         <div>
           <h2 lang={lang(identite.nom)}>{identite.nom.texte}</h2>

@@ -5,6 +5,9 @@ import type { Commune } from '@/payload-types'
 
 type Demarche = NonNullable<NonNullable<Commune['accueil']>['demarches']>[number]
 
+/** Ancre de la section : cible du bouton du héros. */
+export const ANCRE_DEMARCHES = 'demarches'
+
 /**
  * Vos démarches : les demandes fréquentes. I30 : une démarche sans lien
  * n'est pas rendue (l'appelant filtre) ; le pictogramme, masqué depuis
@@ -20,7 +23,7 @@ export function Demarches({
   demarches: Array<Demarche & { langue: CodeLangue }>
 }) {
   return (
-    <section data-section="demarches" className="section-demarches">
+    <section data-section="demarches" id={ANCRE_DEMARCHES} className="section-demarches">
       <h2>{titre}</h2>
       <ul className="demarches">
         {demarches.map((demarche, i) => (
@@ -33,9 +36,7 @@ export function Demarches({
                 >
                   <span
                     className="demarche__picto"
-                    style={
-                      { '--picto-url': `url(/pictos/${demarche.picto}.svg)` } as CSSProperties
-                    }
+                    style={{ '--picto-url': `url(/pictos/${demarche.picto}.svg)` } as CSSProperties}
                     aria-hidden="true"
                   />
                 </span>

@@ -22,6 +22,17 @@ const AVANCE: Record<Taille, number> = { petite: 48, moyenne: 70, grande: 95 }
 /** Une ligne de frise saisie par l'opérateur (champ `apparence.frise`). */
 export type LigneFrise = { piece: string; taille: Taille; ecart?: number | null }
 
+/** Les lignes du champ `apparence.frise` d'une commune, taille par défaut « moyenne ». */
+export function lignesFrise(
+  frise: { piece: string; taille?: Taille | null; ecart?: number | null }[] | null | undefined,
+): LigneFrise[] {
+  return (frise ?? []).map((ligne) => ({
+    piece: ligne.piece,
+    taille: ligne.taille ?? 'moyenne',
+    ecart: ligne.ecart,
+  }))
+}
+
 /**
  * I30 / « changer de gabarit ne perd rien » : une pièce hors kit est ignorée
  * au rendu et listée (l'admin l'avertit), jamais une erreur ; aucune ligne

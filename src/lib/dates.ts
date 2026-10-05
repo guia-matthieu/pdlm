@@ -111,3 +111,31 @@ export function formaterDate(
   const texteDate = remplir(dateStyle === 'full' ? noms.format.complet : noms.format.long, valeurs)
   return timeStyle ? remplir(noms.format.heure, { ...valeurs, date: texteDate }) : texteDate
 }
+
+/**
+ * Le jour du mois et le nom du mois, séparés, dans la langue affichée et au
+ * fuseau de Paris (D9) — pour une date d'agenda composée en deux tailles.
+ * Même repli que `formaterDate` quand Intl ne connaît pas la langue.
+ */
+export function jourEtMois(
+  date: string | Date,
+  langue: CodeLangue,
+): { jour: string; mois: string } {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const parties = (locale: string, mois: 'long' | 'numeric') =>
+    Object.fromEntries(
+      new Intl.DateTimeFormat(locale, { timeZone: 'Europe/Paris', day: 'numeric', month: mois })
+        .formatToParts(d)
+        .map((part) => [part.type, part.value]),
+    )
+  if (Intl.DateTimeFormat.supportedLocalesOf([langue]).length > 0) {
+    const p = parties(langue, 'long')
+    return { jour: p.day, mois: p.month }
+  }
+  const noms = langueDe(langue).dates
+  if (!noms) {
+    throw new Error(`Langue « ${langue} » : inconnue d’Intl et sans noms de dates dans langues.ts.`)
+  }
+  const p = parties('en-US', 'numeric')
+  return { jour: p.day, mois: noms.mois[Number(p.month) - 1] }
+}

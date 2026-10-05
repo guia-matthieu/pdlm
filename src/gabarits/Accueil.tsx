@@ -12,11 +12,11 @@ import {
 import type { CodeLangue } from '@/lib/langues'
 import type { Commune, Media } from '@/payload-types'
 
-import { composerFrise } from './frise'
+import { composerFrise, lignesFrise } from './frise'
 import { gabaritDe } from './registre'
 import { Actualites } from './sections/Actualites'
 import { Agenda } from './sections/Agenda'
-import { Demarches } from './sections/Demarches'
+import { ANCRE_DEMARCHES, Demarches } from './sections/Demarches'
 import { Heros } from './sections/Heros'
 import { Mairie } from './sections/Mairie'
 import { Mosaique } from './sections/Mosaique'
@@ -56,32 +56,26 @@ export async function Accueil({
   const [texteLibre, actus, evenements, photosMosaique] = await Promise.all([
     page && (page.blocs?.length ?? 0) > 0 ? versionEnLangue('pages', id, page, langue) : null,
     actusFr ? versionsEnLangue('actualites', id, actusFr.docs, langue) : Promise.resolve([]),
-    evenementsFr ? versionsEnLangue('evenements', id, evenementsFr.docs, langue) : Promise.resolve([]),
+    evenementsFr
+      ? versionsEnLangue('evenements', id, evenementsFr.docs, langue)
+      : Promise.resolve([]),
     veut('mosaique')
       ? Promise.all(accueil.mosaique.map((tuile) => mediaDe(id, tuile.photo, langue)))
       : Promise.resolve([] as Array<(Media & { langueAlt: CodeLangue }) | null>),
   ])
+  const imagesActus = await Promise.all(actus.map(({ doc }) => mediaDe(id, doc.image, langue)))
   // I30 : une démarche sans lien n'est pas rendue.
   const demarches = accueil.demarches.filter((d) => d.lien)
   // Frise vide = pas de frise (le héros se termine sur un fondu).
-  const { svg: frise } = composerFrise(
-    kit,
-    (commune.apparence?.frise ?? []).map((ligne) => ({
-      piece: ligne.piece,
-      taille: ligne.taille ?? 'moyenne',
-      ecart: ligne.ecart,
-    })),
-  )
+  const { svg: frise } = composerFrise(kit, lignesFrise(commune.apparence?.frise))
   // I30 : un groupe Payload se lit toujours comme un objet, même si tous ses
   // champs sont vides — la carte n'existe que si Mairie rendrait une donnée.
   const c = commune.coordonnees
-  const carteMairie = Boolean(
-    c?.telephone || c?.adresse || c?.email || identite.horaires,
-  )
+  const carteMairie = Boolean(c?.telephone || c?.adresse || c?.email || identite.horaires)
 
   return (
     <>
-      {gabarit.accueil.map(({ section }) => {
+      {gabarit.accueil.map(({ section, variante }) => {
         switch (section) {
           case 'heros':
             return (
@@ -93,11 +87,22 @@ export async function Accueil({
                 frise={frise}
                 illustrations={illustrations}
                 cadrage={gabarit.cadrageHeros}
+                // I30 : pas de bouton vers une section qui n'est pas rendue.
+                action={
+                  veut('demarches') && demarches.length > 0
+                    ? { href: `#${ANCRE_DEMARCHES}`, libelle: t.accueil.faireDemarche }
+                    : null
+                }
               />
             )
           case 'demarches':
             return demarches.length > 0 ? (
-              <Demarches key={section} titre={t.accueil.demarches} langue={langue} demarches={demarches} />
+              <Demarches
+                key={section}
+                titre={t.accueil.demarches}
+                langue={langue}
+                demarches={demarches}
+              />
             ) : null
           case 'mairie':
             return carteMairie ? (
@@ -122,6 +127,9 @@ export async function Accueil({
                 toutVoir={t.accueil.toutesActualites}
                 langue={langue}
                 actus={actus}
+                images={imagesActus}
+                illustrations={illustrations}
+                variante={variante}
                 lien={lien}
               />
             ) : null
@@ -146,6 +154,7 @@ export async function Accueil({
                 tuiles={accueil.mosaique}
                 photos={photosMosaique}
                 illustrations={illustrations}
+                variante={variante}
               />
             ) : null
           default:

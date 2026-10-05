@@ -10,6 +10,7 @@ export const fr = {
   accueil: {
     lien: 'Accueil',
     demarches: 'Vos démarches',
+    faireDemarche: 'Faire une démarche',
     mairie: 'La mairie',
     actualites: 'Actualités',
     toutesActualites: 'Toutes les actualités',

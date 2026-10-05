@@ -8,7 +8,9 @@ import type { Gabarit, Illustrations } from '../types'
 /**
  * Héros de l'accueil : photo de la commune ou grande scène du kit (I30),
  * H1 = nom de la commune, frise du territoire en bas — remplacée par un
- * fondu quand elle est vide (spec § 1).
+ * fondu quand elle est vide (spec § 1). `--photo` / `--illustre` : le thème
+ * choisit la couleur du texte selon le fond (décision 17). `action` : le
+ * bouton vers les démarches, absent quand la section l'est (I30).
  */
 export function Heros({
   nom,
@@ -17,6 +19,7 @@ export function Heros({
   frise,
   illustrations,
   cadrage,
+  action,
 }: {
   nom: TexteEnLangue
   langue: CodeLangue
@@ -24,9 +27,13 @@ export function Heros({
   frise: string | null
   illustrations: Illustrations
   cadrage: Gabarit['cadrageHeros']
+  action?: { href: string; libelle: string } | null
 }) {
   return (
-    <section data-section="heros" className={`section-heros section-heros--${cadrage}`}>
+    <section
+      data-section="heros"
+      className={`section-heros section-heros--${cadrage} section-heros--${photo ? 'photo' : 'illustre'}`}
+    >
       {photo ? (
         <MediaImage
           media={photo}
@@ -44,6 +51,11 @@ export function Heros({
       )}
       <div className="section-heros__texte">
         <h1 lang={nom.langue !== langue ? nom.langue : undefined}>{nom.texte}</h1>
+        {action && (
+          <a className="section-heros__action" href={action.href}>
+            {action.libelle}
+          </a>
+        )}
       </div>
       {frise ? (
         <div className="section-heros__frise" dangerouslySetInnerHTML={{ __html: frise }} />

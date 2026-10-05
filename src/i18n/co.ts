@@ -12,6 +12,7 @@ export const co: Dictionnaire = {
     // Textes de l'accueil composé — PROVISOIRES en corse, à faire relire.
     lien: 'Accolta',
     demarches: 'E vostre pratiche',
+    faireDemarche: 'Fà una pratica',
     mairie: 'A municipalità',
     actualites: 'Nutizie',
     toutesActualites: 'Tutte e nutizie',
