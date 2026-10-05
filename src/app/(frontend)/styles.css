@@ -3,15 +3,28 @@
    DSFR) : elle est réservée aux sites en .gouv.fr (tests/unit/identite-etat). */
 
 :root {
-  /* Défaut ardoise : 10:1 avec le texte blanc, 10:1 comme lien sur fond blanc */
-  --couleur-principale: #264653;
-  --couleur-accent: #264653;
   --couleur-fond: #ffffff;
-  --couleur-fond-alt: #f6f6f6;
   --couleur-texte: #161616;
   --couleur-texte-blanc: #ffffff;
   --couleur-bordure: #e0e0e0;
-  --couleur-erreur: #b3261e;
+  /* Fixes, jamais issus de la commune. */
+  --alerte: #b3261e;
+  --alerte-texte: #ffffff;
+}
+
+/*
+ * Alias (spec § 2) : les blocs gardent leurs noms, les valeurs viennent de
+ * deriver(), posées en inline sur <body> par le layout. La substitution var()
+ * se résout sur l'élément qui déclare l'alias : posés dans :root, ils ne
+ * verraient pas les variables inline de body et un lien hériterait de
+ * --couleur-texte. Défaut ardoise : 10:1 avec le texte blanc, 10:1 comme
+ * lien sur fond blanc.
+ */
+body {
+  --couleur-principale: var(--principale-sure);
+  --couleur-accent: var(--accent);
+  --couleur-fond-alt: var(--pale);
+  --couleur-erreur: var(--alerte);
 }
 
 * {
@@ -287,7 +300,8 @@ main {
 
 .bouton--primaire:hover {
   background: var(--couleur-accent);
-  color: var(--couleur-texte-blanc);
+  /* L'accent est décoratif (défaut #e2a72e, blanc dessus ≈ 2:1) : texte contrasté. */
+  color: var(--texte-sur-accent);
 }
 
 .bouton--secondaire {

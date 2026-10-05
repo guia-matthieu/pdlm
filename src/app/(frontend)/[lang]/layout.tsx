@@ -18,6 +18,7 @@ import {
 import { contexteLangue } from '@/lib/langue-courante'
 import { siteMesure } from '@/lib/mesure/etat'
 import { COOKIE_OPPOSITION, estOppose } from '@/lib/mesure/opposition'
+import { deriver } from '@/lib/couleurs'
 
 import '../styles.css'
 
@@ -63,9 +64,16 @@ export default async function LayoutLangue({ children, params }: Props) {
   ])
   const alertes = await versionsEnLangue('alertes', commune.id, alertesFr, ctx.langue)
 
-  // Couleur non saisie : variable non posée, le défaut de styles.css (:root) s'applique
-  const couleurPrincipale = commune.apparence?.couleurPrincipale || undefined
-  const couleurAccent = commune.apparence?.couleurAccent || undefined
+  // I23 : dérivées recalculées à chaque rendu, jamais stockées. Une couleur non
+  // saisie vaut le défaut (DEFAUTS de deriver, jamais le bleu France).
+  const { variables } = deriver(
+    {
+      principale: commune.apparence?.couleurPrincipale,
+      accent: commune.apparence?.couleurAccent,
+      terre: commune.apparence?.couleurTerre,
+    },
+    commune.apparence?.couleursForcees ?? {},
+  )
 
   // I20 : pas de script pour un visiteur qui s'est opposé.
   const oppose = estOppose((await cookies()).get(COOKIE_OPPOSITION)?.value)
@@ -73,14 +81,7 @@ export default async function LayoutLangue({ children, params }: Props) {
 
   return (
     <html lang={ctx.langue}>
-      <body
-        style={
-          {
-            '--couleur-principale': couleurPrincipale,
-            '--couleur-accent': couleurAccent,
-          } as React.CSSProperties
-        }
-      >
+      <body style={variables as React.CSSProperties}>
         <a href="#contenu" className="lien-evitement">
           {ctx.t.evitement}
         </a>
