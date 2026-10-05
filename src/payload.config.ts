@@ -46,7 +46,7 @@ const lireVersionsCommune: Access = ({ req }) => {
 }
 
 const historiqueCommunes: Plugin = (config) => {
-  const communes = config.collections.find((c) => c.slug === 'communes')
+  const communes = config.collections?.find((c) => c.slug === 'communes')
   if (communes) {
     communes.access = { ...communes.access, readVersions: lireVersionsCommune }
   }
