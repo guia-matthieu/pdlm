@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 
 import { GABARITS } from '../../src/gabarits/registre'
 import { VARIABLES_CONTRAT } from '../../src/lib/couleurs'
@@ -24,6 +24,21 @@ const OPERATEUR = { email: 'operateur@pdlm.dev', motDePasse: 'demo1234' }
 const BLANCHE = ['#fff', '#ffffff', '#000', '#000000']
 /** Variables fixes hors contrat (décision 5) : jamais issues de la commune. */
 const FIXES = ['--alerte', '--alerte-texte', '--focus']
+/** Vider les coordonnées : un groupe Payload n'accepte pas null (mesuré : 500). */
+const COORDONNEES_NULLES = {
+  adresse: null,
+  codePostal: null,
+  ville: null,
+  telephone: null,
+  email: null,
+}
+const COORDONNEES_DEMO = {
+  adresse: '1 place de la Mairie',
+  codePostal: '01100',
+  ville: 'Saint-Exupéry-les-Bains',
+  telephone: '03 00 00 00 00',
+  email: 'mairie@saint-exupery-les-bains.fr',
+}
 
 /*
  * Les appels API partent du navigateur (cookie de session + en-têtes propres,
@@ -108,6 +123,7 @@ function controleCss(css: string) {
 for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
   test.describe.serial(`Suite de conformité — ${nom}`, () => {
     let page: Page
+    let contexte: BrowserContext
     // État d'origine de la commune de démonstration, remis dans afterAll.
     let idCommune: number
     let idPageAccueil: number | null = null
@@ -123,7 +139,9 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
     }
 
     test.beforeAll(async ({ browser }) => {
-      page = await browser.newPage()
+      // Axe exige une page née d'un contexte explicite (pas browser.newPage()).
+      contexte = await browser.newContext()
+      page = await contexte.newPage()
       await connecterAdmin(page, OPERATEUR)
 
       const docs = (
@@ -200,7 +218,7 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
           })
         }
       } finally {
-        await page.close()
+        await contexte.close()
       }
     })
 
@@ -231,7 +249,16 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       expect(rendues).toEqual(gabarit.accueil.map((s) => s.section))
 
       // I27 : l'accueil n'ajoute aucun script par rapport à une page intérieure.
-      const srcs = () => page.$$eval('script[src]', (els) => els.map((e) => e.getAttribute('src')).sort())
+      // En dev, turbopack nomme ses chunks par route (constaté : un nom diffère
+      // entre / et /actualites) : l'égalité porte sur les scripts qui ne sont
+      // pas des chunks internes de Next — le gabarit n'en ajoute aucun.
+      const srcs = () =>
+        page.$$eval('script[src]', (els) =>
+          els
+            .map((e) => new URL((e as HTMLScriptElement).src).pathname)
+            .filter((src) => !src.startsWith('/_next/static/chunks/'))
+            .sort(),
+        )
       const scriptsAccueil = await srcs()
       await page.goto('/actualites')
       await page.waitForLoadState('networkidle')
@@ -303,7 +330,7 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apparence: { photoAccueil: null, frise: [] },
-          coordonnees: null,
+          coordonnees: COORDONNEES_NULLES,
           accueil: {
             demarches: (origine.demarches ?? []).map((d) => ({
               id: d.id,
@@ -358,13 +385,7 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
               photoAccueil: origine.photoAccueil ?? null,
               frise: origine.frise ?? [],
             },
-            coordonnees: {
-              adresse: '1 place de la Mairie',
-              codePostal: '01100',
-              ville: 'Saint-Exupéry-les-Bains',
-              telephone: '03 00 00 00 00',
-              email: 'mairie@saint-exupery-les-bains.fr',
-            },
+            coordonnees: COORDONNEES_DEMO,
             accueil: {
               demarches: (origine.demarches ?? []).map((d) => ({
                 id: d.id,
