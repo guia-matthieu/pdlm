@@ -10,11 +10,16 @@ import { expect, test } from '@playwright/test'
 const COMMUNE = 'Saint-Exupéry-les-Bains'
 
 test.describe('Front public', () => {
-  test("l'accueil rend la page publiée de la commune résolue", async ({ page }) => {
+  test("l'accueil est composé par le gabarit de la commune résolue", async ({ page }) => {
     await page.goto('/')
 
-    // Bloc « hero » de la page de slug « accueil » semée pour saint-ex.
-    await expect(page.locator('h1')).toHaveText(`Bienvenue à ${COMMUNE}`)
+    // Le héros du gabarit porte le nom de la commune en H1 ; la page de slug
+    // « accueil » se rend dans la section texte libre (blocs texteRiche et
+    // boutons semés pour saint-ex).
+    await expect(page.locator('h1')).toHaveText(COMMUNE)
+    await expect(page.locator('[data-section="texteLibre"] .bloc-texte')).toContainText(
+      'une petite commune',
+    )
 
     // L'en-tête porte le nom issu de la résolution host -> commune : c'est la
     // preuve que le câblage multi-host a bien eu lieu, et pas un rendu en dur.

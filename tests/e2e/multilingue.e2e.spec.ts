@@ -85,7 +85,12 @@ test.describe('Multilingue', () => {
   test('/co sans barre finale : l’accueil corse', async ({ page }) => {
     const reponse = await page.goto(`${FR}/co`)
     expect(reponse?.status()).toBe(200)
-    await expect(page.locator('h1')).toHaveText('Benvenuti à Valverde')
+    // Le H1 du héros est le nom corse de la commune (l'accueil est composé par
+    // le gabarit ; la page « accueil » traduite se rend en texte libre).
+    await expect(page.locator('h1')).toHaveText('Valverde')
+    await expect(page.locator('[data-section="texteLibre"] .bloc-texte')).toContainText(
+      'Benvenuti à Valverde',
+    )
   })
 
   test('aucun JavaScript ajouté pour le multilingue', async ({ page }) => {
