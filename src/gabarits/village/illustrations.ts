@@ -155,7 +155,9 @@ export const illustrations: Illustrations = {
    * « nature » (spec : une scène absente se replie sur nature).
    */
   scene(nom, w, h) {
-    const composition = COMPOSITIONS[nom] ?? COMPOSITIONS.nature
+    // `hasOwn` coupe les noms hérités du prototype (`constructor`, …), qui
+    // sinon existeraient sans être des scènes — le repli tient pour tout nom.
+    const composition = Object.hasOwn(COMPOSITIONS, nom) ? COMPOSITIONS[nom] : COMPOSITIONS.nature
     const sol = h * 0.74
     const l = largeur(composition.pieces, 1)
     const zoom = Math.min(3.4, (w * 0.8) / l, (sol - h * 0.1) / hauteurMax(composition.pieces))

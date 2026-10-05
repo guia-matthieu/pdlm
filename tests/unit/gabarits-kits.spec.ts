@@ -38,6 +38,17 @@ describe.each(Object.entries(GABARITS))('kit du gabarit %s', (nom, { gabarit, ki
     bienForme(illustrations.scene(scene, 960, 400), `${nom} scène ${scene} 960×400`)
   })
 
+  it('scène de nom hérité d’Object.prototype : repli « nature », sans exception', () => {
+    // Le champ est une liste fermée, mais le repli doit tenir pour tout nom :
+    // `constructor`, `toString`… existent sur tout objet via le prototype.
+    for (const nomInconnu of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) {
+      bienForme(
+        illustrations.scene(nomInconnu, 480, 600),
+        `${nom} scène « ${nomInconnu} » (repli nature)`,
+      )
+    }
+  })
+
   it('héros de repli : SVG bien formé', () => {
     bienForme(illustrations.heros(1600, 660), `${nom} héros`)
   })

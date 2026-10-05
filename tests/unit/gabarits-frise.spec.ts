@@ -24,6 +24,15 @@ describe('composerFrise', () => {
     expect(r.svg).toContain('aria-hidden="true"')
   })
 
+  it('noms hérités d’Object.prototype : ignorés et listés, sans exception (I30)', () => {
+    // `piece` est un champ texte libre : ces noms existent sur tout objet via
+    // la chaîne de prototypes et ne sont pas des pièces du kit.
+    const noms = ['constructor', 'toString', 'hasOwnProperty', '__proto__']
+    const r = composerFrise(kit, noms.map((piece) => ({ piece, taille: 'moyenne' })))
+    expect(r.ignorees).toEqual(noms)
+    expect(r.svg).toBeNull()
+  })
+
   it('seulement des pièces hors kit : aucun SVG', () => {
     expect(composerFrise(kit, [{ piece: 'phare', taille: 'moyenne' }]).svg).toBeNull()
   })

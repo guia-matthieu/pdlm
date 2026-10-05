@@ -37,7 +37,10 @@ export function composerFrise(
   const traits: string[] = []
   let x = 0
   for (const ligne of lignes) {
-    const piece = kit.pieces[ligne.piece]
+    // `piece` est un champ texte libre : `hasOwn` seul coupe les noms hérités
+    // de la chaîne de prototypes (`constructor`, `toString`, …), qui ne sont
+    // jamais des pièces du kit (même garde que `gabaritDe` dans registre.ts).
+    const piece = Object.hasOwn(kit.pieces, ligne.piece) ? kit.pieces[ligne.piece] : undefined
     if (!piece) {
       ignorees.push(ligne.piece)
       continue
