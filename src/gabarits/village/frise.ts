@@ -1,10 +1,12 @@
 /**
- * Kit de frise du gabarit Village — VERSION PROVISOIRE (décision 18) :
- * six pièces portées telles quelles de la maquette validée
- * `K-village-illustre/frise.py` (géométrie inchangée), le temps que la
- * tâche 5 porte le kit complet. Chaque pièce est dessinée à (x, sol), vers
- * le haut en négatif, à l'échelle `s` ; les couleurs passent par des classes
- * CSS (styles.css), jamais un littéral.
+ * Kit de frise du gabarit Village : les six pièces de la maquette validée
+ * `K-village-illustre/frise.py` (maison, maison basse, église, sapin, arbre,
+ * mairie), géométrie inchangée, à la signature `(x, sol, taille)` du contrat.
+ * Chaque pièce est dessinée à (x, sol), vers le haut en négatif, à l'échelle
+ * `s` ; `colline` de la maquette devient `horizon()`. Comme dans `frise.py`,
+ * seule l'église a un trait (sa croix) : les autres pièces sont des aplats.
+ * Les détails des scènes d'illustration (fenêtres, drapeau…) sont dans
+ * `illustrations.ts`. Couleurs : classes CSS (styles.css), jamais un littéral.
  */
 
 import type { Kit, Taille } from '../types'
@@ -15,7 +17,11 @@ const p = (v: number) => Math.round(v * 100) / 100
 type Dessin = { formes: string[]; traits: string[] }
 
 /** Une pièce du kit : son dessin paramétré, sa largeur et sa hauteur hors-tout. */
-type Piece = { dessiner(x: number, sol: number, s: number): Dessin; largeur: number; hauteur: number }
+type Piece = {
+  dessiner(x: number, sol: number, s: number): Dessin
+  largeur: number
+  hauteur: number
+}
 
 export const PIECES: Record<string, Piece> = {
   maison: {
@@ -25,7 +31,7 @@ export const PIECES: Record<string, Piece> = {
       formes: [
         `M${p(x)} ${p(sol)} V${p(sol - 30 * s)} L${p(x + 23 * s)} ${p(sol - 52 * s)} L${p(x + 46 * s)} ${p(sol - 30 * s)} V${p(sol)} Z`,
       ],
-      traits: [`M${p(x + 10 * s)} ${p(sol - 15 * s)} h${p(7 * s)} M${p(x + 29 * s)} ${p(sol - 15 * s)} h${p(7 * s)}`],
+      traits: [],
     }),
   },
   maisonBasse: {
@@ -35,9 +41,7 @@ export const PIECES: Record<string, Piece> = {
       formes: [
         `M${p(x)} ${p(sol)} V${p(sol - 22 * s)} L${p(x + 14 * s)} ${p(sol - 38 * s)} H${p(x + 56 * s)} L${p(x + 70 * s)} ${p(sol - 22 * s)} V${p(sol)} Z`,
       ],
-      traits: [
-        `M${p(x + 12 * s)} ${p(sol - 10 * s)} h${p(8 * s)} M${p(x + 31 * s)} ${p(sol - 10 * s)} h${p(8 * s)} M${p(x + 50 * s)} ${p(sol - 10 * s)} h${p(8 * s)}`,
-      ],
+      traits: [],
     }),
   },
   eglise: {
@@ -50,13 +54,12 @@ export const PIECES: Record<string, Piece> = {
         `M${p(x + 62 * s)} ${p(sol - 70 * s)} L${p(x + 76 * s)} ${p(sol - 122 * s)} L${p(x + 90 * s)} ${p(sol - 70 * s)} Z`,
       ],
       traits: [
-        `M${p(x + 76 * s)} ${p(sol - 122 * s)} V${p(sol - 136 * s)} M${p(x + 71 * s)} ${p(sol - 130 * s)} H${p(x + 81 * s)}`,
-        `M${p(x + 28 * s)} ${p(sol - 22 * s)} a${p(4 * s)} ${p(4 * s)} 0 1 1 ${p(8 * s)} 0 a${p(4 * s)} ${p(4 * s)} 0 1 1 ${p(-8 * s)} 0`,
+        `M${p(x + 75 * s)} ${p(sol - 122 * s)} V${p(sol - 136 * s)} M${p(x + 70 * s)} ${p(sol - 130 * s)} H${p(x + 81 * s)}`,
       ],
     }),
   },
   sapin: {
-    largeur: 55,
+    largeur: 54.6,
     hauteur: 50,
     dessiner: (x, sol, s) => {
       const w = 21 * s
@@ -88,15 +91,12 @@ export const PIECES: Record<string, Piece> = {
         `M${p(x - 4 * s)} ${p(sol - 40 * s)} L${p(x + 42 * s)} ${p(sol - 62 * s)} L${p(x + 88 * s)} ${p(sol - 40 * s)} Z`,
         `M${p(x + 36 * s)} ${p(sol - 58 * s)} V${p(sol - 76 * s)} H${p(x + 48 * s)} V${p(sol - 58 * s)} Z`,
       ],
-      traits: [
-        `M${p(x + 12 * s)} ${p(sol - 22 * s)} h${p(9 * s)} M${p(x + 38 * s)} ${p(sol - 22 * s)} h${p(9 * s)} M${p(x + 64 * s)} ${p(sol - 22 * s)} h${p(9 * s)}`,
-        `M${p(x + 42 * s)} ${p(sol - 76 * s)} V${p(sol - 96 * s)}`,
-      ],
+      traits: [],
     }),
   },
 }
 
-/** Échelles des trois tailles d'opérateur (maquette `illustrations_village.py`). */
+/** Échelles des trois tailles d'opérateur (maquette `illustrations_village.py`, `frise_littoral.py`). */
 export const TAILLES: Record<Taille, number> = { petite: 0.72, moyenne: 1, grande: 1.3 }
 
 /** L'horizon du Village : deux lignes de collines, courbe lissée de `frise.py`. */
