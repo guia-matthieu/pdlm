@@ -18,7 +18,7 @@ Commits, dans l'ordre :
 
 ## Ce qui a été fait
 
-- **`src/gabarits/village/theme.css`** (≈ 640 lignes) : la mise en forme de
+- **`src/gabarits/village/theme.css`** (851 lignes une fois formaté) : la mise en forme de
   `K-village-illustre/theme.css`, réécrite sur le balisage des sections
   communes. Les 7 couleurs littérales, les 12 `rgba()` et les anciennes
   variables ont disparu : `--principale-fonce` → `--profond` ; `--texte` →
