@@ -12,14 +12,20 @@ import { connecterAdmin } from '../helpers/login'
 const OPERATEUR = { email: 'operateur@pdlm.dev', motDePasse: 'demo1234' }
 
 /*
- * Les appels API suivent la session posée par le formulaire (cookie), mais la
- * protection CSRF de Payload refuse un cookie sans en-tête Origin — et le
- * contexte de requête de Playwright n'en pose pas. D'où l'Origin explicite,
- * calculée comme dans playwright.config.ts.
+ * Les appels API partent du navigateur lui-même : le fetch de la page porte la
+ * session (cookie) ET ses propres en-têtes, que la protection CSRF de Payload
+ * accepte — un contexte de requête Playwright (page.request) n'envoie pas
+ * d'Origin et essuie un 403 sur un cookie sans Origin.
  */
-const PORT = Number(process.env.E2E_PORT ?? 3000)
-const ORIGINE = `http://localhost:${PORT}`
-const API = { headers: { Origin: ORIGINE } }
+async function apiCommunes(page: Page, chemin: string, init?: RequestInit) {
+  return page.evaluate(
+    async ({ chemin, init }) => {
+      const r = await fetch(chemin, { credentials: 'include', ...init })
+      return { ok: r.ok, statut: r.status, corps: await r.text() }
+    },
+    { chemin, init },
+  )
+}
 
 /** Valeur exacte d'une variable CSS posée sur <body> (suffixe d'espacement retiré). */
 async function variableDuCorps(page: Page, nom: string): Promise<string> {
@@ -63,17 +69,18 @@ test.describe('Couleurs — le site public sert les variables dérivées', () =>
 
   test('une couleur saisie dans l’admin est servie dérivée sur le site', async ({ page }) => {
     await connecterAdmin(page, OPERATEUR)
-    const communes = await page.request.get('/api/communes?where[slug][equals]=saint-ex&limit=1', API)
-    expect(communes.ok(), await communes.text()).toBe(true)
-    const commune = (await communes.json()).docs[0]
+    const communes = await apiCommunes(page, '/api/communes?where[slug][equals]=saint-ex&limit=1')
+    expect(communes.ok, communes.corps).toBe(true)
+    const commune = JSON.parse(communes.corps).docs[0]
     const avant = commune.apparence?.couleurPrincipale ?? null
 
     try {
-      const patch = await page.request.patch(`/api/communes/${commune.id}`, {
-        ...API,
-        data: { apparence: { couleurPrincipale: '#7fc8a0' } },
+      const patch = await apiCommunes(page, `/api/communes/${commune.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apparence: { couleurPrincipale: '#7fc8a0' } }),
       })
-      expect(patch.ok(), await patch.text()).toBe(true)
+      expect(patch.ok, patch.corps).toBe(true)
 
       await page.goto('/')
       // #7fc8a0 (1,97:1 sur blanc) est assombrie jusqu'à 4,5:1 : #3c8460,
@@ -95,11 +102,12 @@ test.describe('Couleurs — le site public sert les variables dérivées', () =>
       expect(contrasteWcag(pied.couleurLien, pied.fond)).toBeGreaterThanOrEqual(4.5)
     } finally {
       // L'état du seed est remis tel qu'avant le test.
-      const restaure = await page.request.patch(`/api/communes/${commune.id}`, {
-        ...API,
-        data: { apparence: { couleurPrincipale: avant } },
+      const restaure = await apiCommunes(page, `/api/communes/${commune.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apparence: { couleurPrincipale: avant } }),
       })
-      expect(restaure.ok(), await restaure.text()).toBe(true)
+      expect(restaure.ok, restaure.corps).toBe(true)
     }
   })
 })
