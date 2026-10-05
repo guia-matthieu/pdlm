@@ -25,7 +25,8 @@ const eslintConfig = [
     },
   },
   {
-    ignores: ['.next/', 'src/payload-types.ts', 'src/payload-generated-schema.ts'],
+    // `.superpowers/` : scritch de travail local (ignoré par git), pas du code du dépôt.
+    ignores: ['.next/', '.superpowers/', 'src/payload-types.ts', 'src/payload-generated-schema.ts'],
   },
 ]
 
