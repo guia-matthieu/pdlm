@@ -932,17 +932,22 @@ const { variables } = deriver(
 <body style={variables as React.CSSProperties}>
 ```
 
-  et dans `styles.css` `:root` : retirer les valeurs de `--couleur-principale` / `--couleur-accent` / `--couleur-fond-alt` / `--couleur-erreur`, remplacées par
+  et dans `styles.css` : retirer les valeurs de `--couleur-principale` / `--couleur-accent` / `--couleur-fond-alt` / `--couleur-erreur`, remplacées par
 
 ```css
-  /* Alias (spec § 2) : les blocs gardent leurs noms, les valeurs viennent de deriver(). */
+/* Alias (spec § 2) : les blocs gardent leurs noms, les valeurs viennent de deriver().
+   Posés sur body, PAS :root (correction du 05/10, mesuré en exécutant la tâche) :
+   var() se résout sur l'élément qui déclare l'alias, et les variables de deriver()
+   sont inline sur <body> — dans :root, la substitution échoue et un lien hérite
+   de --couleur-texte (rgb(22, 22, 22)). */
+body {
   --couleur-principale: var(--principale-sure);
   --couleur-accent: var(--accent);
   --couleur-fond-alt: var(--pale);
   --couleur-erreur: var(--alerte);
-  /* Fixes, jamais issus de la commune. */
-  --alerte: #b3261e;
-  --alerte-texte: #ffffff;
+}
+/* Dans :root, Fixes, jamais issus de la commune. */
+/* --alerte: #b3261e; --alerte-texte: #ffffff; */
 ```
 
   ⚠️ `--couleur-accent` sert aujourd'hui de **fond sous du texte blanc** (`styles.css` l. 289-290 : `background: var(--couleur-accent); color: var(--couleur-texte-blanc)`). Avec l'accent désormais décoratif (`#e2a72e` par défaut, blanc dessus ≈ 2:1), cette règle devient illisible : la passer à `color: var(--texte-sur-accent)`. Chercher les autres paires `--couleur-accent` + texte blanc (`grep -n "couleur-accent" -A2 src/app/(frontend)/styles.css`).
