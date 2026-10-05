@@ -1,8 +1,10 @@
 /**
- * Données du gabarit Village — VERSION PROVISOIRE (décision 18) : les sept
- * sections communes dans l'ordre de la maquette, sans variante ni thème
- * propre. La tâche 5 remplace ce fichier par le gabarit complet (polices,
- * variantes, theme.css) sans toucher au moteur.
+ * Données du gabarit Village : la composition de la maquette validée
+ * (`maquette/accueil.html`, ordre de son `generer.py`) — héros, démarches à
+ * côté de la carte mairie, actualités avec une une, agenda, mosaïque. La
+ * section « texte libre » (page « accueil » du rédacteur, spec § 3) n'existe
+ * pas dans la maquette : elle se place après le bloc démarches + mairie,
+ * avant les bandes. Mise en forme : `theme.css`.
  */
 
 import type { Gabarit } from '../types'
@@ -19,9 +21,10 @@ export const gabarit: Gabarit = {
     { section: 'demarches' },
     { section: 'mairie' },
     { section: 'texteLibre' },
-    { section: 'actualites' },
+    { section: 'actualites', variante: 'une' },
     { section: 'agenda' },
-    { section: 'mosaique' },
+    { section: 'mosaique', variante: 'une-haute' },
   ],
   cadrageHeros: 'haut',
+  friseAuPied: true,
 }
