@@ -72,7 +72,12 @@ export async function Accueil({
       ecart: ligne.ecart,
     })),
   )
-  const carteMairie = commune.coordonnees || identite.horaires
+  // I30 : un groupe Payload se lit toujours comme un objet, même si tous ses
+  // champs sont vides — la carte n'existe que si Mairie rendrait une donnée.
+  const c = commune.coordonnees
+  const carteMairie = Boolean(
+    c?.telephone || c?.adresse || c?.email || identite.horaires,
+  )
 
   return (
     <>
