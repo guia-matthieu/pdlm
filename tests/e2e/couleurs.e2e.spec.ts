@@ -66,10 +66,13 @@ test.describe('Couleurs — le site public sert les variables dérivées', () =>
     expect(await variableDuCorps(page, '--couleur-erreur')).toBe('#b3261e')
 
     // L'alias --couleur-principale colore réellement les liens sur fond blanc
-    // (#264653 = rgb(38, 70, 83)). Le titre de l'en-tête est un lien sans
-    // règle de couleur propre — pas le lien d'évitement, blanc par design.
+    // (#264653 = rgb(38, 70, 83)). Sonde : le titre d'une actualité dans la
+    // liste des actualités, lien sans règle de couleur propre, dans une page
+    // intérieure qu'aucun gabarit ne met en forme (le titre de l'en-tête, lui,
+    // est coloré par le thème du gabarit — encre dans Village).
+    await page.goto('/actualites')
     const couleurLien = await page.evaluate(() => {
-      const a = document.querySelector('.entete-site__titre')
+      const a = document.querySelector('.carte-actu h2 a')
       return a ? getComputedStyle(a).color : ''
     })
     expect(couleurLien).toBe('rgb(38, 70, 83)')

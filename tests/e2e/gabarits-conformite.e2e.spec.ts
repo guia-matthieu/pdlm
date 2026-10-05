@@ -13,10 +13,9 @@ import { connecterAdmin } from '../helpers/login'
  * le seul `village` provisoire (décision 18). Contre la commune de
  * démonstration saint-ex (localhost = DEFAULT_COMMUNE_SLUG).
  *
- * Décision 18 : le gabarit provisoire n'a ni `theme.css` ni `polices/`. Les
- * points 3 et 8 les lisent quand ils existent et passent à vide sinon — sans
- * `skip` : dès que Village (tâche 5) ou Littoral (tâche 8) les fournit, le
- * contrôle s'applique sans modifier ce fichier.
+ * Un gabarit du registre fournit `theme.css` et ses polices (contrat) : les
+ * points 3 et 8 échouent si l'un manque — ils ne passent plus à vide comme au
+ * temps du gabarit provisoire (décision 18, close à la tâche 5).
  */
 const OPERATEUR = { email: 'operateur@pdlm.dev', motDePasse: 'demo1234' }
 
@@ -59,20 +58,27 @@ async function api(page: Page, chemin: string, init?: RequestInit) {
 /** Contrastes de tous les textes visibles, mesurés dans la page rendue (point 5). */
 async function contrastes(page: Page) {
   return page.evaluate(() => {
-    const lum = (v: string) => {
-      const [r, g, b] = (v.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number)
+    // Une couleur calculée n'est pas toujours `rgb()` : `color-mix(in oklab, …)`
+    // se lit `oklab(…)` ou `color(srgb …)`. Le canevas la ramène en sRGB 8 bits,
+    // quelle que soit sa syntaxe, transparence comprise.
+    const canevas = document.createElement('canvas')
+    canevas.width = canevas.height = 1
+    const pinceau = canevas.getContext('2d', { willReadFrequently: true })!
+    const rvba = (v: string): [number, number, number, number] => {
+      pinceau.clearRect(0, 0, 1, 1)
+      pinceau.fillStyle = v
+      pinceau.fillRect(0, 0, 1, 1)
+      const [r, g, b, a] = pinceau.getImageData(0, 0, 1, 1).data
+      return [r, g, b, a / 255]
+    }
+    const lum = ([r, g, b]: number[]) => {
       const lin = (c: number) => {
         const x = c / 255
         return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4
       }
       return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
     }
-    const opaque = (v: string) => {
-      const m = v.match(/rgba?\(([^)]+)\)/)
-      if (!m) return false
-      const canaux = m[1].split(',').map((s) => Number.parseFloat(s))
-      return canaux.length < 4 || canaux[3] === 1
-    }
+    const opaque = (v: string) => rvba(v)[3] === 1
     const porteurs = Array.from(document.querySelectorAll('body *')).filter((el) => {
       const aSonTexte = Array.from(el.childNodes).some(
         (n) => n.nodeType === Node.TEXT_NODE && n.textContent && n.textContent.trim() !== '',
@@ -95,7 +101,11 @@ async function contrastes(page: Page) {
       const taille = Number.parseFloat(cs.fontSize)
       const gras = Number.parseInt(cs.fontWeight, 10) >= 700
       const large = taille >= 24 || (taille >= 18.66 && gras)
-      const [claire, sombre] = [lum(cs.color), fond ? lum(fond) : 0].sort((a, b) => b - a)
+      // Un texte translucide se mesure tel qu'il est vu : mêlé à son fond.
+      const [fr, fv, fb] = fond ? rvba(fond) : [0, 0, 0]
+      const [tr, tv, tb, ta] = rvba(cs.color)
+      const vu = [tr * ta + fr * (1 - ta), tv * ta + fv * (1 - ta), tb * ta + fb * (1 - ta)]
+      const [claire, sombre] = [lum(vu), lum([fr, fv, fb])].sort((a, b) => b - a)
       return {
         texte: (el.textContent ?? '').trim().slice(0, 50),
         couleur: cs.color,
@@ -135,7 +145,13 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       couleurAccent?: string | null
       couleurTerre?: string | null
       coordonnees?: unknown
-      demarches?: Array<{ id?: string; picto?: string; titre?: string; precision?: string; lien?: string }>
+      demarches?: Array<{
+        id?: string
+        picto?: string
+        titre?: string
+        precision?: string
+        lien?: string
+      }>
     }
 
     test.beforeAll(async ({ browser }) => {
@@ -144,9 +160,8 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       page = await contexte.newPage()
       await connecterAdmin(page, OPERATEUR)
 
-      const docs = (
-        await api(page, '/api/communes?where[slug][equals]=saint-ex&limit=1&depth=0')
-      ).docs as Array<Record<string, never>>
+      const docs = (await api(page, '/api/communes?where[slug][equals]=saint-ex&limit=1&depth=0'))
+        .docs as Array<Record<string, never>>
       idCommune = docs[0].id
       origine = {
         ...((docs[0] as unknown as { apparence?: typeof origine }).apparence ?? {}),
@@ -266,14 +281,9 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
     })
 
     test('3 — theme.css sans couleur littérale, variables du contrat seulement', async () => {
-      // Passe à vide tant que le gabarit n'a pas de theme.css (décision 18) :
-      // le contrôle s'applique dès que le fichier existe.
-      let css = ''
-      try {
-        css = await readFile(path.join(process.cwd(), 'src/gabarits', nom, 'theme.css'), 'utf8')
-      } catch {
-        return
-      }
+      const css = await readFile(path.join(process.cwd(), 'src/gabarits', nom, 'theme.css'), 'utf8')
+      // Le contrôle porte sur une vraie feuille, pas sur un fichier vide.
+      expect(css.length, 'theme.css non vide').toBeGreaterThan(500)
       const { horsListe, refsInconnues } = controleCss(css)
       expect(horsListe, 'couleurs littérales hors liste blanche').toEqual([])
       expect(refsInconnues, 'variables hors contrat/hors fichier').toEqual([])
@@ -283,9 +293,9 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       await page.goto('/')
       await page.waitForLoadState('networkidle')
       const { violations } = await new AxeBuilder({ page }).analyze()
-      expect(
-        violations.map((v) => `${v.id} : ${v.nodes.map((n) => n.target).join(', ')}`),
-      ).toEqual([])
+      expect(violations.map((v) => `${v.id} : ${v.nodes.map((n) => n.target).join(', ')}`)).toEqual(
+        [],
+      )
     })
 
     test('5 — trois palettes extrêmes : contrastes mesurés dans la page', async () => {
@@ -306,7 +316,10 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
         const mesures = await contrastes(page)
         const enEchec = mesures.filter((m) => m.contraste < m.seuil)
         expect(
-          enEchec.map((m) => `« ${m.texte} » ${m.couleur} sur ${m.fond} : ${m.contraste.toFixed(2)} < ${m.seuil}`),
+          enEchec.map(
+            (m) =>
+              `« ${m.texte} » ${m.couleur} sur ${m.fond} : ${m.contraste.toFixed(2)} < ${m.seuil}`,
+          ),
           `palette ${extreme}`,
         ).toEqual([])
       }
@@ -366,7 +379,9 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
           sections: Array.from(document.querySelectorAll('section[data-section]')).map((s) =>
             s.getAttribute('data-section'),
           ),
-          herosIllustre: Boolean(document.querySelector('[data-section="heros"] svg[data-illustration]')),
+          herosIllustre: Boolean(
+            document.querySelector('[data-section="heros"] svg[data-illustration]'),
+          ),
         }))
         expect(etat.imgSansSrc, 'aucun img sans src').toEqual([])
         expect(etat.illustrationsVides, 'aucun svg[data-illustration] vide').toEqual([])
@@ -408,19 +423,26 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
     })
 
     test('8 — chaque police du gabarit a sa licence voisine', async () => {
-      // Passe à vide tant que le gabarit n'a pas de polices/ (décision 18) :
-      // le contrôle s'applique dès que le dossier existe.
       const { readdir } = await import('node:fs/promises')
-      let fichiers: string[]
-      try {
-        fichiers = await readdir(path.join(process.cwd(), 'src/gabarits', nom, 'polices'))
-      } catch {
-        return
-      }
+      const fichiers = await readdir(path.join(process.cwd(), 'src/gabarits', nom, 'polices'))
       const polices = fichiers.filter((f) => /\.(woff2?|ttf|otf)$/i.test(f))
+      expect(polices.length, 'au moins une police auto-hébergée').toBeGreaterThan(0)
+      // Les polices servies (décision 19) sont exactement celles du dossier.
+      expect([...gabarit.polices].sort()).toEqual([...polices].sort())
+      // Convention : `<famille>-LICENSE.txt`, où <famille> est le début du nom
+      // du fichier de police (casse ignorée) — la licence d'une autre police
+      // du dossier ne compte pas.
+      const licences = fichiers.filter((f) => /-(licen[cs]e|ofl)\.txt$/i.test(f))
       for (const police of polices) {
-        const voisins = fichiers.filter((f) => f !== police && /licen|ofl|readme/i.test(f))
-        expect(voisins.length, `licence voisine de ${police}`).toBeGreaterThan(0)
+        const sienne = licences.filter((l) =>
+          police.toLowerCase().startsWith(l.replace(/-(licen[cs]e|ofl)\.txt$/i, '').toLowerCase()),
+        )
+        expect(sienne.length, `licence de ${police}`).toBeGreaterThan(0)
+        const texte = await readFile(
+          path.join(process.cwd(), 'src/gabarits', nom, 'polices', sienne[0]),
+          'utf8',
+        )
+        expect(texte.length, `${sienne[0]} non vide`).toBeGreaterThan(200)
       }
     })
 
