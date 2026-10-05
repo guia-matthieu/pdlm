@@ -1045,7 +1045,7 @@ describe('composerFrise', () => {
 
 ### Task 5: Gabarit Village (spec § 3)
 
-**Statut : à faire** (porte ouverte le 04/10 ; réponses à Q1 et Q2 : tranchées le 25/09).
+**Statut : exécutée le 05/10 (deux sessions), à relire ; captures à valider par Matthieu avant clôture. Notes : `docs/qc/notes-tache-05a.md` (kit, illustrations, polices) et `docs/qc/notes-tache-05b.md` (thème, chargement, composition, captures).** (Réponses à Q1 et Q2 : tranchées le 25/09.)
 
 **Files:**
 - Create: `src/gabarits/village/{gabarit.ts, theme.css, frise.ts, illustrations.ts, README.md}`, `src/gabarits/village/polices/` (Bricolage Grotesque + Atkinson Hyperlegible Next, OFL, avec leurs licences), `src/gabarits/village/maquette/` (copie de référence de la maquette + captures).
