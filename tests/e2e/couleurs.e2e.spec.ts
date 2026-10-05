@@ -26,6 +26,21 @@ async function variableDuCorps(page: Page, nom: string): Promise<string> {
   return page.evaluate((n) => getComputedStyle(document.body).getPropertyValue(n).trim(), nom)
 }
 
+/** Contraste WCAG 2.x entre deux couleurs calculées (« rgb(r, g, b) »). */
+function contrasteWcag(a: string, b: string): number {
+  const composants = (v: string) => (v.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number)
+  const lin = (c: number) => {
+    const x = c / 255
+    return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4
+  }
+  const lum = (v: string) => {
+    const [r, g, b] = composants(v)
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+  }
+  const [claire, sombre] = [lum(a), lum(b)].sort((x, y) => y - x)
+  return (claire + 0.05) / (sombre + 0.05)
+}
+
 test.describe('Couleurs — le site public sert les variables dérivées', () => {
   test('sans couleur saisie : contrat par défaut sur <body>, l’alias colore les liens', async ({
     page,
@@ -64,6 +79,20 @@ test.describe('Couleurs — le site public sert les variables dérivées', () =>
       // #7fc8a0 (1,97:1 sur blanc) est assombrie jusqu'à 4,5:1 : #3c8460,
       // valeur du prototype couleurs.py épinglée en tests unitaires.
       expect(await variableDuCorps(page, '--principale-sure')).toBe('#3c8460')
+
+      // Décision 17 : sur fond pâle (le pied de page), un lien est en encre,
+      // pas en principale — #3c8460 tient 4,50:1 sur blanc mais ≈ 4,1 sur le
+      // pâle. Le contraste est mesuré dans la page rendue.
+      const pied = await page.evaluate(() => {
+        const lien = document.querySelector('.pied-page__mentions a')
+        const zone = document.querySelector('.pied-page')
+        return {
+          couleurLien: lien ? getComputedStyle(lien).color : '',
+          fond: zone ? getComputedStyle(zone).backgroundColor : '',
+        }
+      })
+      expect(pied.couleurLien, 'un lien du pied de page').not.toBe('')
+      expect(contrasteWcag(pied.couleurLien, pied.fond)).toBeGreaterThanOrEqual(4.5)
     } finally {
       // L'état du seed est remis tel qu'avant le test.
       const restaure = await page.request.patch(`/api/communes/${commune.id}`, {

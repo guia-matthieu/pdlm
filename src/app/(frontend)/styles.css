@@ -50,6 +50,18 @@ a {
   color: var(--couleur-principale);
 }
 
+/* Décision 17 : sur un fond pâle (--couleur-fond-alt), textes, titres et liens
+   sont en --encre — principale-sure n'est garantie ≥ 4,5:1 que sur blanc
+   (mesure : #3c8460 sur le pâle par défaut ≈ 4,1:1). Liens soulignés, car encre
+   et texte y partagent la même famille. Zones : bandeau d'alertes, bloc
+   contact, pied de page. */
+.bandeau-alertes a,
+.bloc-contact a,
+.pied-page a {
+  color: var(--encre);
+  text-decoration: underline;
+}
+
 /* Anneau de focus bicolore, indépendant des couleurs communales : liseré
    blanc (box-shadow) puis anneau quasi noir (outline). Sur tout fond, l'une
    des deux couches contraste à 4,2:1 au moins (RGAA 10.7 / 3.3). Un anneau à
@@ -416,7 +428,7 @@ main {
   font-size: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--couleur-principale);
+  color: var(--encre);
 }
 
 .pied-page ul {
