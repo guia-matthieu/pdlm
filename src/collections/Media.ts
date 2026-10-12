@@ -37,6 +37,14 @@ export const Media: CollectionConfig = {
       { name: 'thumbnail', width: 400, height: 300, position: 'centre' },
       { name: 'card', width: 800, height: 1000, position: 'centre' },
       { name: 'hero', width: 1600, height: 900, position: 'centre' },
+      // Tâche 6 (spec § 3) : cadrés au point focal — pas de `position`. Dans
+      // payload/dist/uploads/image-resizing/createImageSizes.js, la branche
+      // `resizeWithFocalPoint` (l. 65) calcule le cadrage depuis `focalPoint`
+      // seul ; `position` n'est passée à sharp que par l. 139 (`resize(imageResizeConfig)`),
+      // c'est-à-dire sans point focal. Une `position` ici ne s'appliquerait donc
+      // qu'en l'absence de point focal.
+      { name: 'heros-haut', width: 1600, height: 1100 },
+      { name: 'panorama', width: 2000, height: 800 },
     ],
     adminThumbnail: 'thumbnail',
   },

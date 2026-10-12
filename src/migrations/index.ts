@@ -5,6 +5,7 @@ import * as migration_20260923_165520_mesure_audience from './20260923_165520_me
 import * as migration_20260925_182417_multilingue from './20260925_182417_multilingue'
 import * as migration_20261001_171239_mandats from './20261001_171239_mandats'
 import * as migration_20261004_144904_gabarits_couleurs from './20261004_144904_gabarits_couleurs'
+import * as migration_20261012_075826_tailles_heros_panorama from './20261012_075826_tailles_heros_panorama'
 
 export const migrations = [
   {
@@ -41,5 +42,10 @@ export const migrations = [
     up: migration_20261004_144904_gabarits_couleurs.up,
     down: migration_20261004_144904_gabarits_couleurs.down,
     name: '20261004_144904_gabarits_couleurs',
+  },
+  {
+    up: migration_20261012_075826_tailles_heros_panorama.up,
+    down: migration_20261012_075826_tailles_heros_panorama.down,
+    name: '20261012_075826_tailles_heros_panorama',
   },
 ]

@@ -253,7 +253,7 @@ export interface Commune {
    */
   mesure?: {
     /**
-     * Couper n’efface rien : l’historique reste jusqu’à sa purge à 25 mois.
+     * Mesure d’audience non installée sur cette plateforme
      */
     active?: boolean | null;
     siteUmami?: string | null;
@@ -276,8 +276,6 @@ export interface Media {
    * Obligatoire en français pour l’accessibilité (RGAA). Traduire dans chaque langue du site.
    */
   alt?: string | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -307,6 +305,22 @@ export interface Media {
       filename?: string | null;
     };
     hero?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    'heros-haut'?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    panorama?: {
       url?: string | null;
       width?: number | null;
       height?: number | null;
@@ -673,8 +687,6 @@ export interface Document {
    * Seule une traduction validée est montrée au public dans cette langue.
    */
   traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -1039,8 +1051,6 @@ export interface MandatsSelect<T extends boolean = true> {
 export interface MediaSelect<T extends boolean = true> {
   tenant?: T;
   alt?: T;
-  prefix?: T;
-  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1076,6 +1086,26 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
         hero?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        'heros-haut'?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        panorama?:
           | T
           | {
               url?: T;
@@ -1235,8 +1265,6 @@ export interface DocumentsSelect<T extends boolean = true> {
   dateDocument?: T;
   dureeConservation?: T;
   traduction?: T;
-  prefix?: T;
-  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
