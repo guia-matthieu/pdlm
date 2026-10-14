@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { composerFrise } from '@/gabarits/frise'
+import { illustrations as illustrationsLittoral } from '@/gabarits/littoral/illustrations'
+import { kit as kitLittoral } from '@/gabarits/littoral/frise'
 import { GABARITS, gabaritDe } from '@/gabarits/registre'
 import { SCENES } from '@/lib/accueil-defauts'
 import type { Taille } from '@/gabarits/types'
@@ -51,6 +53,59 @@ describe.each(Object.entries(GABARITS))('kit du gabarit %s', (nom, { gabarit, ki
 
   it('héros de repli : SVG bien formé', () => {
     bienForme(illustrations.heros(1600, 660), `${nom} héros`)
+  })
+
+  it('ne laisse aucune saisie de pièce entrer dans le SVG', () => {
+    // `piece` est un champ texte libre : le moteur n'assemble que des nombres
+    // et les chemins du kit, une saisie hostile ne doit jamais y paraître.
+    const premiere = Object.keys(kit.pieces)[0]
+    for (const saisie of ['<script>alert(1)</script>', '" onload="x', 'constructor', '</svg><svg onload=x>']) {
+      const { svg, ignorees } = composerFrise(kit, [
+        { piece: premiere, taille: 'moyenne' },
+        { piece: saisie, taille: 'moyenne' },
+      ])
+      expect(ignorees, saisie).toEqual([saisie])
+      expect(svg!, saisie).not.toContain(saisie)
+    }
+  })
+})
+
+/**
+ * Cas propres à Littoral (tâche 8), avant son entrée au registre : la liste
+ * fermée des 14 pièces de la maquette, des chemins réellement dessinés (des
+ * pièces comme `goeland` ou `portique` n'ont que des traits), et le repli
+ * sémantique « scène inconnue → nature » (étape 3 du plan).
+ */
+describe('kit du gabarit littoral (maquette L, 14 pièces)', () => {
+  const PIECES = [
+    'phare', 'jetee', 'barque', 'voilier', 'cabane', 'pin', 'eglise', 'maison',
+    'mairie', 'goeland', 'ecole', 'portique', 'dune', 'rocher',
+  ]
+
+  it('expose exactement les 14 pièces de la maquette', () => {
+    expect(Object.keys(kitLittoral.pieces).sort()).toEqual([...PIECES].sort())
+  })
+
+  it.each(PIECES)('pièce « %s » : des chemins non vides aux trois tailles', (piece) => {
+    for (const taille of TAILLES) {
+      const { formes, traits } = kitLittoral.pieces[piece](10, 150, taille)
+      expect(formes.length + traits.length, `${piece} en ${taille}`).toBeGreaterThan(0)
+      for (const d of [...formes, ...traits]) {
+        expect(d, `${piece} en ${taille}`).toMatch(/^M/)
+      }
+    }
+  })
+
+  it.each(SCENES)('scène « %s » : un SVG de scène', (scene) => {
+    const svg = illustrationsLittoral.scene(scene, 480, 600)
+    expect(svg.startsWith('<svg class="scene"')).toBe(true)
+    bienForme(svg, `littoral scène ${scene} 480×600`)
+  })
+
+  it('scène absente du kit : rendu identique au repli « nature »', () => {
+    expect(illustrationsLittoral.scene('lagune' as never, 480, 600)).toBe(
+      illustrationsLittoral.scene('nature', 480, 600),
+    )
   })
 })
 
