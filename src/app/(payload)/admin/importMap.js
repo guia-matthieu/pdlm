@@ -1,3 +1,4 @@
+import { FriseApercu as FriseApercu_f89dc3f6b5ba8075961a696ab58d87cf } from '../../../components/admin/FriseApercu'
 import { EffacerHistorique as EffacerHistorique_005f2f4307e81d9a3b1411756fd85cb3 } from '../../../components/admin/EffacerHistorique'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
@@ -34,6 +35,7 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 
 /** @type import('payload').ImportMap */
 export const importMap = {
+  '/components/admin/FriseApercu#FriseApercu': FriseApercu_f89dc3f6b5ba8075961a696ab58d87cf,
   '/components/admin/EffacerHistorique#EffacerHistorique':
     EffacerHistorique_005f2f4307e81d9a3b1411756fd85cb3,
   '@payloadcms/plugin-multi-tenant/client#WatchTenantCollection':

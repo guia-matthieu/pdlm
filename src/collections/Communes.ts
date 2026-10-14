@@ -409,6 +409,15 @@ export const Communes: CollectionConfig = {
                   admin: { description: 'Composition de l’accueil du site public.' },
                 },
                 {
+                  // Aperçu en direct de la frise, au-dessus des pièces.
+                  // Champ `ui` : aucune donnée, aucune migration (tâche 7).
+                  name: 'friseApercu',
+                  type: 'ui',
+                  admin: {
+                    components: { Field: '/components/admin/FriseApercu#FriseApercu' },
+                  },
+                },
+                {
                   name: 'frise',
                   type: 'array',
                   label: 'Frise du territoire',
