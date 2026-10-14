@@ -10,8 +10,8 @@ import type { Taille } from '@/gabarits/types'
 /**
  * Suite de conformité, point 7 (I31) : chaque pièce du kit rend un SVG bien
  * formé aux trois tailles, chaque scène de SCENES et le héros de repli
- * également. Paramétré par le registre : un gabarit ajouté (Littoral en
- * tâche 8) y passe sans que ce fichier change.
+ * également. Paramétré par le registre : chaque gabarit (Village, Littoral)
+ * y passe sans que ce fichier change.
  */
 
 const bienForme = (svg: string, contexte: string) => {
@@ -71,10 +71,10 @@ describe.each(Object.entries(GABARITS))('kit du gabarit %s', (nom, { gabarit, ki
 })
 
 /**
- * Cas propres à Littoral (tâche 8), avant son entrée au registre : la liste
- * fermée des 14 pièces de la maquette, des chemins réellement dessinés (des
- * pièces comme `goeland` ou `portique` n'ont que des traits), et le repli
- * sémantique « scène inconnue → nature » (étape 3 du plan).
+ * Cas propres à Littoral (tâche 8) : la liste fermée des 14 pièces de la
+ * maquette, des chemins réellement dessinés (des pièces comme `goeland` ou
+ * `portique` n'ont que des traits), et le repli sémantique « scène inconnue
+ * → nature » (étape 3 du plan).
  */
 describe('kit du gabarit littoral (maquette L, 14 pièces)', () => {
   const PIECES = [
@@ -112,15 +112,15 @@ describe('kit du gabarit littoral (maquette L, 14 pièces)', () => {
   })
 })
 
-describe('gabaritDe (décision 18 : registre provisoire à village seul)', () => {
+describe('gabaritDe (décision 18 : registre à deux gabarits)', () => {
   it('rend le gabarit demandé quand il est au registre', () => {
     expect(gabaritDe('village')).toBe(GABARITS.village)
-    expect(gabaritDe(undefined)).toBe(GABARITS.village)
+    expect(gabaritDe('littoral')).toBe(GABARITS.littoral)
   })
 
-  it('replie toute autre valeur — littoral compris — sur village', () => {
-    expect(gabaritDe('littoral')).toBe(GABARITS.village)
+  it('replie toute autre valeur sur village', () => {
     expect(gabaritDe('montagne')).toBe(GABARITS.village)
     expect(gabaritDe(null)).toBe(GABARITS.village)
+    expect(gabaritDe(undefined)).toBe(GABARITS.village)
   })
 })

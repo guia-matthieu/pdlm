@@ -66,3 +66,98 @@ $ npm run typecheck
 > tsc --noEmit          (0 erreur)
 ```
 
+## Travail B — thème, polices, registre, captures
+
+### Polices — copiées de `L-littoral-scenes/polices/`
+
+Cinq fichiers dans `src/gabarits/littoral/polices/` (Source Serif 4 400 et 600,
+Public Sans variable, deux licences OFL). `public-sans-LICENSE.md` renommé
+`public-sans-LICENSE.txt` : convention de nommage `<famille>-LICENSE.txt` de
+`village/polices/`. sha256 relevés sur la copie **et** la source, identiques :
+
+| Fichier | sha256 |
+| --- | --- |
+| `source-serif-4-latin-400.woff2` | `02194deb92d3975dd30e11a3824a1f1db32b48c93654e60560cb81ce8e7b5f95` |
+| `source-serif-4-latin-600.woff2` | `f2b7e1cf1d277b7608231868135648f8ad8e2b58d8e97ca088bee15dc357bee7` |
+| `PublicSans-latin-variable.woff2` | `c1b6da516e0062e9c2f341b3a51dd2d621d946da72f06c6cfe05fd9d2dd8622d` |
+| `source-serif-4-LICENSE.txt` | `18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3` |
+| `public-sans-LICENSE.txt` | `82f0d3cad45f264192db156360b4a710fe7060885f6aa261e6539f13cb9eb0d9` |
+
+### Thème — commit « Littoral — thème, polices et entrée au registre »
+
+`src/gabarits/littoral/theme.css`, portage de `J-maquette-littoral/accueil.html`
+sur le balisage commun. Points de conception et écarts assumés :
+
+- **littéraux hex** : `grep -nE '#[0-9a-fA-F]{3,8}\b' theme.css` ne liste que
+  `#fff` — le même que Village garde (fond blanc de la frise du pied, crêtes
+  des vagues, texte posé sur `--profond`). Les trois littéraux à retirer
+  (`#1f7a3a`, `#6b4600`, `#fff3cf`) : les deux premiers n'ont rien à remplacer
+  — la pastille « ouvert » de la maquette n'existe pas dans le moteur
+  (`Mairie.tsx` n'a pas d'état ouvert/fermé) et les alertes gardent leur base
+  du socle, `#fff3cf` compris, comme Village (aucune surcharge Littoral) ;
+- **marées** : le moteur n'a pas de crochet d'ornement entre les sections —
+  le SVG `maree` de la maquette est approché en CSS pur (deux
+  `radial-gradient` répétés, vague teintée derrière vague pleine, formule de
+  teinte reprise de `maree()` : mix 50 % dessous/dessus puis 88 % à
+  `principale-sure`). Posées dans les marges de 44 px des bandes pâle
+  (texte libre) et profonde (agenda), aux quatre endroits de la maquette
+  (autour de texte libre et d'agenda) ;
+- **courbe des marées de l'agenda** : approximée par deux arcs elliptiques
+  pointillés (`border-radius: 50%`), dates hautes/basses posées dessus par
+  `--y` et pastille accent à halo profond — retirés sous 900 px ;
+- **la « une »** : son visuel déborde jusqu'au bord de l'écran
+  (`margin: -2.6rem calc(50% - 50vw) 0 0`, dépassement écrasé par
+  `overflow-x: clip` sur body). La ligne de mer de la maquette sur ce visuel
+  n'est pas portée (aucun crochet sur les visuels d'actualité) ;
+- **libellés de mosaïque** sous l'image (serif), ornement sable de la
+  maquette non porté (pas de crochet) ;
+- **frise du héros au trait** (blanc), **frise du pied en silhouettes
+  pleines** sur blanc — les deux traitements de la maquette ;
+- mois de l'agenda en 1.2rem/700 (≈19.2 px gras) : la maquette demandait
+  1.15rem/400 (18.4 px maigre), sous le seuil du contrat pour
+  `--accent-sur-profond` (≥18.66 px si gras, donc ≥19.2 px) ;
+- dates et liens de la une en `--encre` et non `--principale-sure` :
+  décision 17 (pas de principale-sure sur fond pâle) ;
+- focus global du socle conservé (`outline` + halo `#fff`), alertes du socle
+  conservées.
+
+### Données et registre — même commit
+
+- `gabarit.ts` : `cadrageHeros: 'panorama'`, `friseAuPied: true`, mairie
+  **avant** démarches et mosaïque **sans** variante — l'ordre lu dans
+  `J-maquette-littoral/accueil.html` (héros, rive mairie, démarches, texte
+  libre, actualités une, agenda, mosaïque) ;
+- `README.md` : même plan que `village/README.md` ; la maquette de référence
+  J vit hors dépôt (`docs/recherche/…`, ignoré par git), les captures du
+  rendu iront dans `maquette/captures/` ;
+- `registre.ts` : entrée `littoral` (le type `Partial` reste : l'entrée le
+  satisfait), commentaires « attendu (tâche 8) » → « compris (tâche 8) » ;
+- test : `gabaritDe('littoral')` rend `GABARITS.littoral`, replis
+  `montagne`/`null`/`undefined` sur village. Pas de passage rouge pour ces
+  assertions : leur état rouge est l'état antérieur du dépôt (registre sans
+  `littoral`, commit `e8de943`), le registre et le test changent dans le
+  même commit — le montrer demanderait de commiter le test avant le registre.
+
+```
+$ npm run generate:importmap && npm run generate:types
+  (importMap.js réécrit, payload-types.ts réécrit)
+$ git diff src/payload-types.ts
+  (vide — la tâche ne touche pas au schéma)
+```
+
+`importMap.js` : le générateur l'a réécrit en guillemets doubles sur une
+ligne par clé — clés, valeurs et ordre identiques au fichier commis (simple
+écart de formatage selon l'environnement, rien à voir avec la tâche) :
+restauré par `git checkout --`, noté ici.
+
+```
+$ npx vitest run tests/unit/gabarits-kits.spec.ts
+ Test Files  1 passed (1)
+      Tests  67 passed (67)
+$ npm run typecheck
+> tsc --noEmit          (0 erreur)
+$ npm run lint
+✖ 45 problems (0 errors, 45 warnings)   (warnings préexistants, aucun fichier de la tâche)
+```
+
+
