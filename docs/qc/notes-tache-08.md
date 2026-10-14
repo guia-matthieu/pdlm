@@ -496,3 +496,47 @@ en `flex-direction: column` sous 48 rem) et Littoral ne le surcharge
 pas — un gabarit habille le balisage commun, il ne le restructure pas.
 Reprendre la compacité de J demanderait un repli menu propre au gabarit,
 hors du périmètre de la tâche ; à évoquer avec le socle si J doit primer.
+
+### Vérifications finales (après les six commits)
+
+`npm run typecheck` — sans sortie, donc sans erreur :
+
+```
+> pdlm@0.1.0 typecheck
+> tsc --noEmit
+```
+
+`npm run lint` — 0 erreur, 45 warnings (constatés inchangés depuis le
+début de la tâche, aucun dans les fichiers touchés par la relecture) :
+
+```
+✖ 45 problems (0 errors, 45 warnings)
+```
+
+`npm run test:unit` :
+
+```
+ Test Files  30 passed (30)
+      Tests  278 passed (278)
+```
+
+`npm run test:e2e -- gabarits-conformite` :
+
+```
+  14 passed (32.6s)
+```
+
+`npm run test:e2e -- littoral-captures` (captures régénérées dans
+`test-results/`, identiques aux quatre PNG commités en M1 — la suite y
+écrit, elle ne touche pas `src/`) :
+
+```
+  2 passed (17.9s)
+```
+
+Le piège habituel s'est reproduit : `src/payload-types.ts` régénéré avec
+le commentaire Umami du serveur de dev → `git checkout --` après
+vérification du diff (une ligne de commentaire, rien d'autre).
+`git status --short` vide ; `git diff --stat 62b42a8 -- src/gabarits/village`
+vide (I26) à chaque commit. Six commits pour la relecture : M2 (`2bff905`),
+M1 (`4d81935`), m3 (`d5b838e`), m1 (`36be533`), m2 (`4d7a5b9`), m4 (`2bb526c`).
