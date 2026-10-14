@@ -29,3 +29,20 @@ Error: Failed to resolve import "@/gabarits/littoral/illustrations" from "tests/
  Test Files  1 failed (1)
       Tests  no tests
 ```
+
+### Kit — commit « Littoral — kit de frise : 14 pièces, ligne de mer, ornements »
+
+`src/gabarits/littoral/frise.ts` : portage de `KIT`, `TAILLES`, `mer()` et des ornements de `frise_littoral.py`, sur la structure de `village/frise.ts` (`p()`, `PIECES`, `Object.fromEntries` vers la signature `(x, sol, taille)`).
+
+- les 14 pièces à la géométrie inchangée ; les coordonnées relatives de la source sont cuites à l'échelle (`a` de l'horloge de l'école, `l` des oyats de la dune), comme `arbre` le fait déjà côté Village ;
+- `horizon()` = `mer()` fermée jusqu'à y = 160. Écart d'adaptation, pas de géométrie : la maquette pose sa ligne de mer à 160 dans un viewBox 190, le moteur du contrat pose les bases à 150 dans un viewBox 160 (`SOL_FRISE` de `src/gabarits/frise.ts`) — la houle garde amplitude 3 / période 48, posée à 150 ;
+- `ornements` exporte `mer`, `maree`, `ligne_mer`, `courbe_marees`, `sable`. `maree` garde ses paramètres (optionnels, donc appelables sans argument comme le contrat l'exige) : `dessus`/`dessous` sont des couleurs CSS posées en variables inline, `#fff` (seul littéral que le contrat admet) ou une variable du contrat. Attribut `focusable="false"` ajouté aux SVG d'ornements sur le modèle de `village/illustrations.ts` (le Python ne l'avait pas) ;
+- hauteur hors-tout portée sur chaque pièce (le Python ne la renvoie pas) : modèle du type `Piece` de Village, utile aux scènes.
+
+Relance après le kit, toujours rouge (il ne manque qu'`illustrations`) :
+
+```
+$ npx vitest run tests/unit/gabarits-kits.spec.ts
+Error: Failed to resolve import "@/gabarits/littoral/illustrations" from "tests/unit/gabarits-kits.spec.ts". Does the file exist?
+ Test Files  1 failed (1) / Tests  no tests
+```
