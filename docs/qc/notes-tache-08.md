@@ -350,3 +350,65 @@ Puis passante après le correctif (`2 passed (18.2s)`), captures refaites à
 **1440 et 390 px exactement** (mesurées `sips -g pixelWidth`). Le clip de
 body reste en place : sans débordement il ne sert plus, mais il ne nuit pas
 et l'assertion nouvelle surveille toute régression.
+
+### M1 — captures périmées : bouton illisible, soleil coupé
+
+Les quatre PNG commités dataient de `6d02b14` : le correctif `08413e5`
+(boutons du texte libre rendus avec la livrée du socle) n'y était pas.
+Après M2, la suite `littoral-captures` a été relancée (`2 passed`), les
+quatre PNG recopiés depuis `test-results/gabarits/` vers
+`src/gabarits/littoral/maquette/captures/`, puis examinés.
+
+L'examen a été programmatique (PIL, mesures de pixels) : dans cette
+session, la lecture d'un PNG ne rend plus l'image (l'outil la téléverse et
+retourne une URL). Les mesures ci-dessous couvrent les trois points de la
+relecture — bouton lisible, largeur exacte, rien qui déborde — et le
+soleil de la une.
+
+**Largeurs mesurées** (`sips -g pixelWidth`) : `littoral-photos-1440.png`
+1440×4909, `littoral-photos-390.png` 390×7250,
+`littoral-sans-photo-1440.png` 1440×4771, `littoral-sans-photo-390.png`
+390×6582. Rien ne déborde : l'assertion M2 est passée aux deux largeurs.
+
+**Bouton « Actualités »** (primaire du bloc boutons du texte libre,
+fond `#264653` = couleur principale de saint-ex). Comparaison
+ancienne (extraite de `git show 6d02b14:…`) / nouvelle, même pilule,
+intérieur compté pixel à pixel (clairs > 230 vs sombres < ~90) :
+
+- ancienne `photos-1440`, pilule y1513-1563 x81-314 (233×50 px) :
+  **0 px blancs, 4722 px sombres** — texte foncé sur bleu nuit, le défaut
+  signalé ;
+- nouvelle `photos-1440`, même zone : **337 px blancs** — texte blanc,
+  lisible ;
+- nouvelle `photos-390`, pilule y1950-2001 x24-257 : **337 px blancs**,
+  lisible aussi.
+
+Lisibilité par construction, pas par ce seul rendu : le socle pose
+`--couleur-principale: var(--principale-sure)` (`styles.css` l. 25) et
+`.bouton--primaire` écrit « fond couleur principale, texte blanc »
+(`styles.css` l. 310-313) ; `--principale-sure` n'est validée par
+`couleurs.ts` (l. 237) que si son contraste sur blanc est ≥ 4,5:1.
+Mesuré ici : `#264653` sur `#fff` ≈ **10:1**. Les autres taches sombres
+comparées (y3816-3958 à 1440, y5943 à 390) sont identiques dans les deux
+captures : éléments de la mosaïque et des scènes, pas des boutons.
+
+**Soleil de la une** (demandé : « coupé en haut dans la capture 1440
+sans photo ») — il l'était, et M2 l'a réparé :
+
+- ancienne `sans-photo-1440` (1713 px de large) : disque orange
+  (`#E2A72E` = accent par défaut, `couleurs.ts` l. 33) y1821-1948
+  x1414-1575, **première ligne large de 131 px = corde plate**, blanc
+  franc au-dessus → coupé net en haut ;
+- nouvelle `sans-photo-1440` : disque y1857-1977 x1216-1336 (Ø ~120 px),
+  premières largeurs de ligne 21→30→37→43→47 = **arc régulier**, ciel
+  (230,247,254) au-dessus → disque entier ;
+- nouvelle `sans-photo-390` : tous les disques orange de la page
+  (soleil de la une, bouées, yeux des scènes) démarrent par un arc étroit
+  (4-24 px sur des Ø 57-68) → entiers.
+
+Explication géométrique, effet collatéral de M2 : avant, le débordement
+élargissait la page à 1713 px et le visuel de la une à ~946 px ; la coupe
+haute de son cadre (≈ 126 px) mangeait le haut du soleil (à ≈ 113 px,
+mis à l'échelle). Après M2, le visuel fait ~789 px (échelle 0,99), la
+coupe haute ≈ 67 px, et le haut du soleil repose à ≈ 28 px sous le bord :
+entier. Rien d'autre à corriger pour lui.
