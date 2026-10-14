@@ -475,3 +475,24 @@ Python, pas une intention ; les autres appels (horizon `periode = 48`,
 sable `periode = 160`) divisent par 4 sans reste et sont identiques des
 deux côtés. Le seul appel concerné, `ligne_mer`, ne se rend de toute
 façon pas (aucun crochet, cf. m3).
+
+### m4 — deux écarts déclarés : bateaux de la frise, en-tête à 390 px
+
+**Bateaux de la frise.** La maquette compose frise et scènes avec le
+même `composer()`, qui enfonce barque et voilier de 4 px sous la ligne
+(`frise_littoral.py` l. 119) — partout, y compris dans la frise du pied
+de page. Le portage garde l'enfoncement dans les scènes
+(`illustrations.ts` l. 154-155) mais pas dans la frise : les pièces du
+kit sont dessinées à `(x, sol)` exact, par le contrat commun
+(`frise.ts` l. 27-29 et 38-40) — l'enfoncement est un choix de
+composition que le balisage partagé (frise du pied, aperçu admin) ne
+porte pas. Sur le rendu, les bateaux de la frise posent donc sur
+l'horizon au lieu d'y flotter.
+
+**En-tête à 390 px.** La maquette J y montre un en-tête compact ; le
+rendu empile titre puis liens de menu à la verticale, sans repli : c'est
+le socle (`styles.css` l. 476-486, `.entete-site` et `.nav-principale`
+en `flex-direction: column` sous 48 rem) et Littoral ne le surcharge
+pas — un gabarit habille le balisage commun, il ne le restructure pas.
+Reprendre la compacité de J demanderait un repli menu propre au gabarit,
+hors du périmètre de la tâche ; à évoquer avec le socle si J doit primer.
