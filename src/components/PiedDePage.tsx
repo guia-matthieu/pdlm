@@ -2,6 +2,7 @@ import { cheminLangue } from '@/lib/adresses'
 import type { TexteEnLangue } from '@/lib/contenu'
 import type { ContexteLangue } from '@/lib/langue-courante'
 import { siteMesure } from '@/lib/mesure/etat'
+import { lienTelephone } from '@/lib/telephone'
 import type { Commune } from '@/payload-types'
 
 /**
@@ -49,7 +50,7 @@ export function PiedDePage({
           <h2>{t.contact}</h2>
           {c?.telephone && (
             <p>
-              {t.telephone} <a href={`tel:${c.telephone.replace(/\s/g, '')}`}>{c.telephone}</a>
+              {t.telephone} <a href={lienTelephone(c.telephone)}>{c.telephone}</a>
             </p>
           )}
           {c?.email && (

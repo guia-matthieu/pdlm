@@ -1,6 +1,7 @@
 import type { Dictionnaire } from '@/i18n'
 import type { TexteEnLangue } from '@/lib/contenu'
 import type { CodeLangue } from '@/lib/langues'
+import { lienTelephone } from '@/lib/telephone'
 import type { Commune } from '@/payload-types'
 
 /**
@@ -25,7 +26,7 @@ export function Mairie({
     <section data-section="mairie" className="section-mairie">
       <h2>{titre}</h2>
       {coordonnees?.telephone && (
-        <a className="mairie__tel" href={`tel:${coordonnees.telephone.replace(/\s/g, '')}`}>
+        <a className="mairie__tel" href={lienTelephone(coordonnees.telephone)}>
           {coordonnees.telephone}
         </a>
       )}
