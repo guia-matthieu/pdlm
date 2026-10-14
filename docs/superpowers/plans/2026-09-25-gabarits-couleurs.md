@@ -1090,14 +1090,14 @@ describe('composerFrise', () => {
 
 ### Task 8: Gabarit Littoral (spec § 3, étape 5)
 
-**Statut : à faire** (porte ouverte le 04/10 ; Q2 + Q3 : tranchées le 25/09).
+**Statut : à faire** (porte ouverte le 04/10 ; Q2 + Q3 : tranchées le 25/09 ; ancres corrigées le 14/10).
 
-**Files:** `src/gabarits/littoral/{gabarit.ts, theme.css, frise.ts, illustrations.ts, README.md, polices/, maquette/}` ; ajouter `'littoral'` à `GABARITS` et aux options du select `gabarit` (seul changement de schéma admis par I26).
+**Files:** `src/gabarits/littoral/{gabarit.ts, theme.css, frise.ts, illustrations.ts, README.md, polices/, maquette/}` ; ajouter `'littoral'` à `GABARITS`. Le select `gabarit` de `Communes.ts` porte déjà l'option `littoral` (relèvement du 14/10) : **aucun changement de schéma**, pas de migration.
 
-- [ ] **Step 1:** porter `L-littoral-scenes/frise_littoral.py` (copie de `J-maquette-littoral/frise_littoral.py` complétée des scènes `ecole`, `mer`, `nature` et des pièces `ecole`, `portique`, `dune`, `rocher` — **validées par Matthieu le 25/09**, hors dépôt comme `K-village-illustre/`) : `KIT` (10 pièces : `phare`, `jetee`, `barque`, `voilier`, `cabane`, `pin`, `eglise`, `maison`, `mairie`, `goeland`), `TAILLES`, `composer()`, `_scene()`, `SCENES` (7, dessinées et validées), `heros()`, et les ornements `mer`, `maree`, `ligne_mer`, `courbe_marees`, `sable` (selon Q3).
-- [ ] **Step 2:** porter `theme.css` (littéraux à retirer : `#1f7a3a`, `#6b4600`, `#fff3cf`) ; polices Source Serif 4 + Public Sans (OFL, licences dans `J-maquette-littoral/polices/`) ; `cadrageHeros: 'panorama'`.
+- [ ] **Step 1:** porter `frise_littoral.py` de `L-littoral-scenes/` — la source, recopiée le 14/10 dans ce worktree sous `docs/recherche/2026-09-25_front-beau/` (dossier ignoré par git ; `J-maquette-littoral/`, la maquette validée, y voisinne ; `K-village-illustre/` reste hors dépôt) : `KIT` (**14 pièces** : `phare`, `jetee`, `barque`, `voilier`, `cabane`, `pin`, `eglise`, `maison`, `mairie`, `goeland`, `ecole`, `portique`, `dune`, `rocher` — les 4 dernières ajoutées par Matthieu le 25/09 pour les 3 nouvelles scènes), `TAILLES`, `composer()`, `_scene()`, `SCENES` (7, dessinées et validées), `heros()`, et les ornements `mer`, `maree`, `ligne_mer`, `courbe_marees`, `sable` (selon Q3).
+- [ ] **Step 2:** porter `theme.css` de `L-littoral-scenes/` (littéraux à retirer : `#1f7a3a`, `#6b4600`, `#fff3cf`) ; polices Source Serif 4 + Public Sans (OFL, licences dans `L-littoral-scenes/polices/`) ; `cadrageHeros: 'panorama'`.
 - [ ] **Step 3:** scène absente du kit → repli `nature` (test unitaire dans `gabarits-kits.spec.ts`).
-- [ ] **Step 4:** suite de conformité verte sur **les deux** gabarits (I26 : Village inchangé — `git diff --stat main -- src/gabarits/village` vide pour ce commit) ; regarder les captures.
+- [ ] **Step 4:** suite de conformité verte sur **les deux** gabarits (I26 : Village inchangé — `git diff --stat 62b42a8 -- src/gabarits/village` vide, base de la branche et non `main` où Village n'existe pas) ; regarder les captures.
 - [ ] **Step 5: Commit** — `"Gabarit Littoral"`.
 
 ---
