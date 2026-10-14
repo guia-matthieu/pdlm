@@ -461,3 +461,17 @@ de la relecture :
 Vérifié : `grep "'#\|\"#"` sur `frise.ts`, `illustrations.ts`,
 `gabarit.ts` ne retourne plus rien ; `npm run typecheck` passe (sortie
 finale ci-dessous).
+
+### m2 — `mer()` garde les demi-valeurs que le Python tronquait
+
+Écart déclaré, sans effet visible. Le `mer()` de la maquette formate ses
+quadratiques en `%d` (`frise_littoral.py` l. 94) : pour `periode = 46`
+(l'appel de `ligne_mer`, l. 226), le point de contrôle `periode / 4` =
+11,5 sort **11** dans le SVG. Le portage (`frise.ts` l. 215-216) écrit
+`x + periode * 0.25` et garde **11,5**, le milieu mathématique.
+
+Je le garde ainsi : la troncature est un artefact de formatage du
+Python, pas une intention ; les autres appels (horizon `periode = 48`,
+sable `periode = 160`) divisent par 4 sans reste et sont identiques des
+deux côtés. Le seul appel concerné, `ligne_mer`, ne se rend de toute
+façon pas (aucun crochet, cf. m3).
