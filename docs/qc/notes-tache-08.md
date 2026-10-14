@@ -210,4 +210,47 @@ celles de J :
   (aucun crochet dans le balisage commun), ligne de mer sur la une, ornement
   sable de la mosaïque.
 
+### Conformité — deux correctifs après le premier passage rouge
+
+Premier passage de `npm run test:e2e -- gabarits-conformite` : 1 failed au
+point 5 (palettes extrêmes), palette `#ffff00` —
+`« Actualités » rgb(32, 33, 15) sur rgb(122, 122, 15) : 3.59 < 4.5`. Le test
+ne se modifie pas ; diagnostic par une sonde jetable (script hors git dans
+`test-results/`, supprimé après usage) rejouant la mesure du point 5 sur la
+palette jaune et imprimant l'élément en échec :
+
+- l'élément fautif est le **bouton du texte libre**
+  `section.section-texte-libre > section.bloc.bloc-boutons > a.bouton` (« Actualités »,
+  le bouton de la page d'accueil de la démo) ; `rgb(122,122,15)` =
+  `--principale-sure` (4,55:1 sur blanc, mesuré), pas `--profond` (7:1,
+  `#3b3b04`) ;
+- cause : ma règle `.section-texte-libre a { color: var(--encre) }` (décision
+  17, liens de prose sur bande pâle) a une spécificité (0,1,1) qui écrase le
+  `color: var(--couleur-texte-blanc)` du socle sur `.bouton--primaire`
+  (0,1,0, `styles.css` l. 310-313) — texte encre sur fond principale-sure.
+  Village ne voit pas le cas : sa section texte libre reste sur fond blanc,
+  il ne surcharge pas ces liens ;
+- correctif 1 : `.section-texte-libre a:not(.bouton)` — les liens de prose
+  restent en encre, les boutons du contenu (bloc-boutons, CTA d'un bloc-hero)
+  gardent la livrée du socle ;
+- la sonde rejouée révèle alors le **bouton secondaire** : le socle le met en
+  `var(--couleur-principale)` garantie sur blanc seulement — 4,13:1 sur ma
+  bande pâle. Correctif 2 : `.section-texte-libre .bouton--secondaire` passe
+  son texte en encre (même motif que la décision 17). Sonde : 0 échec sur les
+  trois palettes `#ffff00`, `#777777`, `#3b0a14`.
+
+Second passage : 1 failed au point 8 — licence de `PublicSans-latin-variable.woff2`
+introuvable. La convention (test l. 435-440, celle de Village :
+`atkinson-LICENSE.txt` pour `AtkinsonHyperlegibleNext-…`) exige que le préfixe
+de la licence soit le début exact du nom de police ; `public-sans-` n'y est
+pas (`PublicSans-`). Correctif 3 : `git mv` de la licence vers
+`publicsans-LICENSE.txt` (contenu inchangé), README mis à jour. La table des
+sha256 plus haut garde l'ancien nom de fichier : la somme est celle du
+contenu, inchangé par le renommage.
+
+```
+$ npm run test:e2e -- gabarits-conformite   (après les trois correctifs)
+  14 passed (31.2s)
+```
+
 

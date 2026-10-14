@@ -76,7 +76,7 @@ tableau des horaires du pied de page.
 - **Polices** — Source Serif 4 (© The Source Serif Project Authors) et
   Public Sans (© The Public Sans Project Authors), toutes deux sous SIL Open
   Font License 1.1 : `polices/source-serif-4-LICENSE.txt`,
-  `polices/public-sans-LICENSE.txt`.
+  `polices/publicsans-LICENSE.txt`.
 - **Dessins** (frise, scènes) — code de ce dépôt, AGPL-3.0-or-later.
 - **Pictogrammes des démarches** — GemeentenIconen, CC0 (`public/pictos/`,
   communs à tous les gabarits).
