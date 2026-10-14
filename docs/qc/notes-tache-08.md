@@ -253,4 +253,45 @@ $ npm run test:e2e -- gabarits-conformite   (après les trois correctifs)
   14 passed (31.2s)
 ```
 
+## Fin de tâche — vérifications finales
+
+Rejouées après les correctifs de conformité, sorties telles quelles :
+
+```
+$ npm run typecheck
+> tsc --noEmit          (0 erreur)
+$ npm run lint
+✖ 45 problems (0 errors, 45 warnings)   (warnings préexistants, aucun fichier de la tâche)
+$ npm run test:unit
+ Test Files  30 passed (30)
+      Tests  278 passed (278)
+$ npm run test:int
+ Test Files  24 passed (24)
+      Tests  222 passed (222)   (premier coup)
+$ npm run test:e2e        (complet, une seule fois)
+  51 passed (1.7m)
+```
+
+`git diff --stat 62b42a8 -- src/gabarits/village` vide (I26, aussi vide sur
+`src/payload-types.ts` : la tâche ne touche pas le schéma). Piège déjà noté en
+tâche 7 : chaque run e2e fait régénérer `src/payload-types.ts` par le serveur
+de développement avec l'environnement du worktree (diff du seul commentaire
+Umami de `mesure.active`) — restauré par `git checkout --` après chaque run.
+`git status --short` vide au final.
+
+## Ce que je n'ai pas pu vérifier
+
+- la comparaison à la maquette J s'est faite à l'œil sur les captures (section
+  « Captures » ci-dessus), pas par superposition ou mesure pixel ;
+- la suite e2e ne joue que Chromium : Safari et Firefox non éprouvés ;
+- le 390 px est un viewport simulé, pas un vrai appareil tactile ;
+- la fidélité géométrique du portage Python : les tests vérifient des SVG
+  bien formés aux trois tailles et des chemins non vides, pas l'égalité des
+  tracés avec `frise_littoral.py` ;
+- le point 5 de la conformité couvre trois palettes extrêmes (`#ffff00`,
+  `#777777`, `#3b0a14`), pas toutes les couleurs saisissables — la sonde de
+  diagnostic était hors git et a été supprimée ;
+- le rendu n'a été éprouvé que sur la commune de démonstration ;
+- aucune clé corse neuve : la tâche n'a touché aucun fichier d'i18n
+  (`git diff --name-only 62b42a8` — rien à faire relire).
 
