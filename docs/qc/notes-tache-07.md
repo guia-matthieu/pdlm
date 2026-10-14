@@ -118,7 +118,7 @@ INFO: Migration DOWN statements generation complete.
 ### Écarts au plan ou au brief
 
 1. **importMap.js repassé au formateur après génération.** Le générateur le sort en une ligne avec des doubles quotes ; le dépôt le maintient au format prettier (précédent : commit 1924919, `.prettierrc.json`). Le diff committé suit cette convention : 2 lignes (import + entrée).
-2. **payload-types.ts : un diff d'environnement est apparu puis a été remis.** Au premier passage de `generate:types` (avant le commit), le fichier montrait un diff d'une ligne : le commentaire du champ `mesure.active` passait de « Mesure d'audience non installée sur cette plateforme » à « Couper n'efface rien : l'historique reste jusqu'à sa purge à 25 mois. ». Cause : cette description est conditionnelle à `process.env.UMAMI_URL` (`src/collections/Communes.ts` l. 633-636) et ce run avait `UMAMI_URL` résolu. Aucune ligne S3 touchée (grep = 8, ci-dessus). La tâche 7 ne change pas les types (champ `ui`) : le fichier a été remis par `git checkout --`, et la génération d'aujourd'hui, sans `UMAMI_URL`, reproduit le fichier tel que committé — diff vide.
+2. **payload-types.ts : un diff d'environnement est apparu puis a été remis.** Au premier passage de `generate:types` (avant le commit), le fichier montrait un diff d'une ligne : le commentaire du champ `mesure.active` passait de « Mesure d'audience non installée sur cette plateforme » à « Couper n'efface rien : l'historique reste jusqu'à sa purge à 25 mois. ». Cause : cette description est conditionnelle à `process.env.UMAMI_URL` (`src/collections/Communes.ts` l. 633-636) et ce run avait `UMAMI_URL` résolu. Aucune ligne S3 touchée (grep = 8, ci-dessus). La tâche 7 ne change pas les types (champ `ui`) : le fichier a été remis par `git checkout --`, et la génération d'aujourd'hui, sans `UMAMI_URL`, reproduit le fichier tel que committé — diff vide. Le diff est réapparu après la suite e2e complète : le `webServer` de `playwright.config.ts` lance `npm run dev` (l. 62), et le dev server régénère les types au démarrage en chargeant le `.env` (donc avec `UMAMI_URL`). Remis à nouveau — à savoir pour toute session qui lance le dev server : ce diff d'une ligne est attendu et se remet par `git checkout -- src/payload-types.ts`.
 3. **`waitForLoadState('networkidle')` dans le helper du test.** Ajout motivé par l'investigation ci-dessus, expliqué par un commentaire dans le spec. Ce n'est pas une porte « bloqué » : aucune décision du plan n'est remise en cause, le comportement testé est celui de l'admin réel.
 
 ### Ce qui n'est pas vérifié
@@ -129,4 +129,40 @@ INFO: Migration DOWN statements generation complete.
 
 ### Vérifications finales
 
-(à coller après les runs)
+Toutes lancées après le commit `cbf6a35`, sur l'arbre propre.
+
+```
+$ npm run typecheck
+> pdlm@0.1.0 typecheck
+> tsc --noEmit
+(exit 0, aucune erreur)
+
+$ npm run lint
+✖ 45 problems (0 errors, 45 warnings)
+(exit 0 — zéro erreur dans src/ et tests/ ; les 45 warnings sont
+préexistants : `no-explicit-any` dans les tests int, stubs, etc.)
+
+$ npm run test:unit
+ Test Files  30 passed (30)
+      Tests  226 passed (226)
+
+$ npm run test:int
+ Test Files  24 passed (24)
+      Tests  222 passed (222)
+(premier essai, pas de « already exists »)
+
+$ npm run test:e2e -- frise-admin
+  2 passed (19.0s)
+```
+
+Suite e2e complète, une seule fois, aucun échec :
+
+```
+$ npm run test:e2e
+  42 passed (1.5m)
+(exit 0)
+```
+
+### Ce qui n'est pas vérifié (mise à jour finale)
+
+Les trois points listés plus haut tiennent toujours (aperçu non vérifié pour le rôle admin de commune, coût du re-render non mesuré). Tout le « fini quand » du brief est en revanche passé : typecheck, lint, unit, int, `test:e2e -- frise-admin`, suite e2e complète — verts, sorties ci-dessus. `git status --short` vide au moment de ce commit.
