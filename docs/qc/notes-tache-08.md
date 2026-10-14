@@ -160,4 +160,54 @@ $ npm run lint
 ✖ 45 problems (0 errors, 45 warnings)   (warnings préexistants, aucun fichier de la tâche)
 ```
 
+### Captures — suite e2e et rendu
+
+`tests/e2e/littoral-captures.e2e.spec.ts`, sur le modèle de
+`village-captures.e2e.spec.ts` : compose la commune de démonstration le temps
+des captures (frise, coordonnées maritimes, deux actualités ajoutées aux deux
+de la démo, quatre événements pour la courbe — l'accueil plafonne l'agenda à
+quatre, `Accueil.tsx` l. 54 —, photos de `J-maquette-littoral/images/`),
+capture l'accueil à 1440 et 390 px avec puis sans aucune photo, et remet la
+commune dans son état d'origine champ par champ. Les photos vivent hors dépôt
+(sources ignorées par git) : la suite passe son tour (`test.skip`) là où
+elles manquent plutôt que d'échouer.
+
+- **frise** : la `COMPOSITION` de J portée en lignes « pièce + taille +
+  écart », avec deux écarts adaptés — le champ `ecart` est `min: 0` dans
+  `Communes.ts` (l. 449), le `-40` qui chevauchait le phare sur la jetée
+  n'est pas saisissable dans l'admin (aucun changement de schéma : ancre 3) ;
+  l'écart du phare passe à 0 et, la frise dépassant alors les 1440 du
+  viewBox, le dernier écart de 30 à 0 — total 1438 px, ordre des pièces
+  inchangé ;
+- premier passage rouge réel : le PATCH de la commune refusé
+  (`ecart: -40 est inférieur au min autorisé`), corrigé comme ci-dessus.
+
+```
+$ npm run test:e2e -- littoral-captures
+  1 failed  (PATCH /api/communes/1 → 400 : ecart -40 inférieur au min 0)
+$ npm run test:e2e -- littoral-captures   (après correctif)
+  ✓ avec photos : la commune composée comme la maquette J
+  ✓ sans aucune photo : héros, actualités et mosaïque illustrés (I30)
+  2 passed (18.1s)
+```
+
+Les quatre captures copiées aussitôt dans `src/gabarits/littoral/maquette/captures/`
+(Playwright vide `test-results/` à chaque run), puis regardées et comparées à
+celles de J :
+
+- **ressemblances** — les bandes pâle/profonde séparées par les vagues en
+  dégradés (marées approchées, visibles à pleine échelle dans les marges), le
+  héros panorama terminé par la frise au trait blanc sur la photo, la rive
+  mairie en casettes puis les démarches en deux colonnes à pastilles, la une
+  en grand pavé pâle au visuel débordant jusqu'au bord de l'écran, l'agenda
+  profond aux dates d'accent posées sur les arcs pointillés (quatre
+  événements : haut, bas, haut, bas), la mosaïque décalée au libellé serif
+  sous l'image, la frise en silhouettes pleines sur blanc avant le pied
+  profond. Sans photo, le héros dessiné, la une illustrée et les quatre tuiles
+  en scènes : aucun emplacement vide (I30) ;
+- **écarts déjà documentés** (rien de nouveau à pleine échelle) : blason de
+  l'en-tête, pastille « ouvert » de la mairie et tableau des horaires du pied
+  (aucun crochet dans le balisage commun), ligne de mer sur la une, ornement
+  sable de la mosaïque.
+
 
