@@ -46,3 +46,23 @@ $ npx vitest run tests/unit/gabarits-kits.spec.ts
 Error: Failed to resolve import "@/gabarits/littoral/illustrations" from "tests/unit/gabarits-kits.spec.ts". Does the file exist?
  Test Files  1 failed (1) / Tests  no tests
 ```
+
+### Scènes — commit « Littoral — scènes d'illustration : les 7 scènes et le héros »
+
+`src/gabarits/littoral/illustrations.ts` : portage de `_scene`, `SCENES`, `SOLEIL`, `scene` et `heros` du Python, sur la structure de `village/illustrations.ts`.
+
+- les 7 scènes à pièces et soleils exacts de la source ; `SOLEIL` du Python intégré dans chaque composition (`soleilX`), modèle Village ;
+- `composer()` garde le +4 fixe (non multiplié par le zoom) sous le sol pour `barque` et `voilier`, fidèle au Python ;
+- le relief est la mer en trois plans (`i-loin` derrière les pièces, `i-eau`, `i-eau2`), ordre exact de `_scene` ; le héros diffère de la scène par soleil (x 0.62, y 0.36·h, rayon 0.09·h), seconde houle à +30 (vs +26) et cadrage `xMaxYMax` ;
+- contrairement à Village, une scène Littoral réutilise les pièces du kit telles quelles (formes **et** traits de frise : croix de l'église, horloge de l'école, goéland et portique tout en trait) — le Python n'a pas de détails de scène additionnels, pas de `accents`.
+
+Correctif de test (avec motif) : l'assertion « scène absente → rendu identique à nature » comparait le SVG **entier**, donc aussi `data-illustration`, qui échoit le nom demandé (comportement du modèle Village relu, `village/illustrations.ts` l. 412-423). Le nom de scène vient d'un select fermé (`src/collections/Communes.ts` l. 602-610, options = `SCENES` de `src/lib/accueil-defauts.ts` l. 20) : l'écho est sûr et diagnostique le repli. L'assertion est resserrée sur le dessin (attribut normalisé) — le code garde le comportement Village, qui sert aussi à la suite paramétrée des deux gabarits (décision 18).
+
+```
+$ npx vitest run tests/unit/gabarits-kits.spec.ts
+ Test Files  1 passed (1)
+      Tests  42 passed (42)
+$ npm run typecheck
+> tsc --noEmit          (0 erreur)
+```
+

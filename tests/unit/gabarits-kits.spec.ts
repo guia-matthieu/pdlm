@@ -103,8 +103,11 @@ describe('kit du gabarit littoral (maquette L, 14 pièces)', () => {
   })
 
   it('scène absente du kit : rendu identique au repli « nature »', () => {
-    expect(illustrationsLittoral.scene('lagune' as never, 480, 600)).toBe(
-      illustrationsLittoral.scene('nature', 480, 600),
+    // `data-illustration` échoit le nom demandé (diagnostic du repli, sur le
+    // modèle de Village) : le dessin, lui, doit être exactement celui de nature.
+    const sansNom = (svg: string) => svg.replace(/data-illustration="[^"]*"/, 'data-illustration')
+    expect(sansNom(illustrationsLittoral.scene('lagune' as never, 480, 600))).toBe(
+      sansNom(illustrationsLittoral.scene('nature', 480, 600)),
     )
   })
 })
