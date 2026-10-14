@@ -106,8 +106,9 @@ sur le balisage commun. Points de conception et écarts assumés :
   pointillés (`border-radius: 50%`), dates hautes/basses posées dessus par
   `--y` et pastille accent à halo profond — retirés sous 900 px ;
 - **la « une »** : son visuel déborde jusqu'au bord de l'écran
-  (`margin: -2.6rem calc(50% - 50vw) 0 0`, dépassement écrasé par
-  `overflow-x: clip` sur body). La ligne de mer de la maquette sur ce visuel
+  (`margin: -2.6rem … 0 0` — corrigé après relecture, voir « Après
+  relecture » M2 : le `calc(50% - 50vw)` initial débordait l'écran, le clip
+  de body ne l'écrasait pas). La ligne de mer de la maquette sur ce visuel
   n'est pas portée (aucun crochet sur les visuels d'actualité) ;
 - **libellés de mosaïque** sous l'image (serif), ornement sable de la
   maquette non porté (pas de crochet) ;
@@ -295,3 +296,57 @@ Umami de `mesure.active`) — restauré par `git checkout --` après chaque run.
 - aucune clé corse neuve : la tâche n'a touché aucun fichier d'i18n
   (`git diff --name-only 62b42a8` — rien à faire relire).
 
+
+## Après relecture
+
+Relecture reçue : REJECTED, 2 majeurs sur les captures (« le code et les
+tests sont sains »). Correction dans l'ordre demandé, un commit par point.
+
+### M2 — la page débordait du viewport à 1440 px
+
+Mesures : les quatre captures commitées faisaient **1713 px** de large à
+1440 (390 exact à 390), `test-results/gabarits/littoral-1440.png` aussi.
+
+Cause — le visuel de la une est un item de grille (colonne 2 du grid
+`1fr 1.35fr` de `.actu:first-child`) ; son `margin-right:
+calc(50% - 50vw)` résout le `50%` contre sa **zone de grille** (~693 px),
+pas contre la colonne centrée du viewport : le débordement tirait ~273 px
+au-delà du bord droit de l'écran. `overflow-x: clip` sur body ne l'a jamais
+écrasé : propagé au viewport, `clip` y devient `hidden` — la page restait
+1713 px de large et scorable (c'est ce que mesurait `scrollWidth`). Le
+passage des notes ci-dessus qui prétendait le contraire est corrigé.
+
+Correctif (l'option « sans 50vw » de la relecture) : variable
+`--debord: max(1.25rem, calc((100vw - var(--largeur)) / 2 + 1.25rem))`,
+jumelle de `--gouttiere` en unités de viewport — `100vw` se résout contre
+l'écran partout, y compris dans un item de grille. Les deux marges
+(l. 596 bureau, l. 955 mobile) passent à `calc(-1 * var(--debord))` : le
+débordement va du bord de colonne au bord de l'écran, exactement la
+gouttière (116 px à 1440, plancher 20 px à 390), jamais au-delà. Géométrie
+de la maquette conservée : à 390, `50% - 50vw` valait déjà −20 px de
+chaque côté, identique au plancher de `--debord`.
+
+Assertion demandée, ajoutée dans `capturer()` avant chaque capture, aux
+deux largeurs :
+
+```
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+      `à ${largeur} px, la page déborde du viewport`,
+    ).toBeLessThanOrEqual(largeur)
+```
+
+Vue échouer avant le correctif :
+
+```
+$ npm run test:e2e -- littoral-captures   (assertion seule, avant correctif)
+    Error: à 1440 px, la page déborde du viewport
+    Expected: <= 1440
+    Received:    1713
+  1 failed
+```
+
+Puis passante après le correctif (`2 passed (18.2s)`), captures refaites à
+**1440 et 390 px exactement** (mesurées `sips -g pixelWidth`). Le clip de
+body reste en place : sans débordement il ne sert plus, mais il ne nuit pas
+et l'assertion nouvelle surveille toute régression.

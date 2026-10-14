@@ -41,9 +41,13 @@ body {
   --corps: 'Public Sans', system-ui, sans-serif;
 
   /* Conteneur commun : les bandes de l'accueil alignent leur contenu sur
-     cette gouttière, la « une » y accroche son débordement de visuel. */
+     cette gouttière, la « une » y accroche son débordement de visuel.
+     --debord en est la jumelle en unités de viewport : sur un item de
+     grille, le 100 % de --gouttiere résout contre la zone de grille et
+     pousse le visuel au-delà de l'écran ; 100vw, lui, y est borné. */
   --largeur: 78rem;
   --gouttiere: max(1.25rem, calc((100% - var(--largeur)) / 2 + 1.25rem));
+  --debord: max(1.25rem, calc((100vw - var(--largeur)) / 2 + 1.25rem));
 
   /* Dérivées */
   --doux: color-mix(in oklab, var(--encre) 72%, #fff);
@@ -593,7 +597,7 @@ main > [data-section] {
   grid-row: 1;
   position: relative;
   min-height: 28.6rem;
-  margin: -2.6rem calc(50% - 50vw) 0 0;
+  margin: -2.6rem calc(-1 * var(--debord)) 0 0;
   overflow: hidden;
   aspect-ratio: auto;
 }
@@ -952,7 +956,7 @@ main > [data-section] {
     grid-column: 1;
     grid-row: 1;
     min-height: 15rem;
-    margin: 0 calc(50% - 50vw) 1.4rem;
+    margin: 0 calc(-1 * var(--debord)) 1.4rem;
   }
 
   .section-actualites--une .actu:first-child .actu__texte {

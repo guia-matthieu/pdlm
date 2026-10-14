@@ -152,6 +152,11 @@ async function capturer(page: Page, nom: string) {
     })
     // L'indicateur du serveur de développement n'est pas le site.
     await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' })
+    // La une déborde jusqu'au bord de l'écran, jamais au-delà (relecture M2).
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+      `à ${largeur} px, la page déborde du viewport`,
+    ).toBeLessThanOrEqual(largeur)
     await page.screenshot({ path: path.join(DOSSIER, `${nom}-${largeur}.png`), fullPage: true })
   }
   await page.setViewportSize({ width: 1280, height: 720 })
