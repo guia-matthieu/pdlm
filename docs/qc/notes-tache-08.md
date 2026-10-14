@@ -412,3 +412,33 @@ haute de son cadre (≈ 126 px) mangeait le haut du soleil (à ≈ 113 px,
 mis à l'échelle). Après M2, le visuel fait ~789 px (échelle 0,99), la
 coupe haute ≈ 67 px, et le haut du soleil repose à ≈ 28 px sous le bord :
 entier. Rien d'autre à corriger pour lui.
+
+### m3 — marées rendues : lobes ovales, pas les vagues de la maquette
+
+Écart confirmé et assumé : sur le rendu, les transitions entre bandes
+(texte libre, agenda) sont des **lobes ovales répétés**, pas les vagues
+continues, lissées de cubiques, de la maquette J. Ce n'est pas une erreur
+de portage :
+
+- le portage est fidèle : `vague()` (`frise.ts` l. 225-242) reprend
+  `_vague()` du Python (`frise_littoral.py` l. 202-209) nombre pour
+  nombre (mêmes cubiques, mêmes points de contrôle), et `maree()`
+  (`frise.ts` l. 250-256) appelle exactement les mêmes vagues que le
+  `maree()` de la maquette (Python l. 212-218 : `_vague(34, 16, 520,
+  120)` et `_vague(52, 10, 380, 0)`, écume pareille) ;
+- mais ce SVG ne se rend pas : le contrat n'expose `ornements` qu'en
+  optionnel (`types.ts` l. 58) et **rien dans le balisage commun ne le
+  consomme** (grep sur `ornements` : seul `types.ts`). La transition
+  rendue est l'approximation CSS de `theme.css` l. 453-510 : deux
+  `radial-gradient(140px 26px / 140px 20px at 50% 100%, …)` répétés
+  toutes les 280 px (`background-size`) sur une base pleine de 14 px —
+  un gradient radial répété donne des demi-ellipses, d'où les lobes ;
+- les teintes `--vague-pale` / `--vague-profond` (`theme.css` l. 57-58)
+  suivent la formule de `maree()` (mix 50 % dessous/dessus, puis 88 % à
+  principale-sure), donc l'approximation reste dans la livrée.
+
+L'écart est documenté (`README.md` du gabarit, « Ce que le rendu n'a pas
+et que la maquette montre », l. 66-72 : l'ornement SVG `maree` « approché
+en CSS par des vagues en dégradés »). Le SVG exact reste exporté dans
+`kit.ornements`, prêt à se rendre le jour où le balisage commun offre un
+crochet pour l'ornement.
