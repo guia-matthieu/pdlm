@@ -50,6 +50,7 @@ body {
   --debord: max(1.25rem, calc((100vw - var(--largeur)) / 2 + 1.25rem));
 
   /* Dérivées */
+  --blanc: #fff;
   --doux: color-mix(in oklab, var(--encre) 72%, #fff);
   --blanc-doux: color-mix(in srgb, #fff 78%, var(--profond));
   --filet: color-mix(in oklab, var(--principale-sure) 22%, #fff);

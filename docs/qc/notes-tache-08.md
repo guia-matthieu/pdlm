@@ -442,3 +442,22 @@ et que la maquette montre », l. 66-72 : l'ornement SVG `maree` « approché
 en CSS par des vagues en dégradés »). Le SVG exact reste exporté dans
 `kit.ornements`, prêt à se rendre le jour où le balisage commun offre un
 crochet pour l'ornement.
+
+### m1 — littéral `#fff` dans `frise.ts`
+
+Le défaut `dessus = '#fff'` de `maree()` (frise.ts l. 250) était le seul
+hexadécimal des fichiers TS du gabarit — interdit par son contrat
+(couleurs par variables CSS, jamais de littéral). Correctif sur la piste
+de la relecture :
+
+- `--blanc: #fff` posé dans le bloc `body` de `theme.css` (l. 53) — le
+  README l'y admet : « `theme.css` ne contient aucune couleur littérale
+  hors `#fff` » ;
+- le défaut devient `dessus = 'var(--blanc)'` (frise.ts l. 250), le
+  commentaire du bloc corrigé en conséquence ;
+- aucun appelant à reprendre : `ornements.maree` n'est appelé nulle part
+  (cf. m3), seul le défaut change.
+
+Vérifié : `grep "'#\|\"#"` sur `frise.ts`, `illustrations.ts`,
+`gabarit.ts` ne retourne plus rien ; `npm run typecheck` passe (sortie
+finale ci-dessous).

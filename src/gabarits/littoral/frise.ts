@@ -244,10 +244,10 @@ const vague = (
 /**
  * Transition entre deux bandes de la page : deux vagues décalées (et un
  * liseré d'écume quand les deux fonds sont proches). `dessus` et `dessous`
- * sont des couleurs CSS — une variable du contrat, ou `#fff`, le seul
- * littéral que le contrat admet — posées en variables inline du SVG.
+ * sont des couleurs CSS — une variable du contrat, ou `--blanc` du thème —
+ * posées en variables inline du SVG.
  */
-const maree = (dessus = '#fff', dessous = 'var(--pale)', ecume = false): string => {
+const maree = (dessus = 'var(--blanc)', dessous = 'var(--pale)', ecume = false): string => {
   const trait = ecume ? `<path class="ecume" d="${vague(52, 10, 380, 0, 1440, 80, false)}"/>` : ''
   return (
     `<svg class="maree" viewBox="0 0 1440 80" preserveAspectRatio="none" aria-hidden="true" focusable="false" ` +
