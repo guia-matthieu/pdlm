@@ -512,7 +512,16 @@ main > [data-section] {
   background: var(--pale);
 }
 
-.section-texte-libre a {
+/* Décision 17 : liens de prose en encre sur la bande pâle — mais jamais les
+   boutons du contenu (bloc-boutons, CTA d'un bloc-hero), dont le socle pose
+   le texte blanc sur principale-sure. */
+.section-texte-libre a:not(.bouton) {
+  color: var(--encre);
+}
+
+/* Idem pour le bouton secondaire, que le socle met en principale-sure (garanti
+   sur blanc seulement) : sur la bande pâle, son texte passe en encre. */
+.section-texte-libre .bouton--secondaire {
   color: var(--encre);
 }
 
