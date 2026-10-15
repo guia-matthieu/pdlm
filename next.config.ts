@@ -30,7 +30,7 @@ const dirname = path.dirname(__filename)
  * ajouté plus tard.
  */
 const DEV = process.env.NODE_ENV !== 'production'
-const enTetesSecurite = [
+const enTetesSecurite = (frameAncestors: "'none'" | "'self'") => [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
@@ -45,7 +45,7 @@ const enTetesSecurite = [
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
       "connect-src 'self'",
-      "frame-ancestors 'none'",
+      `frame-ancestors ${frameAncestors}`,
       "base-uri 'self'",
       "form-action 'self'",
     ].join('; '),
@@ -62,7 +62,26 @@ const nextConfig: NextConfig = {
   // n'a aucun effet en production (`output: 'standalone'`, pas de dev server).
   ...(DEV ? { allowedDevOrigins: ['valvert.corsica'] } : {}),
   async headers() {
-    return [{ source: '/(.*)', headers: enTetesSecurite }]
+    return [
+      { source: '/(.*)', headers: enTetesSecurite("'none'") },
+      // Aperçu d'apparence (tâche 9, décision 13) : cette page existe pour
+      // être chargée en iframe par l'onglet Apparence de l'admin — même
+      // origine seule, d'où 'self' au lieu du 'none' général. Et parce qu'un
+      // aperçu montre des réglages NON enregistrés : jamais mis en cache,
+      // jamais indexé — fuiter dans un cache ou un index serait une
+      // publication déguisée. Entrée placée après la générale : « the last
+      // header key will override the first » (docs 01-app/03-api-reference/
+      // 05-config/01-next-config-js/headers.md). La matrice complète est
+      // répétée plutôt que de compter sur une fusion des clés absentes.
+      {
+        source: '/apercu/:path*',
+        headers: [
+          ...enTetesSecurite("'self'"),
+          { key: 'Cache-Control', value: 'no-store' },
+          { key: 'X-Robots-Tag', value: 'noindex' },
+        ],
+      },
+    ]
   },
   images: {
     localPatterns: [
