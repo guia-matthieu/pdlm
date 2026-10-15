@@ -42,3 +42,25 @@ $ npm run test:unit -- tests/unit/apercu.spec.ts tests/unit/proxy.spec.ts
  Test Files  31 passed (31)
       Tests  297 passed (297)
 ```
+
+## Commit 2 — `Aperçu — contrôle d'accès peutApercevoir (I28)`
+
+### Test d'abord, vu rouge
+
+`tests/int/apercu-acces.int.spec.ts` créé sur le modèle de `communes-apparence.int.spec.ts` (helpers `creerCommuneActive`/`supprimerCommuneTest`, `purger` par critères, SIRET propre `35000000000005`). Les six cas : anonyme, rédacteur de A, admin de B sur A, admin de A, opérateur, mandataire de A (décision 15). Le mandataire est **créable** : organisation + mandat + agent portant le champ `organisation` (même construction que `communes-apparence.int.spec.ts` l. 570-593) — le rôle se calcule au read, il ne se pose pas dans `tenants`.
+
+```
+$ npx vitest run --config ./vitest.config.mts tests/int/apercu-acces.int.spec.ts
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+```
+
+### Code
+
+`peutApercevoir(user, communeId)` dans `src/lib/apercu.ts` : opérateur → vrai, sinon `aRoleSur(user, communeId, 'admin')` (spéc I28 : le contrôle de rôle est la garantie).
+
+```
+$ npx vitest run --config ./vitest.config.mts tests/int/apercu-acces.int.spec.ts
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+```
