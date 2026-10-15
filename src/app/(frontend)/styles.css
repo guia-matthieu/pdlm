@@ -20,8 +20,13 @@
  * verraient pas les variables inline de body et un lien hériterait de
  * --couleur-texte. Défaut ardoise : 10:1 avec le texte blanc, 10:1 comme
  * lien sur fond blanc.
+ *
+ * L'aperçu d'apparence pose les variables sur un canevas (le layout racine
+ * de son groupe ne voit pas les paramètres d'adresse) : ce canevas déclare
+ * donc les mêmes alias, la substitution s'y résout à l'identique.
  */
-body {
+body,
+.canevas-apercu {
   --couleur-principale: var(--principale-sure);
   --couleur-accent: var(--accent);
   --couleur-fond-alt: var(--pale);

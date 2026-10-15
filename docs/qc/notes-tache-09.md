@@ -64,3 +64,30 @@ $ npx vitest run --config ./vitest.config.mts tests/int/apercu-acces.int.spec.ts
  Test Files  1 passed (1)
       Tests  6 passed (6)
 ```
+
+**Fichiers générés** : le run int a régénéré `src/payload-types.ts` **sans** les champs S3 (lignes `prefix`/`_objectKey` disparues de Media et Document — le run int tourne sans `S3_ENABLED`). Restauré tel quel par `S3_ENABLED=true npm run generate:types` (diff vide ensuite). Aucun autre fichier généré touché.
+
+## Commit 3 — `Aperçu — page /apercu/apparence, l'accueil composé avec les paramètres`
+
+Pas de test nouveau prévu par le plan pour la route elle-même (les e2e arrivent aux commits 4 et 5). Vérifications de ce commit : `npm run typecheck` (0 erreur) et `npx eslint "src/app/(apercu)"` (0 erreur, 0 warning).
+
+### Code
+
+`src/app/(apercu)/layout.tsx` : layout racine du groupe (route-groups : un groupe peut porter son propre layout racine, pas de conflit de chemins — `/apercu/apparence` statique bat `[lang]/[slug]` dynamique). `<html lang="fr">`, `<body>` nu, import de `(frontend)/styles.css`, titre « Aperçu de l'apparence ».
+
+`src/app/(apercu)/apercu/apparence/page.tsx`, dans l'ordre :
+
+1. `searchParams` (Promise) → `URLSearchParams` par `append` (ordre des occurrences conservé, `get()` rend la première) ;
+2. I28 avant tout accès aux données : `idCommune` null → `notFound`, puis `payload.auth({ headers: await headers() })` (méthode de la classe Payload, `node_modules/payload/dist/index.d.ts:248` ; `ReadonlyHeaders` est un `Headers` — `next/dist/server/web/spec-extension/adapters/headers.d.ts:2`), `peutApercevoir` faux → `notFound` (404 uniforme, l'aperçu « n'existe pas » pour qui n'y a pas droit) ;
+3. `findByID({ collection: 'communes', overrideAccess: true })`, depth par défaut — la même lecture que le front public (`src/lib/commune.ts` l. 133-136) ;
+4. `lireParametresApercu` puis `deriver` (I23 : recalculé au rendu) ;
+5. copie de la commune, apparence remplacée par les paramètres validés, servie à `Accueil` (qui relit gabarit et contenus depuis `commune.id`, inchangé) ;
+6. `<div class="canevas-apercu" lang style={variables}>` + `<link precedence="gabarit">` (hissé dans le `<head>` par React) + preloads polices, comme le layout public.
+
+### Écarts, motifs
+
+- **`.canevas-apercu` ajouté au sélecteur d'alias de `styles.css`** (l. 24-37) : le plan posait les variables sur un div de la page, mais les alias `--couleur-principale` etc. sont déclarés sur `body` et « la substitution var() se résout sur l'élément qui déclare l'alias » (commentaire du fichier) — sur un div, les liens et blocs de l'aperçu hériteraient d'alias vides. Étendre le sélecteur garde une seule source pour les alias ; la classe n'est portée que par le canevas d'aperçu. Aucune couleur ajoutée (règle existée, sélecteur étendu).
+- **`gabarit: apercu.gabarit as NomGabarit`** : la lib retourne `string` (liste close vérifiée par `Object.hasOwn(GABARITS, …)`), le type de `Commune.apparence.gabarit` est l'union — un cast commenté à l'endroit exact.
+- **`lien` = identité** : la navigation dans l'iframe de l'aperçu n'a pas de sens (les liens de l'accueil ne mènent nulle part sous le domaine de la plateforme) ; l'admin agit dans l'onglet Apparence. Commentaire dans le code.
+- **Commune inactive** : l'aperçu ne vérifie pas `actif` — le site public d'une commune inactive répond 404 (`commune.ts` l. 141), mais son admin doit pouvoir ajuster l'apparence avant réactivation. Le plan ne tranchait pas ; retenu : l'aperçu est un outil d'admin, l'accès reste cadré par I28.
+
