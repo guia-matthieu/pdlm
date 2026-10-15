@@ -198,3 +198,43 @@ $ git diff README.md   (extrait : phrase retirée, puces ajoutées)
 +  L'onglet _Apparence_ recalcule la même dérivation à chaque réglage : sa bande
    « Contrastes dérivés » montre en direct les onze rapports obtenus.
 ```
+
+### M2 — aucun test de ce que voit l'admin quand une couleur est forcée
+
+Test ajouté dans `tests/e2e/apercu.e2e.spec.ts` (« admin : une couleur forcée est marquée et alertée dans la bande des contrastes ») : il ouvre l'onglet _Apparence_, force `texte = #aaaaaa` dans _Réglages avancés_, puis vérifie la ligne de la bande « Contrastes dérivés » — `texte et liens sur blanc : 2,32:1 (seuil 4,50:1) — forcée, sous votre responsabilité` (libellés d'ApparenceApercu.tsx:183-184) — et l'alerte `role="alert"` (ApparenceApercu.tsx:192) `Texte et liens sur blanc : 2,32:1, illisible`. Avant la frappe, le test vérifie que la même ligne ne porte pas la mention (état dérivé, 10,07:1 avec le seed).
+
+Vu rouge d'abord : assertions réelles en place sauf le libellé, volontairement faux (`toContainText('forcée automatiquement')`).
+
+```
+$ npx playwright test apercu
+  > 253 |       await expect(ligneTexte).toContainText('forcée automatiquement')
+          |                                ^
+        at /Users/matthieucredou/Projects/glm.gabarits/tests/e2e/apercu.e2e.spec.ts:253:32
+  1 failed
+    [chromium] › tests/e2e/apercu.e2e.spec.ts:226:3 › Aperçu d'apparence — onglet de l'admin › admin : une couleur forcée est marquée et alertée dans la bande des contrastes
+  5 passed (48.1s)
+```
+
+Le snapshot de ce run prouve que l'état forcé était bien rendu — le rouge vient du libellé visé, pas d'un champ absent :
+
+```
+  - generic [ref=e266]: "texte et liens sur blanc : 2,32:1 (seuil 4,50:1) — forcée, sous votre responsabilité"
+  - alert [ref=e298]: "Texte et liens sur blanc : 2,32:1, illisible"
+  - textbox "Texte" [active] [ref=e329]: "#aaaaaa"
+```
+
+Deux obstacles rencontrés avant ce rouge, consignés pour les suivants :
+
+- le panneau _Réglages avancés_ est replié (`initCollapsed: true`, Communes.ts:482) et son bouton ne porte pas le libellé : il ne dit que « Bloc bascule » (`t("fields:toggleBlock")`, @payloadcms/ui Collapsible), le libellé est sur le collapsible entier. Deux premiers runs ont échoué au clic (`getByRole('button', { name: 'Réglages avancés' })` puis `hasText` sur le bouton ne matchent rien) — le clic vise désormais `.collapsible` contenant le libellé ;
+- une fois le clic juste, l'ouverture n'a pas pris une fois sur quatre runs (le clic atterrit, le contenu reste replié — re-rendu tardif du formulaire en dev) : le test vérifie maintenant que le champ est visible avant la frappe et redonne un clic sinon.
+
+Puis vert, assertions réelles :
+
+```
+$ npx playwright test apercu
+  6 passed (34.0s)
+$ npx playwright test apercu   (après durcissement de l'ouverture du panneau)
+  6 passed (37.4s)
+```
+
+`src/payload-types.ts` resali par le webServer e2e (diff d'environnement `mesure.active`, comme à l'étape 4) : remis par `git checkout --`.

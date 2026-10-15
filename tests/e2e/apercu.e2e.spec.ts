@@ -223,6 +223,53 @@ test.describe('Aperçu d’apparence — onglet de l’admin', () => {
     }
   })
 
+  test('admin : une couleur forcée est marquée et alertée dans la bande des contrastes', async ({
+    page,
+  }) => {
+    await connecterAdmin(page, ADMIN_COMMUNE)
+    const communeId = await idSaintEx(page)
+    await ouvrirApparence(page, communeId)
+
+    try {
+      // Avant toute force, la ligne du texte courant ne porte pas la mention.
+      const ligneTexte = page.locator(
+        '#apercu-apparence .contrastes [data-role="texte et liens sur blanc"]',
+      )
+      await expect(ligneTexte).toBeVisible()
+      await expect(ligneTexte).not.toContainText('forcée, sous votre responsabilité')
+
+      // Forcer la couleur du texte. Le panneau est replié à l’ouverture de
+      // l’onglet (initCollapsed, Communes.ts) et son bouton ne porte que le
+      // nom générique « Bloc bascule » : c’est le collapsible entier
+      // qui porte le libellé. Vu en dev : le clic atterrit sans toujours ouvrir — le
+      // re-rendu qui suit peut replanter le panneau replié, d’où l’ouverture vérifiée avant la frappe.
+      const basculeAvances = page
+        .locator('.collapsible', { hasText: 'Réglages avancés' })
+        .locator('.collapsible__toggle')
+      const champTexteForce = page.locator('#field-apparence__couleursForcees__texte')
+      await basculeAvances.click()
+      try {
+        await champTexteForce.waitFor({ state: 'visible', timeout: 3_000 })
+      } catch {
+        await basculeAvances.click()
+        await champTexteForce.waitFor({ state: 'visible' })
+      }
+      await champTexteForce.fill('#aaaaaa')
+
+      // La ligne bascule : la valeur forcée est servie telle quelle (gris
+      // clair sur blanc, sous le seuil), marquée « forcée », et l’alerte
+      // l’annonce avec le ratio réellement obtenu.
+      await expect(ligneTexte).toContainText('2,32:1 (seuil 4,50:1)')
+      await expect(ligneTexte).toContainText('forcée, sous votre responsabilité')
+      const alerte = page.locator('#apercu-apparence [role="alert"]', {
+        hasText: 'Texte et liens sur blanc',
+      })
+      await expect(alerte).toHaveText('Texte et liens sur blanc : 2,32:1, illisible')
+    } finally {
+      await libererVerrou(page, communeId)
+    }
+  })
+
   test('opérateur : le gabarit basculé est servi dans l’aperçu', async ({ page }) => {
     await connecterAdmin(page, OPERATEUR)
     const communeId = await idSaintEx(page)
