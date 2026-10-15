@@ -1021,4 +1021,15 @@ main > [data-section] {
   .section-heros--illustre .i-soleil {
     display: none;
   }
+
+  /* La rive repasse sur une colonne : une casette par ligne, pleine largeur. */
+  .section-mairie {
+    grid-template-columns: 1fr;
+  }
+
+  /* Adresse et courriel perdent la limite de 22rem du bureau : leurs filets
+     doivent couvrir toute la largeur de la casette, comme les autres. */
+  .section-mairie p:not(:has(strong)) {
+    max-width: none;
+  }
 }
