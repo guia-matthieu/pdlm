@@ -94,4 +94,42 @@ Sur la planche : les deux jeux se distinguent d'un coup d'œil (dominante bleu s
 
 **Avant le commit** : `git status --short` montre `src/payload-types.ts` modifié — diff d'environnement, exactement celui prévu par le brief : la description de `mesure.active` dépend de `UMAMI_URL` (absente de ce worktree, la description régénérée est celle du champ « coupe » sans plateforme configurée). Remis par `git checkout -- src/payload-types.ts`, rien à committer de ce côté.
 
+## Étape 3 — conformité rejouée contre un build de production
+
+**Filtre E2E_PROD** (seul changement du test, l. 266-284) : en dev, turbopack nomme ses chunks par route (constaté : un nom diffère entre `/` et `/actualites`), l'égalité I27 porte donc sur les scripts hors chunks ; avec `E2E_PROD=1`, elle porte sur tous les scripts, chunks compris — le contrôle complet. Le booléen est passé en **argument** du `$$eval` (le callback est sérialisé vers le navigateur, même piège que `g.police` à l'étape 2).
+
+**Build** (`npm run build`, une fois, ~8 Go) : réussi, 13 pages statiques — routes vues : `/[lang]`, `/apercu/apparence`, `/api/[...slug]`, `/gabarits/[nom]/theme.css` en SSG pour village et littoral.
+
+**Première exécution — 403 API, corrigé sans code.**
+
+```
+$ E2E_PROD=1 E2E_PORT=3005 npx playwright test gabarits-conformite
+  2 failed — l. 185 : PATCH /api/communes/1 → 403 « Vous n'êtes pas autorisé
+  à effectuer cette action. » ; l. 204 : afterAll en cascade — 12 did not run
+```
+
+Chaîne prouvée avant conclusion : `@payloadcms/translations/dist/languages/fr.js:114` (`notAllowedToPerformAction`) ← `payload/dist/errors/Forbidden.js:6` ← `payload/dist/auth/executeAccess.js:13,22` (req.user absent) ← `payload/dist/auth/extractJWT.js:18-37` : avec en-tête `Origin`, le cookie `payload-token` n'est extrait que si l'origine figure dans `csrf`. Or en production `csrf` ne vaut que `ADMIN_URL` (`src/payload.config.ts` l. 57-61, l. 106-107), et le serveur tournait avec un `ADMIN_URL` de production. Reproduit par curl : login 200 (Set-Cookie `payload-token`), puis `/api/users/me` avec le cookie → `{"user":null}`. Correction : `ADMIN_URL` n'est lu qu'au démarrage (payload.config.ts:59, proxy.ts:40, Communes.ts:85 — aucun `NEXT_PUBLIC_*`) → serveur relancé avec `ADMIN_URL=http://localhost:3005` en variable de processus, `.env` intact. Après quoi le `beforeAll` passe.
+
+**Deuxième exécution — 404 front public : le blocage.**
+
+```
+$ E2E_PROD=1 E2E_PORT=3005 npx playwright test gabarits-conformite
+  2 failed — l. 244 : expect(reponse?.status()).toBe(200) après page.goto('/')
+  — 12 did not run
+$ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3005/   → 404
+$ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3005/fr  → 404
+```
+
+Comportement voulu du socle, antérieur aux tâches 1-9 : `src/lib/commune.ts` l. 46-50 (host local nu → `null` en production ; fallback `DEFAULT_COMMUNE_SLUG` « jamais en production », l. 38) et `src/proxy.ts` l. 17-29 (sans `PLATFORM_DOMAIN`, `estDomainePlateforme` = false partout en prod). Le `BASE_URL` de la suite (`playwright.config.ts` l. 23) n'est pas paramétrable sans modifier le fichier — hors périmètre du brief. Conformément à la consigne sur les contrôles qui échouent hors de mon périmètre : rien corrigé, **`docs/qc/bloque-tache-10.md`** écrit (mesure, commandes, sorties, causes sourcées, options, recommandation).
+
+**Mesures livrables faites quand même en prod** (serveur relancé `ADMIN_URL=http://localhost:3005 PLATFORM_DOMAIN=localhost npm run start -- --port 3005`) :
+
+- Page publique via sous-domaine (`curl -H 'Host: saint-ex.localhost' …/`) : 200, `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate`, CSP `frame-ancestors 'none'`.
+- Aperçu `/apercu/apparence?commune=1` avec cookie opérateur : 200, `Cache-Control: no-store`, `X-Robots-Tag: noindex`, CSP `frame-ancestors 'self'` ; sans cookie : 404 avec les mêmes en-têtes — I28 tenu (`src/app/(apercu)/apercu/apparence/page.tsx:35-39`, `src/lib/apercu.ts:58-62`).
+- **I27 à la main** — le contrôle exact que `E2E_PROD` devait produire : `/` et `/actualites` servent exactement les 7 mêmes scripts (tous `/_next/static/chunks/`, `diff` vide) : l'accueil n'en ajoute aucun, chunks compris.
+
+**État de la base après les échecs, tranché.** saint-ex avait `gabarit: village`, `coordonnees.ville: null` : c'est l'état du seed — `src/seed/index.ts` et `src/seed/contenu-demo.ts` ne posent ni `gabarit` (donc defaultValue `'village'`, `src/collections/Communes.ts:399`) ni `coordonnees` ; le PATCH 403 n'a jamais rien changé. Rien à restaurer ; la suite e2e complète de l'étape 4 (en dev) repasse de toute façon.
+
+**Avant le commit** : serveur 3005 arrêté, temporaires `/tmp/t10-*.txt|json|log` supprimés, `git status --short` limité aux trois fichiers du commit.
+
 

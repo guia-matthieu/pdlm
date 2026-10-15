@@ -267,12 +267,18 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       // En dev, turbopack nomme ses chunks par route (constaté : un nom diffère
       // entre / et /actualites) : l'égalité porte sur les scripts qui ne sont
       // pas des chunks internes de Next — le gabarit n'en ajoute aucun.
+      // En production (E2E_PROD=1 sur un build servi par next start), l'égalité
+      // porte sur tous les scripts, chunks compris : c'est le contrôle complet.
+      const enProd = process.env.E2E_PROD === '1'
       const srcs = () =>
-        page.$$eval('script[src]', (els) =>
-          els
-            .map((e) => new URL((e as HTMLScriptElement).src).pathname)
-            .filter((src) => !src.startsWith('/_next/static/chunks/'))
-            .sort(),
+        page.$$eval(
+          'script[src]',
+          (els, tous) =>
+            els
+              .map((e) => new URL((e as HTMLScriptElement).src).pathname)
+              .filter((src) => tous || !src.startsWith('/_next/static/chunks/'))
+              .sort(),
+          enProd,
         )
       const scriptsAccueil = await srcs()
       await page.goto('/actualites')
