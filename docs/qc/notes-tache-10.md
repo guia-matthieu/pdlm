@@ -58,19 +58,30 @@ $ ls test-results/gabarits/t10 | wc -l
 
 Le nettoyage final est visible dans la sortie serveur (DELETE des médias `capture-tache-10`, actualités et événements). Copie : `cp test-results/gabarits/t10/*.png docs/qc/captures-tache-10/`.
 
-**Planche-contact.** `montage` (ImageMagick 7 de Homebrew), 4 colonnes × 4 lignes, labels `%f` ; lignes = village jeu `#2a7f9e`, village `#9b3d57`, littoral `#2a7f9e`, littoral `#9b3d57` ; colonnes = photos-1440, photos-390, sans-photo-1440, sans-photo-390.
+**Planche-contact.** Première version assemblée avec `montage` (ImageMagick 7, `-label '%f'`, 1160×5372) : étiquettes = noms de fichiers complets, trop longues — motif m4 de la relecture. Refaite par un script PIL jetable (`/tmp/t10-planche.py`) : 16 vignettes en 4 colonnes × 4 lignes — lignes = village jeu `#2a7f9e`, village `#9b3d57`, littoral `#2a7f9e`, littoral `#9b3d57` ; colonnes = photos-1440, photos-390, sans-photo-1440, sans-photo-390 — chaque vignette réduite à 900 px de haut (LANCZOS ; les captures font 4039 à 7250 px de haut, une planche pleine définition avait été mesurée 5760×29132 lors du premier assemblage), étiquette courte (`v-2a7f-ph-1440`, `l-9b3d-sp-390`…) dessinée sous la vignette en Menlo 15 px, largeur de colonne = max(vignette, étiquette) + marges (10 px intérieures, 14 px de gouttière).
 
 ```
-$ montage -font /System/Library/Fonts/Helvetica.ttc -pointsize 22 -tile 4x -geometry +8+8 \
-    -label '%f' /tmp/planche-t10/*.png (16 vignettes, ordre ci-dessus) planche-contact.png
-$ identify planche-contact.png
-  planche-contact.png PNG 1160x5372 1160x5372+0+0 16-bit sRGB 4.37503MiB
+$ python3 -I /tmp/t10-planche.py
+  v-2a7f-ph-1440   cellule x=[14,355] vignette 321x900 etiquette 126px / 321px dispo
+  … 16 lignes, une par vignette (v-2a7f-ph-390 59x900, l-2a7f-ph-1440 264x900, etc.)
+  planche-contact.png 1034x3886 — 16 cellules disjointes, 16 etiquettes entieres, assertions passees
+$ file docs/qc/captures-tache-10/planche-contact.png
+  docs/qc/captures-tache-10/planche-contact.png: PNG image data, 1034 x 3886, 8-bit/color RGB, non-interlaced
 ```
 
-Deux écarts au brief, motifs :
+Vérifiée programmatiquement, en deux volets (mes outils n'affichent pas l'image, même constat qu'au paragraphe suivant) :
 
-- **Police explicite** : l'ImageMagick de Homebrew n'a aucune police enregistrée (`magick -list font` vide) ; sans `-font`, « montage: unable to read font ». J'ai pointé `/System/Library/Fonts/Helvetica.ttc`.
-- **Vignettes réduites avant montage** (`magick -resize x1300` dans `/tmp/planche-t10`, dossier jetable supprimé après) : les captures pleine page font 4039 à 7250 px de haut ; la planche littérale du brief (`-geometry +8+8` sans réduction) mesure **5760×29132 px, 21,8 Mo** (constaté), illisible. Avec vignettes de 1300 px de haut : 1160×5372, regardable. Les captures pleine définition sont archivées à côté de la planche.
+- **Géométrie** (assertions du script) : chaque étiquette tient entière dans sa cellule (largeur mesurée ≤ largeur disponible, marge ≥ 4 px), les 16 cellules sont disjointes deux à deux, la taille du PNG final correspond au calcul.
+- **Relecture OCR** (`/tmp/t10-verif-planche.py`) : chaque bande d'étiquette est découpée dans la planche finale (mêmes coordonnées), agrandie ×3, relue par tesseract `--psm 7` ; comparaison alphanumérique avec repliage symétrique `1`→`l` (l'OCR confond les deux glyphes) et critère de containment — l'OCR ajoute du bruit (tirets doublés, barre oblique parasite), il ne retire pas de lettres :
+
+```
+$ python3 -I /tmp/t10-verif-planche.py
+  OK  attendu v-2a7f-ph-1440   lu [v—-2a7f—-ph-1440]
+  … 16 lignes, toutes OK (ex. l-9b3d-sp-390 lu [1-9b3d-sp-390])
+  16/16 etiquettes relues (etiquette attendue contenue dans la lecture normalisee alphanumerique ; l OCR ajoute du bruit, il ne retire pas)
+```
+
+Les captures pleine définition restent archivées à côté de la planche.
 
 **Comment chaque capture a été regardée.** Mes outils de lecture n'affichent pas les images dans cette session (constat déjà fait en tâche 8) : les seize captures ont été examinées par OCR (tesseract 5.5.3, sortie TSV `-l fra`, lignes regroupées par chevauchement vertical) et par comptage des couleurs exactes dérivées (numpy/PIL, tolérance L1 < 34 par pixel, bandes contiguës). Les légendes qui suivent ne disent que ce que ces mesures, l'OCR et les sources CSS/DOM établissent ; toute mesure de position est notée `y=[haut,bas]` dans la capture nommée, en pixels. Ce qui reste prouvé mécaniquement : aucune capture ne déborde horizontalement (`document.documentElement.scrollWidth <= largeur` asserté seize fois, gabarits-captures.e2e.spec.ts).
 
@@ -104,7 +115,7 @@ $ python3 -I analyse.py capture.png         # comptages des couleurs dérivées 
 - **littoral-9b3d57-photos-390** — jumeau mobile : chiffres sarcelle sur framboise (mesures y 4163-4812), horaires un mot par ligne et courriel sur trois lignes (OCR y 821-1132), mosaïque en colonne décalée (Patrimoine x=[206,318], Balades et sentiers x=[22,123]).
 - **littoral-9b3d57-sans-photo-1440 / -390** — héros illustré, traits de mer en terre `#d6801e` (mesuré à 1440 : y=[434,442], [499,517], [571,605]).
 
-Sur la planche : les deux jeux se distinguent d'un coup d'œil (dominante bleu sarcelle contre framboise), gabarit après gabarit ; les colonnes sans photo montrent le héros illustré. Les vignettes 390 y sont étroites (hauteur normalisée) — la lecture fine du mobile se fait dans les captures individuelles.
+Sur la planche : chaque vignette est la réduction LANCZOS de la capture individuelle, dans l'ordre lignes = jeux, colonnes = variantes ; elle sert de vue d'ensemble, la lecture fine se fait dans les captures pleine définition archivées à côté. Les vignettes 390 y sont étroites (48 à 59 px de large pour 900 de haut) — la distinction sarcelle contre framboise y est celle mesurée capture par capture ci-dessus, pas une relecture de la planche.
 
 **Ce que ces méthodes ne vérifient pas** : le rendu typographique fin (graisses, crénage) — l'OCR confirme les textes et leurs positions, pas la qualité du dessin ; la fluidité des animations. Le contraste exact de chaque couple texte/fond ne se mesure pas mieux sur capture que par la dérivation elle-même : il est garanti par couleurs.spec.ts (I25) et montré en direct par l'onglet Apparence (tâche 9).
 
