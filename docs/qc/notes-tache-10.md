@@ -158,3 +158,43 @@ $ npm run test:e2e
 - **`git diff --stat 0d3aea4 -- src/`** : vide — la tâche 10 n'a touché aucun code applicatif des tâches 1 à 9, comme l'exige le brief.
 
 
+---
+
+## Relecture du 15 octobre — réponses et corrections (commits séparés)
+
+### M1 — README : « chaque couple texte/fond est ajusté, teinte conservée, jusqu'à son seuil » promettait plus que le code
+
+Exact pour deux couples, relevés dans `src/lib/couleurs.ts` :
+
+- **texte courant sur pâle** — tient par construction, sans jamais ajuster la saisie : l'encre est construite à luminance fixée (`depuis_oklch(0.24, …)`, couleurs.ts:202) et le fond pâle de même (`depuis_oklch(0.965, …)`, couleurs.ts:203). Aucune boucle `assombrirJusqua` sur ce couple.
+- **texte sur accent** — l'accent saisi n'est jamais modifié : le texte devient noir ou blanc selon le meilleur contraste (`'--texte-sur-accent': contraste(NOIR, a) >= contraste(BLANC, a) ? NOIR : BLANC`, couleurs.ts:230).
+
+La phrase passait aussi sous silence que la terre n'est garantie qu'à 3:1 (`assombrirJusqua(t, BLANC, 3)`, couleurs.ts:205), comme les quatre tons de pictogrammes (couleurs.ts:217).
+
+Réécriture couple par couple (README.md, section _Accessibilité (RGAA)_) : chaque puce dit ce que fait le code — assombrissement à teinte conservée pour le texte sur blanc (couleurs.ts:201) et le blanc sur profond (couleurs.ts:204), éclaircissement pour les grandes dates (couleurs.ts:233), luminance fixée pour le texte sur pâle, noir-ou-blanc pour le texte sur accent, et le seuil 3:1 — non 4.5:1 — porté explicitement pour la terre et les pictogrammes.
+
+```
+$ git diff README.md   (extrait : phrase retirée, puces ajoutées)
+-  couleur peu contrastée est acceptée, puis rendue lisible par dérivation —
+-  chaque couple texte/fond est ajusté, teinte conservée, jusqu'à son seuil de
+-  contraste : 4.5:1 pour le texte courant, 3:1 pour les grandes dates et les
+-  pictogrammes, 7:1 pour le texte blanc sur la teinte profonde. L'onglet
+-  _Apparence_ recalcule la même dérivation à chaque réglage : sa bande
++  couleur peu contrastée est acceptée, puis rendue lisible par dérivation. Ce
++  que fait la dérivation, couple par couple :
++  - **texte et liens sur blanc** — la principale saisie est assombrie, teinte
++    conservée, jusqu'à 4.5:1 ;
++  - **texte courant sur fond pâle** — ce couple tient par construction : encre
++    et fond pâle sont construits à luminance fixée (l'un très sombre, l'autre
++    très clair), sans ajuster la saisie ;
++  - **texte blanc sur la teinte profonde** — la profonde est assombrie, teinte
++    conservée, jusqu'à 7:1 ;
++  - **texte sur fond accent** — l'accent saisi n'est jamais modifié : le texte
++    devient noir ou blanc, selon celui qui donne le meilleur contraste ;
++  - **grandes dates (accent sur fond profond)** — l'accent est éclairci, teinte
++    conservée, jusqu'à 3:1 ;
++  - **terre et pictogrammes** — assombris, teinte conservée, jusqu'à 3:1 : ce
++    seuil, et non 4.5:1, est la garantie portée par ces couleurs.
++  L'onglet _Apparence_ recalcule la même dérivation à chaque réglage : sa bande
+   « Contrastes dérivés » montre en direct les onze rapports obtenus.
+```

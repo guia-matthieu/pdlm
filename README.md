@@ -406,11 +406,22 @@ ignoré quand Docker relance les conteneurs au redémarrage) ;
   visible sur tous les éléments interactifs, testés jusqu'à un zoom 200 %.
 - Chaque commune personnalise ses couleurs (Admin → _Communes_ → _Apparence_ :
   principale, accent, terre). La seule validation est le format `#rrggbb` : une
-  couleur peu contrastée est acceptée, puis rendue lisible par dérivation —
-  chaque couple texte/fond est ajusté, teinte conservée, jusqu'à son seuil de
-  contraste : 4.5:1 pour le texte courant, 3:1 pour les grandes dates et les
-  pictogrammes, 7:1 pour le texte blanc sur la teinte profonde. L'onglet
-  _Apparence_ recalcule la même dérivation à chaque réglage : sa bande
+  couleur peu contrastée est acceptée, puis rendue lisible par dérivation. Ce
+  que fait la dérivation, couple par couple :
+  - **texte et liens sur blanc** — la principale saisie est assombrie, teinte
+    conservée, jusqu'à 4.5:1 ;
+  - **texte courant sur fond pâle** — ce couple tient par construction : encre
+    et fond pâle sont construits à luminance fixée (l'un très sombre, l'autre
+    très clair), sans ajuster la saisie ;
+  - **texte blanc sur la teinte profonde** — la profonde est assombrie, teinte
+    conservée, jusqu'à 7:1 ;
+  - **texte sur fond accent** — l'accent saisi n'est jamais modifié : le texte
+    devient noir ou blanc, selon celui qui donne le meilleur contraste ;
+  - **grandes dates (accent sur fond profond)** — l'accent est éclairci, teinte
+    conservée, jusqu'à 3:1 ;
+  - **terre et pictogrammes** — assombris, teinte conservée, jusqu'à 3:1 : ce
+    seuil, et non 4.5:1, est la garantie portée par ces couleurs.
+  L'onglet _Apparence_ recalcule la même dérivation à chaque réglage : sa bande
   « Contrastes dérivés » montre en direct les onze rapports obtenus.
 - Les réglages avancés permettent de **forcer** une couleur dérivée : elle est
   alors servie telle quelle, sans ajustement — c'est l'unique échappatoire à la
