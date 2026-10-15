@@ -91,3 +91,72 @@ Pas de test nouveau prévu par le plan pour la route elle-même (les e2e arriven
 - **`lien` = identité** : la navigation dans l'iframe de l'aperçu n'a pas de sens (les liens de l'accueil ne mènent nulle part sous le domaine de la plateforme) ; l'admin agit dans l'onglet Apparence. Commentaire dans le code.
 - **Commune inactive** : l'aperçu ne vérifie pas `actif` — le site public d'une commune inactive répond 404 (`commune.ts` l. 141), mais son admin doit pouvoir ajuster l'apparence avant réactivation. Le plan ne tranchait pas ; retenu : l'aperçu est un outil d'admin, l'accès reste cadré par I28.
 
+## Commit 4 — `Aperçu — en-têtes spécifiques : encadrable, jamais en cache ni indexé`
+
+### Test d'abord, vu rouge
+
+`tests/e2e/apercu.e2e.spec.ts` créé (3 cas) : anonyme → 404 pour un identifiant réel de commune existante (le refus vient de l'accès, pas d'un document absent) ; admin → 200 sur `/apercu/apparence?commune=…&accent=%23ABCDEF` avec les en-têtes servis (`frame-ancestors 'self'`, cache, indexation), le contenu (`/gabarits/village/theme.css` du seed, `--accent:#abcdef` — l'accent traverse `deriver()` tel quel, contrairement aux dérivées) et l'absence de `javascript:` dans le document ; page publique → `frame-ancestors 'none'` conservé. Premier passage :
+
+```
+$ npm run test:e2e -- apercu
+  1 failed
+  ✕ 2 [chromium] › apercu.e2e.spec.ts:53 › admin : …
+    → Expected: containing "frame-ancestors 'self'"
+      Received string: "default-src 'self'; … frame-ancestors 'none'; …"
+```
+
+### Code
+
+`next.config.ts` : `enTetesSecurite` devient une fonction `(frameAncestors: "'none'" | "'self'") => [...]` ; `headers()` rend l'entrée générale `/(.*)` puis une entrée `/apercu/:path*` — après la générale (« the last header key will override the first », headers.md), avec la matrice complète répétée (ne pas compter sur une fusion des clés absentes) plus `Cache-Control: no-store` et `X-Robots-Tag: noindex`.
+
+### Écarts, motifs
+
+- **Assertion `cache-control` assouplie** (`['no-store', 'no-cache, must-revalidate']` au lieu de `no-store` strict) : le e2e tourne en dev, où Next pose toujours `no-cache, must-revalidate` sur les réponses rendues (`node_modules/next/dist/server/base-server.js:1107`, bloc `if (this.dev)` — restauration bfcache back/forward), écrasant l'entrée de config. En production celle-ci s'applique : les poses par défaut y sont cantonnées à des chemins spéciaux (middleware-prefetch base-server.js:1312, 404 sous-ressource :1361, renderError :1732), et une page dynamique comme celle-ci (elle lit `headers()` et `searchParams`) est rendue `private, no-cache, no-store, max-age=0, must-revalidate` (`node_modules/next/dist/server/lib/cache-control.js:15`, `revalidate === 0`) — `no-store` servi par les deux chemins. L'assertion resterait rouge si l'en-tête disparaissait.
+- **Relevé des en-têtes par curl, incident sans incidence code** : la première tentative rendait 404 malgré une session valide (`/api/users/me` l'acceptait). Cause trouvée fichier en main : `extractJWT` (méthode cookie, `node_modules/payload/dist/auth/extractJWT.js`) rejette les requêtes sans `Origin` NI `Sec-Fetch-Site` — « Reject cross-site requests and missing header (non-browser clients) » : le token est ignoré, `payload.auth` rend `user: null`, la page applique I28 et répond 404. Comportement CSRF voulu de Payload, pas un défaut de la page (Chromium envoie `Sec-Fetch-Site: none` en navigation directe). Le relevé ci-dessous est fait avec `Sec-Fetch-Site: none`.
+
+### En-têtes réellement servis (dev, 15/10)
+
+`/apercu/apparence?commune=1&accent=%23ABCDEF` (200, session admin saint-ex) :
+
+```
+HTTP/1.1 200 OK
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Opener-Policy: same-origin
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
+Cache-Control: no-cache, must-revalidate        ← dev : voir écart ci-dessus
+X-Robots-Tag: noindex
+```
+
+`/` (200, anonyme) :
+
+```
+HTTP/1.1 200 OK
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Opener-Policy: same-origin
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+Cache-Control: no-cache, must-revalidate
+```
+
+La page publique garde `frame-ancestors 'none'` et ne reçoit pas `X-Robots-Tag` : l'entrée spécifique ne fuit pas sur le reste du site.
+
+### Fichiers générés
+
+Le serveur dev lancé pour le relevé a régénéré `src/app/(payload)/admin/importMap.js` **incomplet** (entrées admin disparues — FriseApercu, multi-tenant, Lexical…). Non modifié par moi : restauré par `git checkout --`. Aucun autre fichier généré touché (`src/payload-types.ts` intact ce coup-ci).
+
+### Vérifications
+
+```
+$ npm run test:e2e -- apercu
+  3 passed (18.6s)
+$ npm run typecheck
+  (aucune sortie d'erreur)
+$ npx eslint tests/e2e/apercu.e2e.spec.ts src/proxy.ts next.config.ts
+  (aucune sortie — 0 erreur, 0 warning)
+```
+
