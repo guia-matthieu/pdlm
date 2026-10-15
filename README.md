@@ -404,14 +404,19 @@ ignoré quand Docker relance les conteneurs au redémarrage) ;
 
 - Navigation clavier complète, lien d'évitement en première cible, focus
   visible sur tous les éléments interactifs, testés jusqu'à un zoom 200 %.
-- Chaque commune personnalise une couleur principale et une couleur d'accent
-  (Admin → _Communes_ → _Apparence_). **Avant publication**, vérifier le
-  contraste obtenu avec le texte blanc du site (utilisé sur les boutons et
-  l'en-tête) — cible AA : ratio ≥ 4.5:1 pour le texte courant, ≥ 3:1 pour le
-  texte large et les composants d'interface. Outil recommandé :
-  [webaim.org/resources/contrastchecker](https://webaim.org/resources/contrastchecker/).
-  Une couleur trop claire (ex. jaune pâle) ne passe pas ce seuil sur fond
-  blanc/texte blanc — vérifier avant d'activer la commune.
+- Chaque commune personnalise ses couleurs (Admin → _Communes_ → _Apparence_ :
+  principale, accent, terre). La seule validation est le format `#rrggbb` : une
+  couleur peu contrastée est acceptée, puis rendue lisible par dérivation —
+  chaque couple texte/fond est ajusté, teinte conservée, jusqu'à son seuil de
+  contraste : 4.5:1 pour le texte courant, 3:1 pour les grandes dates et les
+  pictogrammes, 7:1 pour le texte blanc sur la teinte profonde. L'onglet
+  _Apparence_ recalcule la même dérivation à chaque réglage : sa bande
+  « Contrastes dérivés » montre en direct les onze rapports obtenus.
+- Les réglages avancés permettent de **forcer** une couleur dérivée : elle est
+  alors servie telle quelle, sans ajustement — c'est l'unique échappatoire à la
+  garantie ci-dessus. La bande « Contrastes dérivés » de l'onglet _Apparence_
+  marque la ligne « forcée, sous votre responsabilité » et passe en alerte si
+  le rapport obtenu descend sous le seuil.
 - Texte alternatif obligatoire sur chaque média.
 - Lighthouse est utilisé comme signal rapide (_smoke test_) pendant le
   développement, jamais comme preuve de conformité RGAA — seule une recette
