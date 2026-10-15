@@ -132,4 +132,29 @@ Comportement voulu du socle, antérieur aux tâches 1-9 : `src/lib/commune.ts` l
 
 **Avant le commit** : serveur 3005 arrêté, temporaires `/tmp/t10-*.txt|json|log` supprimés, `git status --short` limité aux trois fichiers du commit.
 
+## Étape 4 — vérifications finales (commit `Vérifications finales — tout vert : lint, types, 297 unitaires, 228 intégration, 64 e2e`)
+
+Chaque suite lancée une seule fois, sorties collées :
+
+```
+$ npm run lint
+  ✖ 45 problems (0 errors, 45 warnings)
+$ npm run typecheck
+  > tsc --noEmit        (sortie vide, code 0)
+$ npm run test:unit
+  Test Files  31 passed (31)
+       Tests  297 passed (297)
+$ npm run test:int
+  Test Files  25 passed (25)
+       Tests  228 passed (228)
+$ npm run test:e2e
+  64 passed (2.5m)
+```
+
+- **lint** : 0 erreur — le critère du plan est « 0 erreur dans `src/` et `tests/` ». Les 45 warnings tiennent dans 14 fichiers du socle (les 8 `src/migrations/*`, `src/seed/contenu-demo.ts`, `src/lib/contenu.ts`, `src/components/MediaImage.tsx`, `src/components/admin/FriseApercu.tsx`, `tests/int/isolation.int.spec.ts`, `tests/stubs/server-only.ts` — `no-explicit-any` des migrations SQL et deux conventions d'export). Aucun fichier écrit par la tâche 10 ; rien corrigé (hors périmètre du brief).
+- **test:int** : première passe verte, pas de « already exists » (le schéma n'a pas bougé depuis la tâche 9).
+- **test:e2e** : suite complète en dev (webServer standard de `playwright.config.ts`), une exécution — 64 tests, y compris la conformité (en dev, le filtre `E2E_PROD` ne change rien : l'égalité hors chunks), l'aperçu de la tâche 9 et les 8 captures de la tâche 10.
+- **`src/payload-types.ts`** régénéré pendant les passes de tests (même diff d'environnement qu'à l'étape 2 : la description de `mesure.active` selon `UMAMI_URL`) : remis par `git checkout --`.
+- **`git diff --stat 0d3aea4 -- src/`** : vide — la tâche 10 n'a touché aucun code applicatif des tâches 1 à 9, comme l'exige le brief.
+
 
