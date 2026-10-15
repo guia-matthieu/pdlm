@@ -58,6 +58,32 @@ describe('I7 / I19 — chemins de la mesure d’audience', () => {
   )
 })
 
+describe('proxy — aperçu d’apparence (décision 13)', () => {
+  const avant = { ...process.env }
+
+  beforeEach(() => {
+    process.env.PLATFORM_DOMAIN = 'plateforme.test'
+  })
+
+  afterEach(() => {
+    process.env = { ...avant }
+  })
+
+  it('répond 404 sur un domaine communal, comme pour l’API', () => {
+    expect(proxy(requete('mairie-a.fr', '/apercu/apparence')).status).toBe(404)
+    expect(proxy(requete('mairie-a.fr', '/apercu')).status).toBe(404)
+  })
+
+  it('sert l’aperçu sur la plateforme, sans réécriture de langue', () => {
+    // La route vit hors de `[lang]` : si le bloc d’aperçu laissait passer le
+    // chemin jusqu’à l’aiguillage, `/apercu/apparence` deviendrait
+    // `/racine/apercu/apparence` et la route ne serait jamais atteinte.
+    const reponse = proxy(requete('admin.plateforme.test', '/apercu/apparence'))
+    expect(reponse.headers.get('x-middleware-next')).toBe('1')
+    expect(reponse.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+})
+
 describe('proxy — aiguillage des langues', () => {
   const avant = { ...process.env }
   beforeEach(() => {

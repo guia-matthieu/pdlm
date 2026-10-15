@@ -56,12 +56,24 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 3. Statiques et interne de Next : sans traitement
+  // 3. Aperçu de l'apparence (décision 13) : comme l'API, cette route vit sur
+  //    la plateforme seule — l'aperçu s'affiche sous le domaine admin, un
+  //    domaine communal répond 404. Le `next()` anticipé la garde aussi hors
+  //    de l'aiguillage de langue : sans lui, `/apercu/apparence` serait
+  //    réécrit en interne vers `/racine/apercu/apparence` et jamais servi.
+  if (pathname === '/apercu' || pathname.startsWith('/apercu/')) {
+    if (!surPlateforme) {
+      return new NextResponse(null, { status: 404 })
+    }
+    return NextResponse.next()
+  }
+
+  // 4. Statiques et interne de Next : sans traitement
   if (pathname.startsWith('/_next') || pathname === '/favicon.ico') {
     return NextResponse.next()
   }
 
-  // 4. Front public : écraser x-commune-host et x-pdlm-chemin (jamais lus du
+  // 5. Front public : écraser x-commune-host et x-pdlm-chemin (jamais lus du
   //    client), puis aiguiller la langue (spec multilingue § 3) : un chemin
   //    sans préfixe de langue est réécrit en interne vers la sentinelle de
   //    [lang] — le visiteur ne voit pas la réécriture.
