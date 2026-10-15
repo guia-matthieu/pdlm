@@ -216,4 +216,46 @@ $ npx eslint tests/e2e/apercu.e2e.spec.ts src/components/admin/ApparenceApercu.t
   (aucune sortie — 0 erreur, 0 warning)
 ```
 
+## Vérifications finales (tâche close)
+
+```
+$ npm run typecheck
+  (aucune sortie d'erreur — code 0)
+
+$ npx eslint src tests
+  ✖ 45 problems (0 errors, 45 warnings)
+```
+
+Les 45 warnings sont tous sur des fichiers préexistants (migrations, stubs, seed, contenu-demo) ; les trois fichiers de la tâche rendent 0 problème.
+
+```
+$ npm run test:unit
+ Test Files  31 passed (31)
+      Tests  297 passed (297)
+
+$ npm run test:int
+ Test Files  25 passed (25)
+      Tests  228 passed (228)
+```
+
+(premier essai, pas de « already exists »). Le run int a régénéré `src/payload-types.ts` sans les champs S3 (8 lignes `prefix`/`_objectKey` disparues) — `S3_ENABLED=true npm run generate:types` régénère un fichier **identique** au commit (diff vide), y compris le commentaire `mesure.active` de HEAD.
+
+```
+$ npm run test:e2e
+  4 skipped
+  52 passed (2.0m)
+```
+
+Suite complète au premier essai, aucun échec hors fichiers touchés (aucun échec du tout).
+
+```
+$ git diff --stat 7e9aa5a -- src/gabarits
+  (aucune sortie — src/gabarits intact)
+$ git status --short
+  (aucune sortie — arbre propre)
+```
+
+`test-results/` (artefacts Playwright) est ignoré par git. Non vérifiables ici, notés pour la suite : comportement des en-têtes en build de production (le e2e tourne en dev, voir l'écart du commit 4) ; captures du composant dans d'autres gabarits que Village/Littoral.
+
+
 
