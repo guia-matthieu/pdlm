@@ -450,6 +450,15 @@ export const Communes: CollectionConfig = {
                   ],
                 },
                 {
+                  // Aperçu en direct du site public, au-dessus des couleurs
+                  // choisies. Champ `ui` : aucune donnée, aucune migration.
+                  name: 'apercuApparence',
+                  type: 'ui',
+                  admin: {
+                    components: { Field: '/components/admin/ApparenceApercu#ApparenceApercu' },
+                  },
+                },
+                {
                   name: 'couleurPrincipale',
                   type: 'text',
                   label: 'Couleur principale (hex)',
