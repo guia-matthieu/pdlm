@@ -139,7 +139,12 @@ l'échelle de restitution (390×7185 réduits). Les recadrages du bloc mairie
 n'ont pas été restitués visuellement par l'outil de lecture de cette session
 (URL CDN sans rendu, trois essais, y compris sur des fichiers du dépôt) : la
 description fine ci-dessus s'appuie sur le groupage programmatique des
-caractères rendus. « Documents » apparaît deux fois au menu sur les captures :
+caractères rendus. **La vérification visuelle a donc été faite par le
+relecteur** (guia-3b, relecture de `d8a962b` : `littoral-2a7f9e-photos-390.png`
+regardé à côté de `captures-tache-10/littoral-2a7f9e-photos-390.png`, zone
+y 600-1500) : 5 casettes empilées pleine largeur, filets sur toute la largeur,
+horaires sur 2 lignes, adresse sur 2 lignes, courriel sur 1 ligne, téléphone
+sur 1 ligne. « Documents » apparaît deux fois au menu sur les captures :
 attendu (données de développement, hors périmètre, notes-tache-05a.md).
 
 ## 4. Test — `tests/e2e/littoral-mairie-390.e2e.spec.ts`
@@ -170,10 +175,44 @@ puis restauration par `git checkout --`) :
       ✓ à 701 px, juste au-dessus de la rupture, les deux colonnes restent (665ms)
     3 passed (6.9s)
 
+## 5. Vérification finale
+
+    npm run lint        → ✖ 45 problems (0 errors, 45 warnings)
+    npm run typecheck   → tsc --noEmit, 0 erreur
+    npm run test:unit   → Test Files 31 passed (31) — Tests 297 passed (297)
+    E2E_PORT=3000 npx playwright test gabarits-captures gabarits-conformite \
+      littoral-captures littoral-mairie-390
+                        → 27 passed (1.0m)
+
+Les 45 warnings de lint précèdent ce travail (migrations, `FriseApercu`…) :
+aucun dans `theme.css` ni dans le spec neuf.
+
+**Incident I30 — résidu d'horaires en base dev, étranger au CSS.** Le premier
+passage de cette vérification donnait 2 failed sur `gabarits-conformite`
+(l. 346, « 6 — commune vide : aucun emplacement vide (I30) », gabarits village
+**et** littoral) : la carte mairie restait rendue alors que la commune était
+vidée de ses coordonnées. Cause mesurée : le champ `horaires` de `saint-ex`
+restait rempli (`pdlm_gabarits_dev.communes_locales`, ligne id 596) ;
+`src/gabarits/Accueil.tsx` l. 74 rend la carte dès que
+`telephone || adresse || email || identite.horaires` existe, et le test I30
+vide les coordonnées mais pas les horaires. Le résidu **préexistait à la
+session** : le spec de captures (l. 411) et le spec neuf restaurent tous deux
+`origine.horaires ?? null`, et un PATCH `{ horaires: null }` répond 200 avec
+GET après = null (vérifié par un script jetable, supprimé) — donc si le run
+combiné voyait des horaires, elles étaient posées avant ; les restaurations
+les réécrivaient telles quelles à chaque run (résidu auto-entretenu). Le
+village échouait aussi alors que son CSS n'est pas touché : le CSS n'est pour
+rien. Nettoyage par PATCH authentifié `horaires: null`, relance complète :
+**27 passed**. L'origine étant maintenant null, les restaurations écriront
+null : le résidu ne peut plus revenir.
+
 ## Journal
 
 - `96804de` — squelette de ces notes (ancres vérifiées, cadre).
 - `45a0024` → `e71e1ac` (amend accepté par le relecteur, dernier du genre) :
   correction CSS, deux règles dans le bloc 43,75rem + notes sections 1-2.
-- (ce commit) — test e2e `littoral-mairie-390` + notes sections 3-4.
+- `d8a962b` — test e2e `littoral-mairie-390` + notes sections 3-4. Relecture :
+  test approuvé, vérification visuelle faite par le relecteur (cf. § 3).
+- (ce commit) — notes section 5 + captures 390 après correction dans
+  `docs/qc/captures-littoral-390/`.
 
