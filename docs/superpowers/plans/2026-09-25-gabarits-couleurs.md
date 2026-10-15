@@ -14,13 +14,16 @@
 
 ## État d'exécution — à lire avant toute tâche
 
+**Mis à jour le 15/10/2026 : les dix tâches sont exécutées.** Une seule réserve, sur la tâche 10 : la suite de conformité ne peut pas tourner contre un build de production en local — I6 voulu (host nu refusé en prod), mesuré et documenté dans `docs/qc/bloque-tache-10.md`, où I27 est prouvé à la main et les en-têtes mesurés. Captures : `docs/qc/captures-tache-10/` (planche : `planche-contact.png`).
+
 **Mis à jour le 04/10/2026 : la porte de déblocage est OUVERTE.** L'état « bloqué » décrit ici jusqu'au 03/10 est périmé.
 
 | Tâche | Étape spec § 5 | Statut | Où |
 |---|---|---|---|
 | 1 — `couleurs.ts` + tests | 1 | **faite et relue** (25/09), verte après rebase (04/10) | branche `gabarits-couleurs`, worktree `~/Projects/glm.gabarits` |
 | Porte de déblocage | — | **ouverte le 04/10** | `main` = `56d20a2` |
-| 2 à 10 | 2 à 6 | **à faire, dans l'ordre**, une tâche à la fois | idem |
+| 2 à 9 | 2 à 6 | **faites** (6 : 12/10 ; 7 et 8 : 14/10 ; 9 : 15/10 ; notes dans `docs/qc/notes-tache-*.md`) | idem |
+| 10 | 2 à 6 | **faite le 15/10**, avec la réserve ci-dessus (`docs/qc/bloque-tache-10.md`) | idem |
 
 **Ce que `main` contient depuis le 04/10** (`56d20a2`) : la mesure d'audience, le **socle multilingue** (`src/i18n/`, routes `(frontend)/[lang]/`, `src/lib/champs-langue.ts`, `src/lib/langues.ts`) et les **mandats** (collections `organisations` et `mandats`, rôle `mandataire`, `src/hooks/verifierCommuneCreation.ts`). `gabarits-couleurs` est rebasée dessus (9 commits).
 
@@ -1123,13 +1126,13 @@ describe('composerFrise', () => {
 
 ### Task 10: README, captures regardées, audit final (spec § 5)
 
-**Statut : à faire (porte ouverte le 04/10).**
+**Statut : fait le 15/10.** Réserve : l'étape 3 ne peut pas jouer la suite en production locale (I6 voulu — `docs/qc/bloque-tache-10.md`, où I27 est prouvé à la main et les en-têtes mesurés). Notes : `docs/qc/notes-tache-10.md` ; captures : `docs/qc/captures-tache-10/`.
 
-- [ ] **Step 1:** réécrire `README.md` § « Accessibilité (RGAA) » (l. 403-418 le 15/10) : retirer la consigne de vérifier le contraste à la main (« Une couleur trop claire… vérifier avant d'activer la commune ») ; dire ce que garantit la dérivation (I24, I25), ce qu'elle ne garantit pas (une couleur **forcée**), et garder la phrase « seule une recette manuelle (grille RGAA officielle) fait foi ».
-- [ ] **Step 2:** captures Playwright de l'accueil, 1440 et 390, par gabarit × 2 jeux de couleurs très différents (`#2a7f9e/#f2b134/#d2462f` et `#9b3d57/#7fc4c9/#e08a2c`, ceux des maquettes) × avec et sans photos = 16 captures, montées en planche-contact ; **les regarder** et les montrer à l'utilisateur avant fusion.
-- [ ] **Step 3:** lancer la suite de conformité (`gabarits-conformite.e2e.spec.ts`) contre un **build de production** (`npm run build` puis `next start`) : l'égalité des scripts entre accueil et page intérieure (I27, point 2) y est vérifiée **sans le filtre des chunks** — les noms de chunks sont stables en prod, contrairement au dev turbopack qui les nomme par route (mesuré en tâche 4 : les deux listes filtrées sont vides en dev). Axe et contrastes y sont aussi mesurés dans les conditions réelles.
-- [ ] **Step 4:** `npm run lint && npm run typecheck && npm test` — sortie collée dans la PR.
-- [ ] **Step 5: Commit** — `"README — accessibilité : ce que garantit la dérivation des couleurs"`.
+- [x] **Step 1:** réécrire `README.md` § « Accessibilité (RGAA) » (l. 403-418 le 15/10) : retirer la consigne de vérifier le contraste à la main (« Une couleur trop claire… vérifier avant d'activer la commune ») ; dire ce que garantit la dérivation (I24, I25), ce qu'elle ne garantit pas (une couleur **forcée**), et garder la phrase « seule une recette manuelle (grille RGAA officielle) fait foi ».
+- [x] **Step 2:** captures Playwright de l'accueil, 1440 et 390, par gabarit × 2 jeux de couleurs très différents (`#2a7f9e/#f2b134/#d2462f` et `#9b3d57/#7fc4c9/#e08a2c`, ceux des maquettes) × avec et sans photos = 16 captures, montées en planche-contact ; **les regarder** et les montrer à l'utilisateur avant fusion.
+- [x] **Step 3:** lancer la suite de conformité (`gabarits-conformite.e2e.spec.ts`) contre un **build de production** (`npm run build` puis `next start`) : l'égalité des scripts entre accueil et page intérieure (I27, point 2) y est vérifiée **sans le filtre des chunks** — les noms de chunks sont stables en prod, contrairement au dev turbopack qui les nomme par route (mesuré en tâche 4 : les deux listes filtrées sont vides en dev). Axe et contrastes y sont aussi mesurés dans les conditions réelles. *(Fait jusqu'au blocage I6 : `docs/qc/bloque-tache-10.md`.)*
+- [x] **Step 4:** `npm run lint && npm run typecheck && npm test` — sortie collée dans la PR.
+- [x] **Step 5: Commit** — `"README — accessibilité : ce que garantit la dérivation des couleurs"`. *(Intitulé porté par le commit de l'étape 1 — écart tracé dans les notes ; le commit de clôture porte la mise à jour de ce plan.)*
 
 ---
 
