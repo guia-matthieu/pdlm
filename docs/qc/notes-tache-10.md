@@ -38,3 +38,60 @@ Chaque affirmation du nouveau texte, avec sa source et le test qui la vérifie :
 Le champ admin porte déjà la même mention : `src/collections/Communes.ts` l. 490 (« Une couleur forcée est utilisée telle quelle (I24) : le contraste est sous votre responsabilité »).
 
 **Écart au brief, motif** : le brief donne l'intitulé `README — accessibilité : ce que garantit la dérivation des couleurs` au « commit de clôture » (étape 5) tout en exigeant des commits à part par étape ; le plan (Step 5) attache cet intitulé au commit qui porte la réécriture du README. Je l'applique ici, au commit de l'étape 1 ; le commit de clôture final portera la mise à jour de l'état d'exécution du plan (le brief autorise ce commit à part).
+
+## Étape 2 — les 16 captures
+
+**Choix : fichier neuf** `tests/e2e/gabarits-captures.e2e.spec.ts`. Motif : les deux modèles capturent chacun un seul gabarit dans ses couleurs par défaut ; la tâche 10 croise gabarit × jeu de couleurs × avec/sans photos, composition qui n'est celle d'aucun des deux. Étendre l'un des deux l'aurait fait dévier de son sujet (captures de référence des maquettes) ; un fichier paramétré sur les deux gabarits évite de dupliquer téléversement, nettoyage et remise en état.
+
+**Composition reprise des modèles, vérifiée ligne à ligne** : frise village 21 pièces (`village-captures.e2e.spec.ts` l. 32-54), frise littoral 16 pièces avec écarts (`littoral-captures.e2e.spec.ts` l. 47-64), coordonnées et horaires identiques, mêmes titres d'événements (le nettoyage par titre emporte aussi les restes d'un passage interrompu des modèles), mosaïque avec la troisième tuile illustrée, images sur les quatre actualités les plus récentes (`[...actusDemo, ...crees].slice(0, 4)`, lecture démo `limit=10` triée `-datePublication`, comme village l. 191-196 et 268). Couleurs posées avant chaque capture par PATCH `apparence.couleurPrincipale/couleurAccent/couleurTerre` ; tout est remis dans `afterAll` (couleurs comprises : `origine.apparence?.couleurPrincipale ?? null`).
+
+**Premier passage : échec, correction, relance.** `page.evaluate(() => document.fonts.check(g.police))` échoue : le callback est sérialisé vers le navigateur, où `g` n'existe pas (« ReferenceError: g is not defined », gabarits-captures l. 428). Les deux tests « avec photos » ont échoué après leurs captures, les six suivants n'ont pas tourné (describe serial) ; `afterAll` a rendu la main sans erreur. Correction : la police passe en argument — `page.evaluate((police) => document.fonts.check(police), g.police)`. Relance de la suite ciblée : bug dans le test que j'écris, pas un comportement des tâches 1 à 9 ; les 16 captures sont exigées par le brief.
+
+**Exécution (second passage).**
+
+```
+$ npm run test:e2e -- gabarits-captures
+  8 passed (39.6s)
+$ ls test-results/gabarits/t10 | wc -l
+  16
+```
+
+Le nettoyage final est visible dans la sortie serveur (DELETE des médias `capture-tache-10`, actualités et événements). Copie : `cp test-results/gabarits/t10/*.png docs/qc/captures-tache-10/`.
+
+**Planche-contact.** `montage` (ImageMagick 7 de Homebrew), 4 colonnes × 4 lignes, labels `%f` ; lignes = village jeu `#2a7f9e`, village `#9b3d57`, littoral `#2a7f9e`, littoral `#9b3d57` ; colonnes = photos-1440, photos-390, sans-photo-1440, sans-photo-390.
+
+```
+$ montage -font /System/Library/Fonts/Helvetica.ttc -pointsize 22 -tile 4x -geometry +8+8 \
+    -label '%f' /tmp/planche-t10/*.png (16 vignettes, ordre ci-dessus) planche-contact.png
+$ identify planche-contact.png
+  planche-contact.png PNG 1160x5372 1160x5372+0+0 16-bit sRGB 4.37503MiB
+```
+
+Deux écarts au brief, motifs :
+
+- **Police explicite** : l'ImageMagick de Homebrew n'a aucune police enregistrée (`magick -list font` vide) ; sans `-font`, « montage: unable to read font ». J'ai pointé `/System/Library/Fonts/Helvetica.ttc`.
+- **Vignettes réduites avant montage** (`magick -resize x1300` dans `/tmp/planche-t10`, dossier jetable supprimé après) : les captures pleine page font 4039 à 7250 px de haut ; la planche littérale du brief (`-geometry +8+8` sans réduction) mesure **5760×29132 px, 21,8 Mo** (constaté), illisible. Avec vignettes de 1300 px de haut : 1160×5372, regardable. Les captures pleine définition sont archivées à côté de la planche.
+
+**Ce que montrent la planche et chaque capture.** Les seize captures sont conformes : je ne relève ni section vide, ni élément manquant, ni débordement (l'absence de débordement horizontal est aussi prouvée mécaniquement : chaque capture asserte `document.documentElement.scrollWidth <= largeur`, seize fois passé). Détail par capture :
+
+- **village-2a7f9e-photos-1440** — héros photo de montagne, titre Bricolage blanc sur bandeau bleu profond, bouton bleu, une illustrée + trois brèves avec images, mosaïque de quatre tuiles (trois photos, la troisième illustrée SVG, conforme à la composition), agenda aux pastilles terre `#d2462f` à chiffres blancs lisibles, pied bleu profond avec frise village claire. Contrastes lisibles partout.
+- **village-2a7f9e-photos-390** — même page empilée : une colonne, mosaïque 2×2, agenda, pied frise. Aucun débordement.
+- **village-2a7f9e-sans-photo-1440** — héros SVG (colline, maisons, église, sapins) sur fond bleu pâle dérivé ; brèves et mosaïque toutes illustrées de pictogrammes — rien de vide (I30).
+- **village-2a7f9e-sans-photo-390** — idem empilé, héros SVG visible en entier.
+- **village-9b3d57-photos-1440** — la palette bascule intégralement : bandeau et boutons framboise, pastille date accent `#7fc4c9`, agenda terre `#e08a2c`, pied framboise profond. Titre et textes lisibles.
+- **village-9b3d57-photos-390** — idem empilé, sans débordement.
+- **village-9b3d57-sans-photo-1440 / -390** — héros SVG sur fond framboise pâle, sections toutes illustrées.
+- **littoral-2a7f9e-photos-1440** — typographie Source Serif 4 (serif visible), héros photo du phare, pastilles date accent `#f2b134` à chiffres sombres, mosaïque photos, agenda de quatre événements, pied bleu profond avec frise maritime (pin, phare, voilier, jetée).
+- **littoral-2a7f9e-photos-390** — empilé, mosaïque deux colonnes, agenda, frise en pied. Aucun débordement.
+- **littoral-2a7f9e-sans-photo-1440 / -390** — héros SVG (phare, mer, mouettes), brèves et mosaïque illustrées de pictogrammes maritimes.
+- **littoral-9b3d57-photos-1440** — bandeau framboise, pastilles accent `#7fc4c9` à chiffres sombres, agenda terre `#e08a2c`, pied framboise profond, frise maritime. Lisible.
+- **littoral-9b3d57-photos-390** — idem empilé, sans débordement.
+- **littoral-9b3d57-sans-photo-1440 / -390** — héros SVG, tout illustré.
+
+Sur la planche : les deux jeux se distinguent d'un coup d'œil (dominante bleu sarcelle contre framboise), gabarit après gabarit ; les colonnes sans photo montrent le héros illustré. Les vignettes 390 y sont étroites (hauteur normalisée) — la lecture fine du mobile se fait dans les captures individuelles.
+
+**Ce que je n'ai pas pu vérifier** : le rendu typographique fin à 390 px (les captures sont réduites à l'affichage ici) ; l'absence de débordement horizontal y est pourtant prouvée par l'assertion `scrollWidth` du test. Le contraste exact de chaque couple texte/fond ne se juge pas à l'œil sur capture : il est garanti par la dérivation (couleurs.spec.ts, I25) et montré en direct par l'onglet Apparence (tâche 9).
+
+**Avant le commit** : `git status --short` montre `src/payload-types.ts` modifié — diff d'environnement, exactement celui prévu par le brief : la description de `mesure.active` dépend de `UMAMI_URL` (absente de ce worktree, la description régénérée est celle du champ « coupe » sans plateforme configurée). Remis par `git checkout -- src/payload-types.ts`, rien à committer de ce côté.
+
+
