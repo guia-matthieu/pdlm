@@ -15,6 +15,7 @@ import { connecterAdmin } from '../helpers/login'
  * (défaut village).
  */
 const ADMIN_COMMUNE = { email: 'admin@saint-ex.fr', motDePasse: 'demo1234' }
+const OPERATEUR = { email: 'operateur@pdlm.dev', motDePasse: 'demo1234' }
 
 /*
  * Même aide que couleurs.e2e.spec.ts : les appels API partent du navigateur
@@ -36,6 +37,64 @@ async function idSaintEx(page: Page): Promise<string> {
   const communes = await apiCommunes(page, '/api/communes?where[slug][equals]=saint-ex&limit=1')
   expect(communes.ok, communes.corps).toBe(true)
   return JSON.parse(communes.corps).docs[0].id
+}
+
+/*
+ * Verrou documentaire de Payload (5 minutes par défaut) : posé à la première
+ * modification du formulaire, il n’est libéré qu’à l’enregistrement, à la
+ * navigation interne ou à son expiration — jamais par la fermeture brutale
+ * du navigateur, qui est celle de Playwright en fin de test. Un test qui
+ * touche un champ sans enregistrer laisse donc un verrou frais qui rend le
+ * formulaire inerte pour le compte suivant sur la même commune. Mêmes
+ * appels que le bouton du client admin (unlockDocument, DocumentInfo) :
+ * lire le verrou de la commune, le supprimer.
+ */
+async function libererVerrou(page: Page, communeId: string) {
+  const verrous = await apiCommunes(
+    page,
+    `/api/payload-locked-documents?where[document.relationTo][equals]=communes&where[document.value][equals]=${communeId}&limit=1`,
+  )
+  expect(verrous.ok, verrous.corps).toBe(true)
+  const docs = JSON.parse(verrous.corps).docs
+  if (docs.length > 0) {
+    const suppression = await apiCommunes(page, `/api/payload-locked-documents/${docs[0].id}`, {
+      method: 'DELETE',
+    })
+    expect(suppression.ok, suppression.corps).toBe(true)
+  }
+}
+
+/*
+ * Même aide que frise-admin.e2e.spec.ts : ouvrir la fiche de la commune sur
+ * l’onglet Apparence, données chargées (le select Gabarit montre le défaut
+ * du seed) et rafale de rendus serveur passée (networkidle — voir la
+ * raison détaillée là-bas).
+ */
+async function ouvrirApparence(page: Page, communeId: string) {
+  await page.goto(`/admin/collections/communes/${communeId}`)
+
+  // Un verrou étranger pas encore expiré (run précédent tué avant ses 5
+  // minutes) ouvre une modale lecture seule qui avale tous les clics. Elle
+  // n’est pas dans le HTML servi : DocumentLocked l’ouvre par effet client
+  // ~400 ms après le rendu (Edit/index.js:447 → useEffect), donc n’importe
+  // quel clic qui suit le chargement peut la laisser passer. On l’attend
+  // bornée avant d’y aller, puis on reprend la main comme le ferait
+  // l’opérateur devant un collègue parti sans fermer sa session.
+  const reprise = page.locator('#document-locked-take-over')
+  try {
+    await reprise.waitFor({ state: 'visible', timeout: 3_000 })
+  } catch {
+    // Aucun verrou frais sur la commune : rien à reprendre.
+  }
+  if (await reprise.isVisible()) {
+    await reprise.click()
+  }
+
+  await page.getByRole('button', { name: 'Apparence', exact: true }).click()
+  await expect(page.locator('#field-apparence__gabarit .react-select--single-value')).toHaveText(
+    'Village',
+  )
+  await page.waitForLoadState('networkidle')
 }
 
 test.describe('Aperçu d’apparence — accès et en-têtes', () => {
@@ -87,5 +146,122 @@ test.describe('Aperçu d’apparence — accès et en-têtes', () => {
     const reponse = await page.goto('/')
     const entetes = (await reponse?.allHeaders()) ?? {}
     expect(entetes['content-security-policy']).toContain("frame-ancestors 'none'")
+  })
+})
+
+test.describe('Aperçu d’apparence — onglet de l’admin', () => {
+  test('admin : aperçu en direct, sans écriture tant qu’on n’enregistre pas', async ({ page }) => {
+    await connecterAdmin(page, ADMIN_COMMUNE)
+    const communeId = await idSaintEx(page)
+    await ouvrirApparence(page, communeId)
+
+    try {
+      // Le viseur est là, l’iframe charge l’aperçu de cette commune avec les
+      // valeurs du formulaire : la principale de la base (#264653, défaut SQL
+      // posé à la création par le seed, avant que la migration gabarits ne le
+      // retire) et le gabarit par défaut.
+      await expect(page.locator('#apercu-apparence')).toBeVisible()
+      const iframe = page.locator('#apercu-apparence iframe')
+      await expect(iframe).toBeVisible()
+      await expect(iframe).toHaveAttribute('src', new RegExp(`commune=${communeId}`))
+      await expect(page.frameLocator('#apercu-apparence iframe').locator('.canevas-apercu')).toBeVisible()
+
+      // « en direct, sans enregistrer » se prouve au réseau : aucune écriture
+      // vers l’API des communes pendant tout l’ajustement qui suit.
+      let ecritures = 0
+      page.on('request', (req) => {
+        if (req.method() !== 'GET' && new URL(req.url()).pathname.startsWith('/api/communes')) {
+          ecritures += 1
+        }
+      })
+
+      // Une frappe dans le champ accent suit dans l’adresse de l’iframe,
+      // après l’anti-rebond (l’assertion réessaie jusqu’à l’arrivée).
+      await page.locator('#field-apparence__couleurAccent').fill('#ABCDEF')
+      await expect(iframe).toHaveAttribute('src', /accent=%23abcdef/)
+      // … et l’aperçu rendu dans l’iframe suit (I29 : minuscules).
+      await expect(
+        page.frameLocator('#apercu-apparence iframe').locator('.canevas-apercu'),
+      ).toBeVisible()
+
+      // Une pastille d’accord remplace l’accent du formulaire d’un clic.
+      const pastille = page.locator('#apercu-apparence [data-accord]').first()
+      const couleurPastille = (await pastille.getAttribute('data-accord')) ?? ''
+      expect(couleurPastille).toMatch(/^#[0-9a-fA-F]{6}$/)
+      await pastille.click()
+      await expect(page.locator('#field-apparence__couleurAccent')).toHaveValue(couleurPastille)
+      await expect(iframe).toHaveAttribute(
+        'src',
+        new RegExp(`accent=%23${couleurPastille.slice(1).toLowerCase()}`),
+      )
+
+      // La bascule de largeur change le viseur, sans recharger l’aperçu.
+      await page.getByRole('button', { name: 'Mobile 390 px' }).click()
+      await expect(page.locator('#apercu-apparence [data-largeur]')).toHaveAttribute(
+        'data-largeur',
+        '390',
+      )
+      await page.getByRole('button', { name: 'Ordinateur 1440 px' }).click()
+      await expect(page.locator('#apercu-apparence [data-largeur]')).toHaveAttribute(
+        'data-largeur',
+        '1440',
+      )
+
+      // La bande de contrôle des contrastes rend la dérivation lisible, et la
+      // mention prévient que photo d’accueil et contenus ne sont pas dans
+      // l’aperçu tant que rien n’est enregistré.
+      await expect(page.locator('#apercu-apparence .contrastes')).toBeVisible()
+      await expect(page.locator('#apercu-apparence .contrastes [data-role]')).toHaveCount(11)
+      await expect(page.getByText('visibles après enregistrement')).toBeVisible()
+
+      expect(ecritures, 'aucune écriture API pendant l’aperçu').toBe(0)
+    } finally {
+      // Les frappes de ce test ont posé un verrou documentaire qu’aucun
+      // enregistrement ne viendra libérer (c’est le point du test) : sans
+      // ce ménage, la modale lecture seule bloquerait le test suivant.
+      await libererVerrou(page, communeId)
+    }
+  })
+
+  test('opérateur : le gabarit basculé est servi dans l’aperçu', async ({ page }) => {
+    await connecterAdmin(page, OPERATEUR)
+    const communeId = await idSaintEx(page)
+
+    let apercuVerifie = false
+    try {
+      await ouvrirApparence(page, communeId)
+      const iframe = page.locator('#apercu-apparence iframe')
+      await expect(iframe).toBeVisible()
+
+      // Bascule du select Gabarit sur Littoral : l’adresse de l’iframe suit,
+      // et c’est la feuille du gabarit Littoral qui habille l’accueil rendu.
+      await page.locator('#field-apparence__gabarit .rs__control').click()
+      await page.getByRole('option', { name: 'Littoral' }).click()
+      await expect(iframe).toHaveAttribute('src', /gabarit=littoral/)
+      await expect(
+        page.frameLocator('#apercu-apparence iframe').locator('link[href="/gabarits/littoral/theme.css"]'),
+      ).toHaveCount(1)
+
+      apercuVerifie = true
+    } finally {
+      // L’état du seed est remis tel qu’avant le test (gabarit village).
+      // Même précaution que frise-admin.e2e.spec.ts : un échec ici ne masque
+      // pas l’erreur d’origine.
+      const restaure = await apiCommunes(page, `/api/communes/${communeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apparence: { gabarit: 'village' } }),
+      })
+      if (!restaure.ok) {
+        const message = `état du seed non remis (${restaure.statut}) : ${restaure.corps}`
+        if (apercuVerifie) throw new Error(message)
+        console.error(message, '— signalé sans masquer l’erreur d’origine du test')
+      }
+
+      // La bascule du gabarit a posé un verrou. Le PATCH de restauration le
+      // libère déjà (l’update supprime les verrous du document en base,
+      // checkDocumentLockStatus) ; ce ménage n’agit que s’il a échoué.
+      await libererVerrou(page, communeId)
+    }
   })
 })
