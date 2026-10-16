@@ -280,6 +280,66 @@ entière. Si ce rythme dérange, les leviers mesurés seraient la largeur
 maximale des horaires (`max-width: 22rem`, l. 391) ou la marge des casettes
 (l. 341-342) — rien de touché ici, hors périmètre du brief.
 
+## Test neuf — `tests/e2e/suites-1440.e2e.spec.ts`
+
+Régression des trois corrections, sur le modèle de `mosaique-390`
+(composition minimale gabarit + coordonnées + horaires, connexion par le
+formulaire réel, remise en état champ par champ en `afterAll`). Onze tests :
+par gabarit (village puis littoral), à 390 et 1440 px, le courriel de capture
+tient sur une ligne et le courriel long se replie après l'arobase seulement ;
+village en plus, © des mentions aligné (≤ 1 px) sur la première colonne ;
+littoral en plus, téléphone sans courriel → accueil 200 et carte rendue. Les
+lignes réelles du texte sont mesurées par un Range par caractère groupé sur
+le haut du rectangle (le `<wbr>` n'a pas de nœud texte), le caractère
+zéro-largeur est ignoré.
+
+### Preuve rouge (fichiers posés par `git show`, puis `git checkout --`)
+
+- Contre `c6c03a7` (`Mairie.tsx` + les deux `theme.css`), suite entière : les
+  groupes `serial` s'arrêtent au premier échec, d'où 2 tests joués jusqu'au
+  bout :
+
+  ```
+  ✘  2 › village › à 390 px, courriel long : replié après l’arobase seulement
+  Error: la coupure 1 se fait après l’arobase :
+         ["secretariat.mairie@commune-saint-","exupery-sur-mer.fr"]
+  ✘  8 › littoral › à 390 px, courriel long : replié après l’arobase seulement
+  (même erreur)
+  2 failed, 2 passed (11.2s)
+  ```
+
+  Le courriel de capture (1 ligne) et le © 390 passent sur l'ancien code —
+  conforme aux mesures B et C : ils ne régressaient qu'à 1440 ou sur le long.
+
+- Contre `c6c03a7`, ciblé `-g "pied aligné"` (le serial ayant avorté avant) :
+
+  ```
+  ✓  1 › village › à 390 px, © du pied aligné sur la première colonne
+  ✘  2 › village › à 1440 px, © du pied aligné sur la première colonne
+  Error: © à 22.5 px, première colonne à 58.5 px   (écart 36, mesure C avant)
+  1 failed, 1 passed
+  ```
+
+- Contre `b5ec637` (`Mairie.tsx` seul : le TypeError null est né dans ce
+  commit, il n'existe pas à `c6c03a7`), ciblé `-g "téléphone sans courriel"` :
+
+  ```
+  ✘  1 › littoral › téléphone sans courriel : la carte mairie rend sans erreur
+  Error: l’accueil répond — expect(received).toBe(200)
+  1 failed
+  ```
+
+### Preuve verte (fichiers restaurés, suite entière)
+
+```
+✓ 1..11 (village 390/1440 : capture, long, © ; littoral 390/1440 :
+  capture, long ; littoral : téléphone sans courriel)
+11 passed (17.0s)
+```
+
+Lint : 0 erreur, 45 avertissements tous antérieurs (migrations, seed — aucun
+sur le nouveau fichier). Typecheck : 0 erreur.
+
 ## Journal
 
 - (premier commit) — squelette de ces notes (ancres vérifiées, cadre).
@@ -297,5 +357,9 @@ maximale des horaires (`max-width: 22rem`, l. 391) ou la marge des casettes
 - (ce commit) — tâche C : origine des 36 px mesurée (`.pied-page p` écrase
   le margin auto des mentions), correctif par préfixe de sélecteur
   (précédent `.liens-sociaux`), écart 0 px aux six largeurs avant/après.
+- (ce commit) — test neuf `suites-1440.e2e.spec.ts` (11 tests) : rouge
+  prouvé contre `c6c03a7` (coupure au trait d'union, © 1440 à 36 px) et
+  contre `b5ec637` (téléphone sans courriel → 500), vert 11/11 sur les
+  fichiers corrigés.
 
 
