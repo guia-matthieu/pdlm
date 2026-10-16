@@ -11,6 +11,8 @@ import { connecterAdmin } from '../helpers/login'
  * code d'avant (coupure navigateur aux traits d'union). (C) le © du pied
  * du village s'aligne sur la première colonne. (Relecture) une commune
  * avec téléphone mais sans courriel rend sa carte mairie sans erreur.
+ * (Retouches) le courriel du pied suit la même règle que la carte mairie,
+ * et à 1440 px la rive mairie du littoral tient sur une seule rangée.
  *
  * Fichier séparé, composition minimale (gabarit + coordonnées + horaires),
  * sur le modèle de mosaique-390 : prouver le rouge avant / vert après en
@@ -86,9 +88,9 @@ async function ouvrir(page: Page, largeur: number) {
 /** Lignes réelles du courriel : caractères groupés par le haut de leur
  *  rectangle de portée (un Range par caractère) — le `<wbr>` n'a pas de
  *  nœud texte, seule la coupure effective crée une ligne. */
-async function lignesCourriel(page: Page) {
-  return page.evaluate(() => {
-    const section = document.querySelector('.section-mairie')
+async function lignesCourriel(page: Page, conteneur = '.section-mairie') {
+  return page.evaluate((conteneur: string) => {
+    const section = document.querySelector(conteneur)
     if (!section) return null
     const lien = section.querySelector('a[href^="mailto:"]') as HTMLAnchorElement | null
     if (!lien) return null
@@ -117,7 +119,7 @@ async function lignesCourriel(page: Page) {
       lignes,
       scrollWidth: document.documentElement.scrollWidth,
     }
-  })
+  }, conteneur)
 }
 
 /** Le courriel rendu respecte la règle : une ligne, ou des lignes dont
@@ -214,6 +216,24 @@ for (const g of GABARITS) {
         ).toBeLessThanOrEqual(2)
       })
 
+      test(`à ${largeur} px, courriel long au pied : replié après l’arobase seulement`, async () => {
+        // Chaque test repose son état (le précédent a pu laisser le
+        // courriel court) : le pied montre le même courriel que la carte
+        // mairie, la règle doit y être la même.
+        await api(page, `/api/communes/${idCommune}`, json('PATCH', {
+          coordonnees: { ...g.coordonnees, email: COURRIEL_LONG },
+        }))
+        await ouvrir(page, largeur)
+        const m = await lignesCourriel(page, '.pied-page')
+        expect(m, 'le pied est rendu').toBeTruthy()
+        expect(m!.scrollWidth, 'la page ne déborde pas').toBeLessThanOrEqual(largeur)
+        attenduCourriel(COURRIEL_LONG, m!.lignes, m!.href, m!.liens)
+        expect(
+          m!.lignes.length,
+          `deux lignes au plus, coupées après l’arobase : ${JSON.stringify(m!.lignes)}`,
+        ).toBeLessThanOrEqual(2)
+      })
+
       if (g.nom === 'village') {
         test(`à ${largeur} px, © du pied aligné sur la première colonne`, async () => {
           // Le test précédent a laissé le courriel long : sans importance,
@@ -257,6 +277,31 @@ for (const g of GABARITS) {
         expect(reponse!.status(), 'l’accueil répond').toBe(200)
         await expect(page.locator('[data-section="mairie"]')).toBeVisible()
         await expect(page.locator('.mairie__tel')).toBeVisible()
+      })
+
+      test('à 1440 px, la rive mairie tient sur une rangée (courriel de démonstration)', async () => {
+        // Le test précédent a laissé la commune sans courriel : remettre
+        // les coordonnées de démonstration, celles du cas réel 1440 px.
+        await api(page, `/api/communes/${idCommune}`, json('PATCH', {
+          coordonnees: g.coordonnees,
+          horaires: HORAIRES,
+        }))
+        await ouvrir(page, 1440)
+        const rive = await page.evaluate(() => {
+          const section = document.querySelector('.section-mairie')
+          if (!section) return null
+          const rects = Array.from(section.children).map((el) => el.getBoundingClientRect())
+          // Rive sans retour à la ligne : dans l’ordre du DOM, chaque
+          // casette commence après la fin de la précédente.
+          let rangees = 1
+          for (let i = 1; i < rects.length; i++) {
+            if (rects[i].left < rects[i - 1].right - 1) rangees++
+          }
+          return { rangees, scrollWidth: document.documentElement.scrollWidth }
+        })
+        expect(rive, 'la rive mairie est rendue').toBeTruthy()
+        expect(rive!.scrollWidth, 'la page ne déborde pas').toBeLessThanOrEqual(1440)
+        expect(rive!.rangees, 'les cinq casettes sur une seule rangée').toBe(1)
       })
     }
   })

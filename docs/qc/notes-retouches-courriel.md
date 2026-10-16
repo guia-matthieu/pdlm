@@ -167,7 +167,57 @@ Mêmes mesures, mêmes colonnes :
 
 ## Test
 
-À compléter (rouge ancien / vert nouveau).
+Ajouts à `tests/e2e/suites-1440.e2e.spec.ts` (pas de fichier neuf) :
+
+- `lignesCourriel` prend un conteneur (`.section-mairie` par défaut,
+  `.pied-page` pour le pied) ;
+- pour chaque gabarit et chaque largeur (390, 1440) : « courriel long au
+  pied : replié après l'arobase seulement » — même contrôle que la carte
+  mairie (`attenduCourriel` : adresse entière, un seul lien, coupure
+  seulement après l'@) sur le lien du pied. Chaque test repose son état
+  par PATCH (il doit tenir isolé par `-g`, pas seulement enchaîné) ;
+- littoral : « à 1440 px, la rive mairie tient sur une rangée (courriel
+  de démonstration) » — repose les coordonnées de démo par PATCH, puis
+  compte les rangées : dans l'ordre du DOM, chaque casette de
+  `.section-mairie` doit commencer après la fin de la précédente
+  (tolérance 1 px) ; un retour à la ligne du flex fait échouer.
+
+### Rouge — anciens fichiers `src/` posés depuis `398585a`
+
+Fichiers posés : `styles.css`, `PiedDePage.tsx`, `Mairie.tsx`,
+`littoral/theme.css`, `village/theme.css` (contenus `398585a`) et
+`Courriel.tsx` supprimé (inexistant là-bas), puis `git checkout --`
+de chacun après le run :
+
+```
+$ E2E_PORT=3000 npx playwright test suites-1440 -g 'au pied|la rive mairie tient'
+  ✘  village … à 390 px, courriel long au pied : replié après l’arobase seulement
+  ✘  littoral … à 390 px, courriel long au pied : replié après l’arobase seulement
+    Error: la coupure 1 se fait après l’arobase : ["secretariat.mairie@commune-","saint-exupery-sur-mer.fr"]
+  2 failed, 3 did not run   (describe serial : les suivants sautent au 1ᵉʳ échec)
+$ … -g 'à 1440 px, courriel long au pied'
+  ✘ village  Error: ["secretariat.mairie@commune-saint-exupery-","sur-mer.fr"]
+  ✘ littoral Error: ["secretariat.mairie@commune-saint-exupery-","exupery-sur-mer.fr"]
+  2 failed
+$ … -g 'la rive mairie tient'
+  ✘ littoral … la rive mairie tient sur une rangée — Error: les cinq casettes sur une seule rangée
+  1 failed
+```
+
+Les cinq nouveaux tests échouent donc sur l'ancien code, chacun pour le
+défaut visé (coupure au trait d'union au pied ; courriel rejeté en 2ᵉ
+rangée).
+
+### Vert — code neuf
+
+```
+$ E2E_PORT=3000 npx playwright test suites-1440
+Running 16 tests using 1 worker
+  ✓  1-8  village  : 390 et 1440 — capture 1 ligne, long, long au pied, © du pied
+  ✓  9-16 littoral : 390 et 1440 — capture 1 ligne, long, long au pied,
+                     téléphone sans courriel, rive sur une rangée à 1440
+  16 passed (19.5s)
+```
 
 ## Clôture
 
@@ -181,3 +231,6 @@ Mêmes mesures, mêmes colonnes :
 - Tâche B — plafond 22rem étendu à toutes les casettes de la rive littoral,
   reset dans le bloc grille 56.25rem ; 1440 sur une rangée, 390/700/701/900
   inchangés, mesures ci-dessus.
+- Test — cinq tests ajoutés à `suites-1440.e2e.spec.ts` : rouges sur les
+  fichiers `398585a` reposés, verts sur le code neuf (16/16), sorties
+  ci-dessus.
