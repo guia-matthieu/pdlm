@@ -221,7 +221,53 @@ Running 16 tests using 1 worker
 
 ## Clôture
 
-À compléter (vérification finale, captures).
+### Vérification finale (sorties réelles)
+
+```
+$ npm run lint            → 0 erreur, 45 avertissements (préexistants)
+$ npm run typecheck       → tsc --noEmit, aucune erreur
+$ npm run test:unit       → Test Files 31 passed (31), Tests 297 passed (297)
+$ E2E_PORT=3000 npx playwright test gabarits-captures gabarits-conformite \
+    littoral-captures village-captures littoral-mairie-390 mosaique-390 \
+    suites-1440
+  51 passed (1.9m)
+```
+
+(Le typecheck signalait en cours de route une erreur dans le spéc jetable
+de mesures, supprimé depuis ; relancé après suppression : aucune erreur.)
+
+### Captures — `docs/qc/captures-retouches-courriel/`
+
+Rive mairie littoral 1440 (courriel de démo) et pieds village/littoral à
+390 et 1440 (courriel long), recadrées par capture d'élément
+(`.section-mairie`, `.pied-page`) :
+
+| Fichier | Dimensions |
+| --- | --- |
+| `rive-mairie-littoral-1440.png` | 1440 × 119 |
+| `pied-village-390.png` | 390 × 717 |
+| `pied-village-1440.png` | 1440 × 328 |
+| `pied-littoral-390.png` | 390 × 716 |
+| `pied-littoral-1440.png` | 1440 × 335 |
+
+La hauteur de la rive (119 px) est celle de la plus haute casette
+(horaires, 117,3 px mesurés) : une seule rangée — deux rangées
+auraient donné ≈ 190 px. L'outil de lecture n'a pas affiché ces images
+(envoi vers un stockage externe) : dimensions contrôlées par lecture de
+l'en-tête PNG (IHDR), rendu prouvé par les tests e2e ci-dessus.
+
+### État final
+
+- `git diff --stat 398585a -- src/` — six fichiers, exactement ceux
+  annoncés : `Courriel.tsx` (neuf), `Mairie.tsx`, `PiedDePage.tsx`
+  (appels au composant), `styles.css` (règle `nowrap` globalisée, +7),
+  `village/theme.css` (retrait de la règle, −6), `littoral/theme.css`
+  (retrait de la règle courriel + plafond de la rive, +17/−7).
+- `git status --short` vide après le commit de clôture ; spéc jetable
+  `zz-retouches.tmp.spec.ts` supprimé ; serveur de développement arrêté
+  (`lsof -i :3000` : rien).
+- `src/payload-types.ts` n'a pas bougé. Événements de démonstration
+  restés au 23/10 (contrôlés à chaque run, non redécalés).
 
 ## Journal
 
@@ -234,3 +280,6 @@ Running 16 tests using 1 worker
 - Test — cinq tests ajoutés à `suites-1440.e2e.spec.ts` : rouges sur les
   fichiers `398585a` reposés, verts sur le code neuf (16/16), sorties
   ci-dessus.
+- Clôture — lint 0 erreur, typecheck 0, unit 297/297, e2e 51/51 sur les
+  sept fichiers ; cinq captures recadrées ; jetable supprimé, serveur
+  arrêté, dépôt propre.
