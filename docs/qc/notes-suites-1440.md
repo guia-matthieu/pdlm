@@ -340,6 +340,44 @@ zéro-largeur est ignoré.
 Lint : 0 erreur, 45 avertissements tous antérieurs (migrations, seed — aucun
 sur le nouveau fichier). Typecheck : 0 erreur.
 
+## Clôture
+
+### Captures (`docs/qc/captures-suites-1440/`)
+
+`village-courriel-long-9b3d57-{390,1440}.png` et
+`littoral-courriel-long-2a7f9e-{390,1440}.png` — pleine page, courriel long
+pour rendre le repli visible, un seul jeu de couleurs par gabarit (spéc
+jetable de captures, supprimé après usage, commune remise en état). S'y
+ajoute `mairie-courriel-littoral-2a7f9e-1440.png` (relecture, commit
+`5ac72ca`).
+
+L'outil de lecture n'a pas affiché les PNG (téléversés en CDN, pas de
+rendu) : le contrôle a donc été fait en pixels par script plutôt qu'à
+l'œil — deux rangées de texte de même gauche, largeurs ~150 puis ~272 px,
+est la signature des deux lignes « secretariat.mairie@ » /
+« commune-saint-exupery-sur-mer.fr » (mesures B : ~152 et ~277 px à 17 px
+de corps) :
+
+- village 1440 : rangées à x=981 (y 864 et 892, largeurs 150/272), dans le
+  rectangle du lien mesuré au DOM par la même occasion (x=980,1, y=855,
+  274,7 × 51,9 — deux lignes) ;
+- village 390 : x=53 (y 1087 et 1114, 152/274) ; littoral 1440 : x=79
+  (y 465 et 492, 151/276) ; littoral 390 : x=22 (y 1067 et 1094, 151/276) ;
+- © village 1440 : texte des mentions et première rangée de colonnes du
+  pied tous deux à x=59.
+
+### Vérification finale (arbre final, specs jetables supprimés)
+
+- `npm run lint` : 0 erreur (45 avertissements antérieurs) ;
+  `npm run typecheck` : 0 erreur.
+- `npm run test:unit` : 297 passed (31 fichiers).
+- `E2E_PORT=3000 npx playwright test gabarits-captures gabarits-conformite
+  littoral-captures village-captures littoral-mairie-390 mosaique-390
+  suites-1440` : 46 passed (1,7 min).
+- `git diff --stat c6c03a7 -- src/` : `Mairie.tsx` et les deux `theme.css`
+  seulement ; `git status --short` vide ; serveur de développement arrêté
+  (rien sur le port 3000).
+
 ## Journal
 
 - (premier commit) — squelette de ces notes (ancres vérifiées, cadre).
@@ -361,5 +399,9 @@ sur le nouveau fichier). Typecheck : 0 erreur.
   prouvé contre `c6c03a7` (coupure au trait d'union, © 1440 à 36 px) et
   contre `b5ec637` (téléphone sans courriel → 500), vert 11/11 sur les
   fichiers corrigés.
+- (ce commit) — clôture : 4 captures commises, contrôle en pixels par
+  script (l'outil de lecture n'affiche pas les PNG) ; vérification finale
+  lint 0 / typecheck 0 / unit 297 / e2e 46 ; diff `src/` = 3 fichiers
+  attendus, arbre propre, serveur arrêté.
 
 
