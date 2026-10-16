@@ -115,7 +115,41 @@ au-dessus de la rupture.
 
 ## 3. Correction village
 
-(vierge)
+Nouveau bloc après celui de 860 px (le fichier écrit ses ruptures en px),
+fin du fichier :
+
+```css
+@media (max-width: 700px) {
+  /* La mosaïque sur une colonne : une tuile par ligne, pleine largeur. */
+  .mosaique {
+    grid-template-columns: 1fr;
+  }
+  /* span 2 créerait une colonne implicite et ferait déborder la page :
+     la 1re tuile redevient auto, mais garde ses deux rangées. */
+  .mosaique--une-haute > li:nth-child(1) {
+    grid-column: auto;
+  }
+}
+```
+
+Rangées de 11rem et `nth-child(2)` à une rangée : hérités du bloc 860 px,
+qui s'applique encore sous 700. La 1re tuile garde `grid-row: span 2`
+(l. 573-576, non touchée) : 2×11rem + gouttière = 414 px. Le libellé reste
+posé sur l'image (aucune règle touchée).
+
+Vérification immédiate (même spec jetable, village seul) :
+
+| Viewport | Pistes | Tuiles | scrollWidth |
+| --- | --- | --- | --- |
+| 375 | 330 | toutes 330 pleine largeur ; 414 puis 198 ×3 | 375 |
+| 390 | 345 | idem | 390 |
+| 600 | 555 | idem | 600 |
+| 700 | 655 | idem | 700 |
+| 701 | 319×2 | 656×414 + 319×198 ×3 (forme 1+2+1 d'avant) | 701 |
+| 1440 | 317,25×4 | 652,5×558 + 317,3×558/270 | 1440 |
+
+Blocs 701 et 1440 comparés programmatiquement au relevé « avant » :
+**identiques**. La case vide à droite de la tuile 4 a disparu sous 700 px.
 
 ## 4. Mesure après
 
@@ -132,4 +166,5 @@ au-dessus de la rupture.
 ## Journal
 
 - `0ef2678` — squelette de ces notes (ancres vérifiées, cadre).
-- (ce commit) — mesure avant (§ 1) ; correction littoral + vérification (§ 2).
+- `1079acd` — mesure avant (§ 1) ; correction littoral + vérification (§ 2).
+- (ce commit) — correction village + vérification (§ 3).

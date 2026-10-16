@@ -849,3 +849,15 @@ main > .section-mairie {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 700px) {
+  /* La mosaïque sur une colonne : une tuile par ligne, pleine largeur. */
+  .mosaique {
+    grid-template-columns: 1fr;
+  }
+  /* span 2 créerait une colonne implicite et ferait déborder la page :
+     la 1re tuile redevient auto, mais garde ses deux rangées. */
+  .mosaique--une-haute > li:nth-child(1) {
+    grid-column: auto;
+  }
+}
