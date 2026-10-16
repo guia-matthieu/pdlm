@@ -37,6 +37,76 @@ le village surmodule les deux (max-width `--largeur` = 76 rem, l. 30 ; le
   arrêté à la fin. Playwright le réutilise (`E2E_PORT=3000`).
 - Aucune migration, aucun champ Payload touché. `.env` du worktree non lu.
 
+## Tâche A — test I30 : vider aussi les horaires
+
+### Incident rencontré avant la preuve (données de dev, pas le code)
+
+Première relance du test 6 sur l'ancienne version : rouge, mais pour **deux**
+raisons mêlées — `mairie` en trop **et** `agenda` absent. Mesure par spec
+Playwright jetable (`zz-suite1440.tmp.spec.ts`, supprimé en fin de session),
+GET `/api/evenements` authentifié :
+
+    MAINTENANT : 2026-10-16T14:41:11Z
+    EVT Conseil municipal (séance publique) | debut=2026-10-16T09:22:35Z fin=2026-10-16T11:22:35Z | PASSE
+    EVT Marché de printemps           | debut=2026-10-09T09:22:35Z fin=2026-10-09T15:22:35Z | PASSE
+
+Les deux événements de démonstration de `saint-ex` avaient expiré **ce matin**
+(leur horodatage 09:22:35 montre un amorçage relatif à la date du jour ;
+`src/lib/contenu.ts` l. 90-91 : l'agenda ne rend que `dateFin >= now`). La
+section `agenda` disparaissait donc, sur l'ancienne version comme sur la
+nouvelle — indépendamment des horaires. Correctif de données : PATCH
+authentifié des deux `dateDebut`/`dateFin` à +7 jours (Marché décalé deux
+fois, il aurait expiré en cours de session) :
+
+    Conseil municipal : 2026-10-16T09:22Z → 2026-10-16T11:22Z  ⇒  2026-10-23T09:22Z → 2026-10-23T11:22Z
+    Marché de printemps : 2026-10-09T09:22Z → 2026-10-09T15:22Z  ⇒  2026-10-16T09:22Z → 2026-10-16T15:22Z  ⇒  2026-10-23T09:22Z → 2026-10-23T15:22Z
+
+C'est la précondition que le spec suppose (le beforeAll ne crée pas
+d'événements) ; le relecteur qui relance après le 23/10 devra re-décaler ou
+réamorcer.
+
+### Modification
+
+`tests/e2e/gabarits-conformite.e2e.spec.ts`, test 6 seul (l. 348) :
+`horaires: null` dans le PATCH qui vide (avec commentaire I30), et
+`horaires: origine.horaires ?? null` dans la remise en état du `finally`,
+comme les coordonnées. `origine` (l. 141-174) relit et type `horaires` en
+conséquence. Aucun autre test, aucun fichier de `src/`.
+
+### Preuve (rouge ancien / vert nouveau / base remise)
+
+Résidu posé par PATCH authentifié (spec jetable) : horaires de `saint-ex`
+`null` → `"Résidu de test : lundi 9 h – 12 h."` (vérifié par GET).
+
+Ancien test (posé via `git show c6c03a7:tests/e2e/gabarits-conformite.e2e.spec.ts`)
+— **rouge**, village et littoral, pour la seule raison attendue :
+
+    - Expected  - 0
+    + Received  + 1
+      Array [
+        "heros",
+    +   "mairie",
+        "actualites",
+        "agenda",
+        "mosaique",
+      ]
+    2 failed
+
+Nouveau test (fichier de travail restauré) — **vert**, résidu toujours en
+base :
+
+    ✓ village › 6 — commune vide : aucun emplacement vide (I30) (1.1s)
+    ✓ littoral › 6 — commune vide : aucun emplacement vide (I30) (1.1s)
+    2 passed (8.0s)
+
+Base remise en état : GET après le run nouveau → `"Résidu de test : lundi
+9 h – 12 h."` (la remise en état du test a bien réécrit les horaires lues au
+beforeAll, preuve qu'elles sont capturées et restaurées), puis PATCH `null`
+→ GET `null` = état trouvé au départ.
+
 ## Journal
 
-- (ce commit) — squelette de ces notes (ancres vérifiées, cadre).
+- (premier commit) — squelette de ces notes (ancres vérifiées, cadre).
+- (ce commit) — tâche A : test 6 vide et restaure `horaires` ; preuve
+  rouge/vert ; incident données démo (événements expirés) mesuré et corrigé
+  en base.

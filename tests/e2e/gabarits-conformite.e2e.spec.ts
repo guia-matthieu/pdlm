@@ -145,6 +145,7 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       couleurAccent?: string | null
       couleurTerre?: string | null
       coordonnees?: unknown
+      horaires?: unknown
       demarches?: Array<{
         id?: string
         picto?: string
@@ -166,6 +167,7 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       origine = {
         ...((docs[0] as unknown as { apparence?: typeof origine }).apparence ?? {}),
         coordonnees: (docs[0] as unknown as { coordonnees?: unknown }).coordonnees,
+        horaires: (docs[0] as unknown as { horaires?: unknown }).horaires,
         demarches: (
           (docs[0] as unknown as { accueil?: { demarches?: typeof origine.demarches } }).accueil
             ?.demarches ?? []
@@ -350,6 +352,9 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
         body: JSON.stringify({
           apparence: { photoAccueil: null, frise: [] },
           coordonnees: COORDONNEES_NULLES,
+          // I30 : la carte mairie rend aussi sur les seuls horaires
+          // (Accueil.tsx l. 74) — un résidu en base ferait échouer le test.
+          horaires: null,
           accueil: {
             demarches: (origine.demarches ?? []).map((d) => ({
               id: d.id,
@@ -407,6 +412,7 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
               frise: origine.frise ?? [],
             },
             coordonnees: COORDONNEES_DEMO,
+            horaires: origine.horaires ?? null,
             accueil: {
               demarches: (origine.demarches ?? []).map((d) => ({
                 id: d.id,
