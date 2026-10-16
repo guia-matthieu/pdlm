@@ -140,7 +140,7 @@ for (const g of GABARITS) {
 
       const photo: Record<string, number> = {}
       if (avecPhotos) {
-        for (const nom of g.tuiles.filter((t): t is string => t !== null)) {
+        for (const nom of g.tuiles.filter((t) => t !== null)) {
           const base64 = (
             await readFile(path.join(g.images, `${nom}.jpg`))
           ).toString('base64')

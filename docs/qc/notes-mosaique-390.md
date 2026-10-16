@@ -216,5 +216,8 @@ tuile = largeur de la mosaïque à 2 px près ; `margin-top` < 1 px ;
 - `0ef2678` — squelette de ces notes (ancres vérifiées, cadre).
 - `1079acd` — mesure avant (§ 1) ; correction littoral + vérification (§ 2).
 - `121a55f` — correction village + vérification (§ 3).
-- (ce commit) — mesure après et captures (§ 4) ; test neuf rouge sur
+- `90c50fd` — mesure après et captures (§ 4) ; test neuf rouge sur
   l'ancien CSS, vert sur le nouveau (§ 5).
+- (ce commit) — correctif typage du spec neuf (`as const` sur GABARITS :
+  prédicat `t is string` non assignable aux littéraux ; l'inférence TS 5.7
+  de `t !== null` suffit).
