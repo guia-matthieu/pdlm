@@ -104,9 +104,88 @@ Base remise en état : GET après le run nouveau → `"Résidu de test : lundi
 beforeAll, preuve qu'elles sont capturées et restaurées), puis PATCH `null`
 → GET `null` = état trouvé au départ.
 
+## Tâche B — le courriel ne se coupe qu'après l'arobase
+
+### Mesure avant (code de `c6c03a7`)
+
+Spec jetable (`zz-suite1440.tmp.spec.ts`, réécrit pour B) : commune `saint-ex`
+composée comme le spec de captures (gabarit + coordonnées + horaires), mesure
+de `.section-mairie` à 390/700/701/1440, remise en état. Lignes réelles du
+texte = caractères groupés par le haut de leur rectangle de portée (un Range
+par caractère).
+
+| Gabarit @viewport | Lignes du courriel | Casettes (l, px) | scrollWidth |
+| --- | --- | --- | --- |
+| littoral 390 | **1** | toutes 347,5 | 390 |
+| littoral 700 | **1** | toutes 657,5 | 700 |
+| littoral 701 | **1** | 370,5 / 254 / 370,5 / 254 / 370,5 | 701 |
+| littoral 1440 | **1** | 111 / 216 / 579,3 / 261,8 / **255,8** | 1440 |
+| village (4 largeurs) | **1** | 314,4 (390/700/701) ; 370,8 (1440) | = viewport |
+
+**Écart avec `notes-littoral-390.md` l. 48-52** (courriel 4/2/3 lignes, casette
+1440 = 255,8) : non reproduit sur le code de `c6c03a7`, polices chargées
+(`document.fonts.check('17px "Public Sans"')` = true). Sonde dédiée à 1440 :
+le lien, son texte (Range `selectNodeContents`) et la casette font tous
+**255,8 px** — hors rupture la rive est `flex` (`theme.css` l. 326) et la
+casette épouse son contenu : l'email tient sur une ligne, pile. Hypothèse
+(non mesurable rétroactivement) sur les 3 lignes d'alors : mesure prise avant
+le chargement des polices (fallback Georgia, plus large, `font-display:
+swap`) ; la casette 255,8 d'alors reste inexpliquée pour nous, le CSS 1440
+n'a pas bougé depuis `ff93390`.
+
+Le repli aux traits d'union reste le comportement dès que la casette est plus
+étroite que le texte (village en carte, colonne 254 du littoral, police de
+repli) : la décision du brief s'applique. Preuve complémentaire par un
+courriel long (`secretariat.mairie@commune-saint-exupery-sur-mer.fr`),
+mesuré **après** correction (§ mesure après) ; le « avant » de ce cas long
+sera le rouge du test neuf (§ Test).
+
+### Correction
+
+- `src/gabarits/sections/Mairie.tsx` : le lien porte `mairie__courriel` et
+  rend `<span>{locale + '@'}</span><wbr /><span>{domaine}</span>`
+  (`lastIndexOf('@')` ; champ de type `email`, l'arobase est garantie par
+  la validation Payload — `src/collections/Communes.ts` l. 354). Un seul
+  `mailto:`, même adresse, aucun texte ajouté.
+- `littoral/theme.css` et `village/theme.css` : une règle chacun, à côté du
+  téléphone : `.mairie__courriel span { white-space: nowrap }`.
+
+### Mesure après (même spec, mêmes points)
+
+Courriel de capture (« mairie@saint-exupery-sur-mer.fr » / « …les-bains.fr ») :
+
+| Gabarit @viewport | Lignes | Casettes | scrollWidth |
+| --- | --- | --- | --- |
+| littoral 390/700/701 | 1 | identiques à avant (347,5 / 657,5 / 370,5-254) | = viewport |
+| littoral 1440 | 1 | 111 / 216 / 579,3 / 261,8 / **255,9** (avant 255,8, écart 0,1 px) | 1440 |
+| village 390/700/701/1440 | 1 | identiques à avant | = viewport |
+
+Courriel long (force le repli) :
+
+| Gabarit @viewport | Lignes | Texte réel | scrollWidth |
+| --- | --- | --- | --- |
+| littoral 390 | 2 | `["secretariat.mairie@", "commune-saint-exupery-sur-mer.fr"]` | 390 |
+| littoral 700 | 1 | tient en une ligne (casette 657,5) | 700 |
+| littoral 701 | 2 | idem 390 | 701 |
+| littoral 1440 | 2 | idem (casette 374, base plafonnée à 22rem l. 384-386) | 1440 |
+| village 390 | 2 | idem | 390 |
+| village 700/701 | 1 | tient (624/625,4) | = viewport |
+| village 1440 | 2 | idem 390 | 1440 |
+
+Le `<wbr>` donne bien son occasion de coupure ici : chaque fois que le
+courriel ne tient pas, il fait **exactement 2 lignes**, la première se
+termine par `@` (spans de 152,4 puis 277,2 px littoral, jamais coupés
+eux-mêmes), et le domaine ne déborde jamais (`scrollWidth` = viewport
+partout). `littoral-mairie-390` repassé vert après correction (3 passed).
+
 ## Journal
 
 - (premier commit) — squelette de ces notes (ancres vérifiées, cadre).
-- (ce commit) — tâche A : test 6 vide et restaure `horaires` ; preuve
+- `8827b66` — tâche A : test 6 vide et restaure `horaires` ; preuve
   rouge/vert ; incident données démo (événements expirés) mesuré et corrigé
   en base.
+- (ce commit) — tâche B : mesure avant (écart avec notes-littoral-390
+  documenté), correction `Mairie.tsx` + une règle par thème, mesure après
+  (standard 1 ligne, long 2 lignes coupées après `@`, casettes ±0,1 px).
+
+
