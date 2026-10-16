@@ -37,11 +37,81 @@ Le village, lui, force `height: 100 %` dans des rangées fixes
 
 ## 1. Mesure avant (base `75efdf6`)
 
-(vierge — rempli au premier relevé)
+Captures relancées :
+
+    E2E_PORT=3000 npx playwright test gabarits-captures
+    → 8 passed (32,6 s)   [littoral et village, avec et sans photos]
+
+Sorties « avant » : `test-results/gabarits/t10/` (390 et 1440).
+
+Relevé DOM par spec Playwright jetable (`tests/e2e/zz-mesure-mosaique.tmp.spec.ts`,
+supprimé en fin de session) : commune `saint-ex` composée comme le spec de
+captures (gabarit + tuiles de la maquette avec photos), mesurée à
+375/390/600/700/701/1440 px, puis remise en état. Chiffres clés :
+
+| Gabarit @390 | Pistes | Rangées | scrollWidth | Forme |
+| --- | --- | --- | --- | --- |
+| littoral | 163,5 / 163,6 | auto | 390 | tuiles paires décalées de 37,4 px (2,2rem) ; hauteurs visuelles toutes différentes : 555 / 468 / 204,4 (scène) / 533 |
+| village | 163,5 ×2 | 198 px (11rem) | 390 | tuile 1 pleine largeur 345×414, tuiles 2-3 côte à côte, **tuile 4 seule à gauche : case vide à sa droite** (défaut de notes-tache-10 l. 104 reproduit) |
+
+À 700 px, même forme dans les deux gabarits (pistes 318,5×2 ; littoral :
+hauteurs constantes 555/468/398,2/533 ; village : tuile 1 à 655×414).
+
+**Sonde sur la hauteur des img littoral** (spec jetable `zz-sonde2`, l. 31 de
+`MediaImage.tsx`) : chaque `img` porte `width="800" height="1000"` ; hauteur
+calculée **1000px**, rendue 555 (boîte ensuite réduite par la mise en page) ;
+poser `aspect-ratio` en direct ne change rien ; `height: auto` — ou retirer
+l'attribut — rend 196,25 px = 163,547 × 5/6 (ratio honoré) ; attribut remis →
+1000. Conclusion mesurée : la hauteur de l'attribut html **écrase
+`aspect-ratio`**. Le correctif littoral pose donc `height: auto` en plus du
+3/2 — écart au libellé du brief (« aspect-ratio » seul), motivé par cette
+mesure.
 
 ## 2. Correction littoral
 
-(vierge)
+Dans le bloc existant `@media (max-width: 43.75rem)` (l. 1013), après les
+règles mairie, rien d'autre dans le fichier :
+
+```css
+  .mosaique {
+    grid-template-columns: 1fr;
+  }
+
+  .mosaique > li:nth-child(n) {
+    margin-top: 0;
+  }
+
+  .mosaique img,
+  .mosaique__scene,
+  .mosaique__scene svg,
+  .mosaique > li:first-child img,
+  .mosaique > li:first-child .mosaique__scene {
+    aspect-ratio: 3 / 2;
+  }
+
+  .mosaique img {
+    height: auto;
+  }
+```
+
+Les sélecteurs `li:first-child` reprennent ceux de l. 783-786 (même
+spécificité, plus loin dans le fichier : le 5/6 cède). Le libellé reste sous
+l'image (aucune règle touchée).
+
+Vérification immédiate (même spec jetable, littoral seul) :
+
+| Viewport | Pistes | Tuiles | Marges | Visuels | scrollWidth |
+| --- | --- | --- | --- | --- | --- |
+| 375 | 332,5 | 332,5 pleine largeur | 0 | 221,7 (= 332,5 × 2/3) | 375 |
+| 390 | 347,5 | 347,5×271 | 0 | 231,7 (= 3/2) | 390 |
+| 600 | 557,5 | idem | 0 | 371,7 (= 3/2) | 600 |
+| 700 | 657,5 | idem | 0 | 438,3 (= 3/2) | 700 |
+| 701 | 318,5×2 | décalées | 37,4 px | 555/468/398,8/533 | 701 |
+| 1440 | 4 pistes | décalées | 76,5/27,2/98,6 | 555/468/340,5/533 | 1440 |
+
+Les blocs 701 et 1440 ont été comparés programmatiquement au relevé « avant »
+complet (sauvegardé le temps de la session) : **identiques** — rien ne change
+au-dessus de la rupture.
 
 ## 3. Correction village
 
@@ -61,4 +131,5 @@ Le village, lui, force `height: 100 %` dans des rangées fixes
 
 ## Journal
 
-- (ce commit) — squelette de ces notes (ancres vérifiées, cadre).
+- `0ef2678` — squelette de ces notes (ancres vérifiées, cadre).
+- (ce commit) — mesure avant (§ 1) ; correction littoral + vérification (§ 2).

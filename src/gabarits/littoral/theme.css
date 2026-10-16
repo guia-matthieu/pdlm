@@ -1032,4 +1032,31 @@ main > [data-section] {
   .section-mairie p:not(:has(strong)) {
     max-width: none;
   }
+
+  /* La mosaïque repasse sur une colonne : une tuile par ligne, pleine
+     largeur, sans décalage. */
+  .mosaique {
+    grid-template-columns: 1fr;
+  }
+
+  .mosaique > li:nth-child(n) {
+    margin-top: 0;
+  }
+
+  /* Même cadrage 3/2 pour toutes les images et scènes, première tuile
+     comprise. */
+  .mosaique img,
+  .mosaique__scene,
+  .mosaique__scene svg,
+  .mosaique > li:first-child img,
+  .mosaique > li:first-child .mosaique__scene {
+    aspect-ratio: 3 / 2;
+  }
+
+  /* L'attribut height de l'img fixerait la hauteur et écraserait le ratio
+     (mesuré, notes-mosaique-390 § 1) : la rendre auto pour laisser le
+     ratio agir. */
+  .mosaique img {
+    height: auto;
+  }
 }
