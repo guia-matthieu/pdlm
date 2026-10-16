@@ -1,3 +1,4 @@
+import { Courriel } from '@/components/Courriel'
 import { cheminLangue } from '@/lib/adresses'
 import type { TexteEnLangue } from '@/lib/contenu'
 import type { ContexteLangue } from '@/lib/langue-courante'
@@ -55,7 +56,7 @@ export function PiedDePage({
           )}
           {c?.email && (
             <p>
-              {t.courriel} <a href={`mailto:${c.email}`}>{c.email}</a>
+              {t.courriel} <Courriel adresse={c.email} />
             </p>
           )}
           <ul className="liens-sociaux">

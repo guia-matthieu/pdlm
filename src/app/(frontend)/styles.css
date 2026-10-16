@@ -56,6 +56,13 @@ a {
   color: var(--couleur-principale);
 }
 
+/* Courriel de la commune (composant Courriel, ici comme dans les gabarits) :
+   chaque partie est insécable, le <wbr> du composant est la seule coupure —
+   le repli ne se fait qu'après l'arobase. */
+.courriel span {
+  white-space: nowrap;
+}
+
 /* Décision 17 : sur un fond pâle (--couleur-fond-alt), textes, titres et liens
    sont en --encre — principale-sure n'est garantie ≥ 4,5:1 que sur blanc
    (mesure : #3c8460 sur le pâle par défaut ≈ 4,1:1). Liens soulignés, car encre

@@ -47,7 +47,59 @@ Repérages complémentaires (grep, une fois) :
 
 ## Tâche A — le courriel du pied de page se coupe aussi après l'arobase
 
-À compléter (mesure avant, modification, mesure après).
+### Mesures avant (code de `398585a`)
+
+Spéc jetable (non commis) mesurant, par Range par caractère, les lignes du
+lien `mailto:` du pied (`.pied-page a[href^="mailto:"]`) et de la carte
+mairie (`.section-mairie a[href^="mailto:"]`) — courriel de test
+`secretariat.mairie@commune-saint-exupery-sur-mer.fr` :
+
+| Gabarit | Largeur | Pied | Carte mairie |
+| --- | --- | --- | --- |
+| village | 390 | `secretariat.mairie@commune-` / `saint-exupery-sur-mer.fr` | `secretariat.mairie@` / `commune-saint-exupery-sur-mer.fr` |
+| village | 1440 | `secretariat.mairie@commune-saint-exupery-` / `sur-mer.fr` | idem ✅ |
+| littoral | 390 | `secretariat.mairie@commune-` / `saint-exupery-sur-mer.fr` | idem ✅ |
+| littoral | 1440 | `secretariat.mairie@commune-saint-exupery-` / `exupery-sur-mer.fr` | idem ✅ |
+
+Le pied coupait donc au trait d'union (comportement par défaut du
+navigateur : repli autorisé après `-` et `/`). Un seul `mailto:` par
+emplacement, `scrollWidth` = viewport partout, déjà corrects avant.
+
+### Modification
+
+- Nouveau composant partagé `src/components/Courriel.tsx` : rend `null` si
+  l'adresse est absente (garde-fou « téléphone sans courriel » conservé),
+  sinon un unique `<a class="courriel" href="mailto:…">` découpé en
+  `<span>partie­locale@</span><wbr /><span>domaine</span>`. Champ de type
+  email : l'arobase est garantie par la validation Payload.
+- `Mairie.tsx` : le bloc courriel appelle `<Courriel … className="mairie__courriel" />`
+  (classe conservée sur le lien de la carte mairie) ; la ligne `arobase`
+  disparaît.
+- `PiedDePage.tsx` : `{t.courriel} <Courriel adresse={c.email} />`.
+- CSS : **une seule règle globale** `.courriel span { white-space: nowrap }`
+  dans `src/app/(frontend)/styles.css` (juste après la règle `a`), et retrait
+  des deux règles `.mairie__courriel span` de `village/theme.css` et
+  `littoral/theme.css`. Pourquoi la feuille globale : le layout frontal
+  importe `styles.css` en même temps que la `theme.css` du gabarit (repérage
+  ci-dessus), et l'aperçu (`(apercu)/layout.tsx`) l'importe aussi — la règle
+  vaut donc partout où `PiedDePage` ou `Mairie` peut être rendu, y compris
+  hors thème, comme l'exige le brief. Les sélecteurs de thèmes ne
+  couvraient que la carte mairie.
+
+### Mesures après
+
+Même spéc jetable, même courriel de test :
+
+| Gabarit | Largeur | Pied | Carte mairie |
+| --- | --- | --- | --- |
+| village | 390 | `secretariat.mairie@` / `commune-saint-exupery-sur-mer.fr` | idem |
+| village | 1440 | `secretariat.mairie@` / `commune-saint-exupery-sur-mer.fr` | idem |
+| littoral | 390 | `secretariat.mairie@` / `commune-saint-exupery-sur-mer.fr` | idem |
+| littoral | 1440 | `secretariat.mairie@` / `commune-saint-exupery-sur-mer.fr` | idem |
+
+Coupure uniquement après l'arobase aux quatre emplacements, un seul
+`mailto:` avec l'adresse entière (href mesuré), `scrollWidth` = viewport
+partout, carte mairie inchangée. `suites-1440` repassée : 11/11 verts.
 
 ## Tâche B — littoral 1440 : la rive mairie sur une seule rangée
 
@@ -64,3 +116,5 @@ Repérages complémentaires (grep, une fois) :
 ## Journal
 
 - (ce commit) — squelette de ces notes (ancres vérifiées, cadre).
+- Tâche A — composant `Courriel` partagé, règle `nowrap` globalisée dans
+  `styles.css`, mesures avant/après ci-dessus.

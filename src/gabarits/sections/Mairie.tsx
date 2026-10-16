@@ -1,3 +1,4 @@
+import { Courriel } from '@/components/Courriel'
 import type { Dictionnaire } from '@/i18n'
 import type { TexteEnLangue } from '@/lib/contenu'
 import type { CodeLangue } from '@/lib/langues'
@@ -22,7 +23,6 @@ export function Mairie({
   langue: CodeLangue
   t: Dictionnaire
 }) {
-  const arobase = coordonnees?.email?.lastIndexOf('@') ?? -1
   return (
     <section data-section="mairie" className="section-mairie">
       <h2>{titre}</h2>
@@ -48,13 +48,7 @@ export function Mairie({
       )}
       {coordonnees?.email && (
         <p>
-          {/* Le courriel ne se replie qu'après l'arobase : chaque partie est
-              insécable (règle des thèmes), le wbr est la seule coupure. */}
-          <a className="mairie__courriel" href={`mailto:${coordonnees.email}`}>
-            <span>{coordonnees.email.slice(0, arobase + 1)}</span>
-            <wbr />
-            <span>{coordonnees.email.slice(arobase + 1)}</span>
-          </a>
+          <Courriel adresse={coordonnees.email} className="mairie__courriel" />
         </p>
       )}
     </section>

@@ -379,12 +379,6 @@ main > .section-mairie {
 .mairie__tel:hover {
   text-decoration: underline;
 }
-
-/* Le courriel ne se replie qu'après l'arobase : chaque partie est
-   insécable, le wbr du composant est la seule occasion de coupure. */
-.mairie__courriel span {
-  white-space: nowrap;
-}
 .section-mairie p {
   margin: 0 0 0.5rem;
 }

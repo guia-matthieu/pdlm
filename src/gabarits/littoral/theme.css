@@ -371,12 +371,6 @@ main > [data-section] {
   color: var(--principale-sure);
 }
 
-/* Le courriel ne se replie qu'après l'arobase : chaque partie est
-   insécable, le wbr du composant est la seule occasion de coupure. */
-.mairie__courriel span {
-  white-space: nowrap;
-}
-
 /* L'étiquette « Horaires » (strong) se pose au-dessus de la valeur. */
 .section-mairie strong {
   display: block;
