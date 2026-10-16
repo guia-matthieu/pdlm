@@ -381,7 +381,10 @@ main > [data-section] {
   color: var(--doux);
 }
 
-.section-mairie p:not(:has(strong)) {
+/* Toutes les casettes de la rive sont plafonnées : sans plafond, celle des
+   horaires s'étale et rejette le courriel à la rangée suivante (1440 px).
+   En grille (sous 56,25rem), la casette des horaires retrouve sa liberté. */
+.section-mairie p {
   max-width: 22rem;
 }
 
@@ -926,6 +929,12 @@ main > [data-section] {
 
   .section-mairie > :last-child {
     border-bottom: 0;
+  }
+
+  /* En grille, la casette des horaires garde sa largeur d'avant le plafond
+     commun : rien ne change ici. */
+  .section-mairie p:has(strong) {
+    max-width: none;
   }
 
   .section-demarches {

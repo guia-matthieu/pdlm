@@ -103,7 +103,67 @@ partout, carte mairie inchangée. `suites-1440` repassée : 11/11 verts.
 
 ## Tâche B — littoral 1440 : la rive mairie sur une seule rangée
 
-À compléter.
+### Analyse et mesures avant (code de `398585a`)
+
+La rive est en `flex; flex-wrap: wrap` (l. 326-337 à l'époque). La casette
+des horaires est un `p` contenant `strong` — exclue du plafond
+`.section-mairie p:not(:has(strong)) { max-width: 22rem }` (l. 390-392),
+elle s'étale sur la largeur de son texte. Spéc jetable, courriel de démo
+(`mairie@saint-exupery-sur-mer.fr`) — largeur des casettes, lignes des
+horaires, `scrollWidth` :
+
+| Largeur | Casettes (mairie, tel, horaires, adresse, courriel) | Lignes horaires | Rangées |
+| --- | --- | --- | --- |
+| 390 | 347,5 × 5 (1 colonne) | 4 | 5 |
+| 700 | 657,5 × 5 (1 colonne) | 3 | 5 |
+| 701 | 370,5 / 254 / 370,5 / 254 / 370,5 (grille 2 col.) | 4 | 3 |
+| 900 | 569,5 / 254 / 569,5 / 254 / 374 (grille 2 col.) | 4 | 3 |
+| 901 | 111 / 216 / **579,3** / 261,8 / 255,9 | 3 | 2 (courriel à la 2ᵉ) |
+| 1100 | idem 901 | 3 | 2 |
+| 1280 | idem 901 | 3 | 2 |
+| 1440 | idem 901, adresse finit à 1277 ; **courriel seul au retour à la ligne** (x=78,3, top=836, résidu ≈ 85 px) | 3 | 2 |
+
+### Modification
+
+Levier unique : la largeur maximale de la casette des horaires, à 22rem
+comme les autres. Concrètement, dans `littoral/theme.css` :
+
+- la règle bureau passe de `.section-mairie p:not(:has(strong))` à
+  `.section-mairie p` — toutes les casettes de la rive sont plafonnées
+  (22rem = 374 px mesurés, `html` du littoral à 106,25 %) ;
+- dans le bloc `@media (max-width: 56.25rem)` existant (rive en grille),
+  reset `.section-mairie p:has(strong) { max-width: none }` : sous 900 px,
+  la casette des horaires garde sa largeur d'avant — les ruptures et tout
+  le reste du bloc sont inchangés, rien ne bouge en grille.
+
+Tailles de police, marges, filets et ruptures `@media` : non touchés.
+
+### Mesures après
+
+Mêmes mesures, mêmes colonnes :
+
+| Largeur | Casettes (mairie, tel, horaires, adresse, courriel) | Lignes horaires | Rangées |
+| --- | --- | --- | --- |
+| 390 | 347,5 × 5 | 4 | 5 |
+| 700 | 657,5 × 5 | 3 | 5 |
+| 701 | 370,5 / 254 / 370,5 / 254 / 370,5 | 4 | 3 |
+| 900 | 569,5 / 254 / 569,5 / 254 / 374 | 4 | 3 |
+| 901 | 111 / 216 / 374 / 261,8 / 255,9 | 4 | 2 (adresse + courriel à la 2ᵉ) |
+| 1100 | idem 901 | 4 | 2 (courriel seul à la 2ᵉ) |
+| 1280 | idem 901 | 4 | 2 (courriel seul à la 2ᵉ) |
+| 1440 | 111 / 216 / 374 / 261,8 / 255,9 — courriel finit à 1327,6 (bord droit 1361,7) | 4 | **1** |
+
+- 1440 : les cinq casettes sur **une rangée** (chevauchement vertical de
+  toutes ; tops 737,5 à 763,3, alignement flex). `scrollWidth` 1440.
+- 390, 700, 701, 900 : largeurs **strictement identiques** à avant
+  (écart 0 px, tolérance ±1 px).
+- 901 à 1280 : deux rangées, observé et accepté (le brief admet une 2ᵉ
+  rangée, pas un débordement). Aucun débordement : `scrollWidth` = viewport
+  aux huit largeurs. Les horaires passent de 3 à 4 lignes — le texte se
+  replie dans 374 px au lieu de 579,3 ; tailles de police inchangées.
+- Le plafond de 22rem suffit : pas besoin d'une autre valeur.
+- `suites-1440`, `littoral-captures`, `littoral-mairie-390` repassés :
+  16/16 verts.
 
 ## Test
 
@@ -118,3 +178,6 @@ partout, carte mairie inchangée. `suites-1440` repassée : 11/11 verts.
 - (ce commit) — squelette de ces notes (ancres vérifiées, cadre).
 - Tâche A — composant `Courriel` partagé, règle `nowrap` globalisée dans
   `styles.css`, mesures avant/après ci-dessus.
+- Tâche B — plafond 22rem étendu à toutes les casettes de la rive littoral,
+  reset dans le bloc grille 56.25rem ; 1440 sur une rangée, 390/700/701/900
+  inchangés, mesures ci-dessus.
