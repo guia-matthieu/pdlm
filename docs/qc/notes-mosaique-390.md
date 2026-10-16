@@ -209,7 +209,31 @@ tuile = largeur de la mosaïque à 2 px près ; `margin-top` < 1 px ;
 
 ## 6. Vérification finale
 
-(vierge)
+Premier passage honnête : le typecheck **échouait** — 3 erreurs dans le spec
+neuf (`as const` sur GABARITS : prédicat `t is string` non assignable aux
+littéraux) et 5 dans le spec jetable de mesure (déjà détaché de la base,
+voué à la suppression). Correctif (l'inférence TS 5.7 de `t !== null`
+suffit, commit `c7bf531`) et suppression des trois specs jetables
+(`zz-mesure-mosaique`, `zz-sonde`, `zz-sonde2`), puis reprise complète :
+
+    npm run lint
+    → ✖ 45 problems (0 errors, 45 warnings)   [warnings préexistants]
+
+    npm run typecheck
+    → tsc --noEmit, aucune sortie              [0 erreur]
+
+    npm run test:unit
+    → Test Files  31 passed (31)
+    →      Tests  297 passed (297)
+
+    E2E_PORT=3000 npx playwright test gabarits-captures gabarits-conformite \
+      littoral-captures village-captures littoral-mairie-390 mosaique-390
+    → 35 passed (1.4m)
+
+I30 (commune vide) passe dans `gabarits-conformite` : aucun horaire traînant
+en base, rien à purger. Reste de l'état final : les specs jetables sont
+supprimés, `git status --short` ne montre que les captures non suivies,
+`git diff --stat 75efdf6 -- src/` = les deux `theme.css` seuls.
 
 ## Journal
 
@@ -218,6 +242,8 @@ tuile = largeur de la mosaïque à 2 px près ; `margin-top` < 1 px ;
 - `121a55f` — correction village + vérification (§ 3).
 - `90c50fd` — mesure après et captures (§ 4) ; test neuf rouge sur
   l'ancien CSS, vert sur le nouveau (§ 5).
-- (ce commit) — correctif typage du spec neuf (`as const` sur GABARITS :
+- `c7bf531` — correctif typage du spec neuf (`as const` sur GABARITS :
   prédicat `t is string` non assignable aux littéraux ; l'inférence TS 5.7
   de `t !== null` suffit).
+- (ce commit) — vérification finale (§ 6) + captures 390 après correction
+  dans `docs/qc/captures-mosaique-390/`.
