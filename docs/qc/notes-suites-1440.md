@@ -178,6 +178,50 @@ termine par `@` (spans de 152,4 puis 277,2 px littoral, jamais coupés
 eux-mêmes), et le domaine ne déborde jamais (`scrollWidth` = viewport
 partout). `littoral-mairie-390` repassé vert après correction (3 passed).
 
+## Tâche C — © du village aligné sur les colonnes du pied
+
+### Mesure avant (code de `c6c03a7` + correctifs A/B)
+
+Spec jetable réécrit pour C : commune `saint-ex` posée en gabarit village
+(coordonnées + horaires du spec de captures), mesure du pied à
+390/860/861/1100/1101/1440, remise en état. « gauche du texte » = bord
+gauche du premier nœud texte (© pour les mentions, titre pour la première
+colonne).
+
+| Largeur | © (x) | 1re colonne (x) | Écart |
+| --- | --- | --- | --- |
+| 390 à 1101 | 22,5 | 22,5 | **0** |
+| 1440 | 22,5 | 58,5 | **-36** |
+
+Origine mesurée des 36 px (1440 seulement) : `--largeur` = 76 rem = 1368 px
+(HTML du village à 112,5 %) ; dès que la fenêtre dépasse 1368, les colonnes
+se centrent (boîte x=36, margin `0 auto` de la base `styles.css` l. 426,
+contenu à 58,5) mais les mentions restent collées à gauche (boîte x=0,
+margin calculée `0 0 7.2px` — **sans auto**). Cause : `.pied-page p`
+(`theme.css` l. 689, spécificité 0,1,1) écrase le `margin: 0 auto` de
+`.pied-page__mentions` (l. 699, 0,1,0) ; sous 1101 les boîtes pleine
+largeur rendaient l'écrasement invisible. C'est le même conflit que le
+fichier résout déjà pour les réseaux sociaux par un préfixe
+(`.pied-page .liens-sociaux`, l. 696).
+
+### Correction
+
+`village/theme.css`, règle `.pied-page__mentions` seule : sélecteur
+préfixé `.pied-page .pied-page__mentions` (précédent `.liens-sociaux`),
+commentaire court. Ni les colonnes ni le littoral ne bougent.
+
+### Mesure après (même spec, mêmes points)
+
+| Largeur | © (x) | 1re colonne (x) | Écart | scrollWidth |
+| --- | --- | --- | --- | --- |
+| 390 à 1101 | 22,5 | 22,5 | **0** | = viewport |
+| 1440 | 58,5 | 58,5 | **0** | 1440 |
+
+Écart ≤ 1 px partout (ici : 0 partout). Effet secondaire mesuré : la marge
+basse du `<p>` des mentions passe de 7,2 px (héritée de `.pied-page p`) à
+0 — le padding bas 1,6 rem reste, le filet du border-top suit la boîte
+centrée.
+
 ## Relecture (messages du relecteur, après b5ec637)
 
 ### 1 — TypeError quand `coordonnees.email` est null
@@ -250,5 +294,8 @@ maximale des horaires (`max-width: 22rem`, l. 391) ou la marge des casettes
   courriel visible et lisible (4,54:1) est wrappé en 2e rangée par le
   flex-wrap de la rive, la zone de droite est l'espace résiduel — capture
   jointe, rien corrigé (hors périmètre).
+- (ce commit) — tâche C : origine des 36 px mesurée (`.pied-page p` écrase
+  le margin auto des mentions), correctif par préfixe de sélecteur
+  (précédent `.liens-sociaux`), écart 0 px aux six largeurs avant/après.
 
 

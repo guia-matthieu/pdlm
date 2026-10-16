@@ -696,7 +696,9 @@ main > .section-mairie {
 .pied-page .liens-sociaux {
   display: flex;
 }
-.pied-page__mentions {
+/* Préfixé comme .liens-sociaux : sans lui, .pied-page p ci-dessus écrase le
+   margin auto et le © se colle à gauche dès que la fenêtre dépasse --largeur. */
+.pied-page .pied-page__mentions {
   max-width: var(--largeur);
   margin: 0 auto;
   padding: 1rem 1.25rem 1.6rem;
