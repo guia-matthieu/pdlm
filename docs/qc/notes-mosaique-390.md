@@ -153,11 +153,59 @@ Blocs 701 et 1440 comparés programmatiquement au relevé « avant » :
 
 ## 4. Mesure après
 
-(vierge)
+Captures relancées : `E2E_PORT=3000 npx playwright test gabarits-captures`
+→ **8 passed (29,3 s)**. Les huit 390 px (deux gabarits × deux jeux de
+couleurs × avec/sans photos) sont copiées dans `docs/qc/captures-mosaique-390/`.
+
+Synthèse des relevés (détail par gabarit en § 2 et § 3) :
+
+| Viewport | Littoral | Village | scrollWidth |
+| --- | --- | --- | --- |
+| 375 | 1 piste 332,5 ; visuels 3/2 | 1 piste 330 ; 414 puis 198×3 | 375 |
+| 390 | 1 piste 347,5 ; marges 0 ; visuels 231,7 (= 3/2) | 1 piste 345 ; marges 0 | 390 |
+| 600 | 1 piste 557,5 ; 3/2 | 1 piste 555 | 600 |
+| 700 | 1 piste 657,5 ; 3/2 | 1 piste 655 | 700 |
+| 701 | 2 pistes 318,5, décalées — identique à avant | 2 pistes 319, forme 1+2+1 — identique | 701 |
+| 1440 | 4 pistes, décalées — identique à avant | 4 pistes 317,25 — identique | 1440 |
+
+Chaque bloc 701/1440 a été comparé programmatiquement (pistes, scrollWidth,
+boîtes, marges, visuels) au relevé « avant » complet : **identiques** — rien
+ne change au-dessus de la rupture, dans aucun gabarit.
+
+Limite de restitution : l'outil de lecture de cette session n'affiche la
+pleine page 390 qu'à une échelle où le détail est illisible (390×6234
+restitués ~125×2000) — la forme générale (tuiles empilées pleine largeur)
+s'y voit, le détail des libellés non. La vérification fine est
+programmatique (tableaux ci-dessus) ; **le relecteur regardera les
+captures**.
 
 ## 5. Test — `tests/e2e/mosaique-390.e2e.spec.ts`
 
-(vierge)
+Fichier neuf sur le modèle de `littoral-mairie-390` : composition minimale
+(gabarit + tuiles existantes avec photos de la maquette), deux jeux de
+couleurs du plan, remise en état et purge des médias en `afterAll`. Six
+tests : par gabarit, 390 px sur les deux jeux (une seule piste ; chaque
+tuile = largeur de la mosaïque à 2 px près ; `margin-top` < 1 px ;
+`scrollWidth` ≤ 390 ; littoral : chaque visuel en 3/2 à 1 % près) puis
+701 px (plus d'une piste).
+
+**Avant** (CSS de `75efdf6` posé dans les fichiers de travail via
+`git show`, puis restauration par `git checkout --`) :
+
+    1) village @390, jeu #2a7f9e : une seule piste attendue, obtenues : 163.5px / 163.5px
+    2) littoral @390, jeu #2a7f9e : une seule piste attendue, obtenues : 163.547px / 163.562px
+    2 failed — 4 did not run (describe.serial)
+
+**Après** (`1079acd` + `121a55f`) :
+
+    Running 6 tests using 1 worker
+      ✓ village @390, jeu #2a7f9e : une tuile par ligne, pleine largeur, sans décalage (1.0s)
+      ✓ village @390, jeu #9b3d57 : une tuile par ligne, pleine largeur, sans décalage (879ms)
+      ✓ village @701 : juste au-dessus de la rupture, les colonnes restent (738ms)
+      ✓ littoral @390, jeu #2a7f9e : une tuile par ligne, pleine largeur, sans décalage (964ms)
+      ✓ littoral @390, jeu #9b3d57 : une tuile par ligne, pleine largeur, sans décalage (880ms)
+      ✓ littoral @701 : juste au-dessus de la rupture, les colonnes restent (726ms)
+    6 passed (11.4s)
 
 ## 6. Vérification finale
 
@@ -167,4 +215,6 @@ Blocs 701 et 1440 comparés programmatiquement au relevé « avant » :
 
 - `0ef2678` — squelette de ces notes (ancres vérifiées, cadre).
 - `1079acd` — mesure avant (§ 1) ; correction littoral + vérification (§ 2).
-- (ce commit) — correction village + vérification (§ 3).
+- `121a55f` — correction village + vérification (§ 3).
+- (ce commit) — mesure après et captures (§ 4) ; test neuf rouge sur
+  l'ancien CSS, vert sur le nouveau (§ 5).
