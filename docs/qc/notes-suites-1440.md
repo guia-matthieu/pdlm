@@ -178,6 +178,64 @@ termine par `@` (spans de 152,4 puis 277,2 px littoral, jamais coupés
 eux-mêmes), et le domaine ne déborde jamais (`scrollWidth` = viewport
 partout). `littoral-mairie-390` repassé vert après correction (3 passed).
 
+## Relecture (messages du relecteur, après b5ec637)
+
+### 1 — TypeError quand `coordonnees.email` est null
+
+Constat exact : `payload-types.ts` type `email?: string | null` ; `coordonnees?.email.lastIndexOf('@')`
+levait `Cannot read properties of null (reading 'lastIndexOf')` dès que le
+groupe `coordonnees` existait sans courriel (commune avec téléphone ou adresse
+seule) — la page d'accueil entière plantait. Preuve rouge, fichier de
+`b5ec637` posé tel quel, commune PATCHée « téléphone sans courriel » (spec
+jetable) :
+
+    SANS-COURRIEL statut=500 section=0   (log dev : Uncaught TypeError: Cannot
+                                          read properties of null (reading 'lastIndexOf'))
+
+Correctif (`src/gabarits/sections/Mairie.tsx` l. 25) :
+`const arobase = coordonnees?.email?.lastIndexOf('@') ?? -1` — la valeur
+n'est lue que par le bloc `{coordonnees?.email && …}`, où elle est une
+chaîne. `npm run typecheck` : 0 erreur. Preuve verte, même spec sur le
+fichier corrigé :
+
+    SANS-COURRIEL statut=200 section=1  titre présent : 1, tel visible : true
+
+Le cas « téléphone sans courriel » entre au test neuf `suites-1440` (§ Test).
+Base remise en état par le spec (remise en champ à champ du finally).
+
+### 2 — « Casette vide » à droite de l'adresse, littoral #2a7f9e, 1440 px
+
+Demande : dans `captures-tache-10/littoral-2a7f9e-photos-1440.png` (bande
+y≈750-850, x≈1276-1440), la dernière casette de la rive paraît vide. Mesure
+en direct, même composition que la capture (gabarit littoral, jeu
+`#2a7f9e/#f2b134/#d2462f`, mêmes coordonnées et horaires), code corrigé :
+
+    lien mairie@saint-exupery-sur-mer.fr — rect x=78 y=861 l=255,9 h=20, 1 ligne
+    checkVisibility=true, clientRects=3, souligné, 17 px
+    couleur rgb(42, 127, 158) sur fond blanc — contraste 4,54:1 (RGAA 3.2 : ≥ 4,5)
+    casettes 1re rangée : La mairie (x78) · 03 00 00 00 00 (x189) · Horaires (x436) · adresse (x1015, fin x1276,8)
+
+**Le courriel est visible et lisible, mais pas là où on l'attend** : après
+l'adresse il ne reste que ~85 px (1276,8 → 1362) pour un lien de 255,9 px ;
+la rive est `flex-wrap: wrap` (`littoral/theme.css` l. 328), le courriel
+passe donc en **2e rangée, aligné à gauche (x=78)**. La zone x≈1276-1440
+n'est pas une casette au contenu invisible : c'est l'espace résiduel de la
+rangée, l'élément `p` du courriel étant à x=78. La capture de la tâche 10
+montre déjà le courriel à cette place (rognage bas-gauche de la bande) : la
+correction B n'a rien changé à cette topologie, avant comme après le lien
+tient sur 1 ligne de 255,8-255,9 px.
+
+Preuves jointes : `captures-suites-1440/mairie-courriel-littoral-2a7f9e-1440.png`
+(section mairie entière, code corrigé — courriel souligné en 2e rangée).
+À 390, même composition : une casette par ligne, courriel visible, même
+contraste 4,54:1.
+
+Défaut résiduel éventuel (décrit, non corrigé — décision à prendre) : la 1re
+rangée finit par un vide de ~85 px et le courriel orphelin occupe une rangée
+entière. Si ce rythme dérange, les leviers mesurés seraient la largeur
+maximale des horaires (`max-width: 22rem`, l. 391) ou la marge des casettes
+(l. 341-342) — rien de touché ici, hors périmètre du brief.
+
 ## Journal
 
 - (premier commit) — squelette de ces notes (ancres vérifiées, cadre).
@@ -187,5 +245,10 @@ partout). `littoral-mairie-390` repassé vert après correction (3 passed).
 - (ce commit) — tâche B : mesure avant (écart avec notes-littoral-390
   documenté), correction `Mairie.tsx` + une règle par thème, mesure après
   (standard 1 ligne, long 2 lignes coupées après `@`, casettes ±0,1 px).
+- (ce commit) — relecture : TypeError `email` null corrigée (rouge 500 /
+  vert 200 mesurés, typecheck 0) ; « casette vide » 1440 élucidée : le
+  courriel visible et lisible (4,54:1) est wrappé en 2e rangée par le
+  flex-wrap de la rive, la zone de droite est l'espace résiduel — capture
+  jointe, rien corrigé (hors périmètre).
 
 

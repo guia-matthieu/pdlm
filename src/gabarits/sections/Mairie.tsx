@@ -22,7 +22,7 @@ export function Mairie({
   langue: CodeLangue
   t: Dictionnaire
 }) {
-  const arobase = coordonnees?.email.lastIndexOf('@') ?? -1
+  const arobase = coordonnees?.email?.lastIndexOf('@') ?? -1
   return (
     <section data-section="mairie" className="section-mairie">
       <h2>{titre}</h2>
