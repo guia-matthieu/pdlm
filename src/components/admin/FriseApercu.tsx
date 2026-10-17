@@ -4,7 +4,6 @@ import { useFormFields } from '@payloadcms/ui'
 
 import { composerFrise, type LigneFrise } from '@/gabarits/frise'
 import { GABARITS, type NomGabarit } from '@/gabarits/registre'
-import type { Taille } from '@/gabarits/types'
 
 /**
  * Aperçu en direct de la frise du territoire, au-dessus des pièces : chaque

@@ -53,3 +53,13 @@ Ces notes.
 **seulement** `@typescript-eslint/no-unused-vars` (les `payload`/`req` inutilisés
 du gabarit de génération Payload). Contenu des migrations intact, pas d'`ignores`
 global du dossier. 45 → 13 avertissements.
+
+### Commit 3 — no-unused-vars : code écrit à la main
+
+- `src/components/admin/FriseApercu.tsx` : import de type `Taille` supprimé
+  (aucune autre occurrence dans le fichier).
+- `src/lib/contenu.ts` : `Evenement` retiré de la liste d'imports de types
+  (les autres occurrences sont `filtreEvenementAVenir`, sans rapport).
+13 → 11 avertissements, typecheck toujours 0. La config acceptait déjà le
+préfixe `_` (`argsIgnorePattern: '^_'`) — les deux cas étaient de simples
+imports supprimables, pas besoin du préfixe.

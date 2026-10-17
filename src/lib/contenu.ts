@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { idRelation } from './relation'
-import type { Actualite, Alerte, Commune, Evenement, Media, Menu, Page } from '../payload-types'
+import type { Actualite, Alerte, Commune, Media, Menu, Page } from '../payload-types'
 import type { DataFromCollectionSlug, Where } from 'payload'
 
 import { sitemapXml, type DomaineLangue, type RessourceSitemap } from './adresses'
