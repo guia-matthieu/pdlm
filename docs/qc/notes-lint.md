@@ -115,3 +115,46 @@ dans « Reste justifié » ci-dessous.
 `tests/stubs/server-only.ts` : fichier écrit à la main, correctif de la
 règle elle-même (constante puis `export default`) — le module exporte
 toujours un objet vide, aucun effet sur les tests (297 verts après).
+
+## Vérification finale (2026-10-17)
+
+```
+$ npm run lint
+> pdlm@0.1.0 lint
+> cross-env NODE_OPTIONS=--no-deprecation eslint .
+
+=== exit: 0            (aucune sortie : 0 erreur, 0 avertissement)
+
+$ npm run typecheck
+> pdlm@0.1.0 typecheck
+> tsc --noEmit
+
+=== exit: 0
+
+$ npm run test:unit
+ Test Files  31 passed (31)
+      Tests  297 passed (297)
+```
+
+`test:unit` : 297 verts avant et après — identique.
+
+`git diff --stat 651e31f` : aucun fichier de `src/migrations/`, aucun
+`importMap.js`, `src/payload-types.ts` intact. Touchés : ces notes,
+`eslint.config.mjs` (surcharge ciblée et commentée pour les migrations),
+`src/components/MediaImage.tsx`, `src/components/admin/FriseApercu.tsx`,
+`src/lib/contenu.ts`, `src/seed/contenu-demo.ts`,
+`tests/int/isolation.int.spec.ts`, `tests/stubs/server-only.ts`.
+
+## Reste justifié — avertissements neutralisés par disable commenté
+
+- `tests/int/isolation.int.spec.ts:37` (`pageMin` renvoie `any`) : les blocs
+  émis omettent volontairement `blockType`, typer changerait la donnée envoyée
+  à Payload.
+- `tests/int/isolation.int.spec.ts:400` (`as any` sur la création du brouillon
+  « auteur non membre ») : `slug` absent car généré par hook, introuvable dans
+  le type d'entrée.
+- `src/components/MediaImage.tsx:26` (`<img>`) : choix v0.1 documenté dans le
+  composant, `next/image` attend les remotePatterns.
+
+Aucun serveur, Docker, e2e ni test d'intégration lancés ; aucune des trois
+commandes autorisées n'a réclamé de base.
