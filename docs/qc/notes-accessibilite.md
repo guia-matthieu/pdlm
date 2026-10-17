@@ -164,7 +164,36 @@ de la tâche porte sur le test de non-régression.
 
 ## Test
 
-(à compléter)
+`tests/e2e/accessibilite.e2e.spec.ts` (fichier neuf), paramétré comme le
+brief le demande — boucle `for (const [nom] of Object.entries(GABARITS))`
+(une par gabarit du registre, sans toucher au test 4 de
+`gabarits-conformite`) :
+
+- **45 tests** : 1 sonde (une `<img>` sans `alt` injectée doit être relevée
+  par les mêmes tags — preuve qu'un vert n'est pas un zéro à vide) + par
+  gabarit : 7 pages × 2 largeurs en palette démo (14) + 2 jeux × 2 pages ×
+  2 largeurs (8), soit 22 ;
+- `TAGS = ['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']` seuls
+  (best-practice volontairement hors test, conformément au brief et à la
+  relecture : `page-has-heading-one` est à décider, pas bloquante) ;
+- page née d'un contexte explicite (exigence d'axe) ; accueil et pages
+  fixes en dur, slugs de l'actualité et de la page de contenu lus par
+  l'API au `beforeAll` (résolus au passage dans chaque test — un premier
+  jet les résolvait à la collecte, avant le `beforeAll` : `goto(undefined)`,
+  corrigé) ; document créé pour la page `documents` si la collection est
+  vide, puis supprimé et vérifié 404 ; `apparence` de la commune reposée
+  sur son état d'origine, **vérifiée par GET** ; aucune exclusion — ni
+  `exclude` ni `disableRules` (aucune violation à exclure) ;
+- préconditions par test : réponse 200, `main#contenu` visible, et le lien
+  `gabarits/<nom>/theme.css` rendu (le bon gabarit est posé) ;
+- exigence « échoue sur `651e31f` pour chaque règle corrigée » : sans objet,
+  aucune règle corrigée (l'audit n'a trouvé aucune violation WCAG).
+
+Sortie du premier passage complet :
+
+```
+  45 passed (52.4s)
+```
 
 ## Clôture
 
@@ -181,3 +210,5 @@ de la tâche porte sur le test de non-régression.
   règle best-practice (`page-has-heading-one`, 4 nœuds, pages de contenu
   sans `h1`) → tableau dans les notes et
   `a-decider-accessibilite.md` (deux options, sans correction).
+- Test e2e — `accessibilite.e2e.spec.ts` : 45 tests verts (1 sonde + 2 × 22),
+  remise en état vérifiée par GET.
