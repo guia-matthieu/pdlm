@@ -197,7 +197,38 @@ Sortie du premier passage complet :
 
 ## Clôture
 
-(à compléter)
+Vérification finale, sorties réelles :
+
+```
+$ npm run lint            → 0 erreur, 45 avertissements (préexistants), exit 0
+$ npm run typecheck       → tsc --noEmit, rien, exit 0
+$ npm run test:unit
+ Test Files  31 passed (31)
+      Tests  297 passed (297)
+   Duration   4.18s
+```
+
+La passe e2e des dix fichiers, commande du brief :
+
+```
+$ E2E_PORT=3000 npx playwright test gabarits-captures gabarits-conformite \
+    littoral-captures village-captures littoral-mairie-390 mosaique-390 \
+    suites-1440 focus frontend accessibilite
+
+  102 passed (2.6m)
+  EXIT 0
+```
+
+Par fichier (comptés dans la sortie) : `accessibilite` 45,
+`suites-1440` 16, `gabarits-conformite` 14, `gabarits-captures` 8,
+`mosaique-390` 6, `littoral-mairie-390` 3, `frontend` 3, `focus` 3,
+`village-captures` 2, `littoral-captures` 2 — les dix verts, dont le test 4
+de `gabarits-conformite` (accueil, par défaut), inchangé.
+
+Aucune correction de `src/` : `git diff --stat 651e31f -- src/` est vide —
+ni l'admin, ni `src/lib/couleurs.ts`, ni rien d'autre. Les specs jetables
+(`zz-audit`, `zz-sonde`, `zz-incomplet` `.tmp.spec.ts`) sont supprimées ;
+`git status --short` vide ; serveur de dev arrêté (`lsof -i :3000` vide).
 
 ## Journal
 
@@ -212,3 +243,6 @@ Sortie du premier passage complet :
   `a-decider-accessibilite.md` (deux options, sans correction).
 - Test e2e — `accessibilite.e2e.spec.ts` : 45 tests verts (1 sonde + 2 × 22),
   remise en état vérifiée par GET.
+- Clôture — vérification finale : lint 0 erreur, typecheck 0, unit 297/297,
+  dix fichiers e2e verts (102 tests), specs jetables supprimées, arbre
+  propre, `src/` intact depuis `651e31f`.
