@@ -35,11 +35,74 @@ non-régression. Ces notes se complètent à chaque commit.
 
 ## Audit avant
 
-(à compléter)
+### Méthode
+
+Spec jetable `zz-audit.tmp.spec.ts` (non commise, supprimée à la fin) :
+connexion opérateur, puis pour chaque gabarit (`village`, `littoral`, posé par
+PATCH sur la commune de démo `saint-ex`) :
+
+- **palette de démonstration** (celle d'origine de la commune, repassée par
+  PATCH) : accueil, `actualites`, une actualité (`inscription-ecole-municipale`,
+  trouvée par `/api/actualites`), `agenda`, `documents`, une page de contenu
+  (`accessibilite`, première page publiée hors `accueil` et hors routes
+  réservées, trouvée par `/api/pages` filtrée par tenant) et
+  `mesure-d-audience` — à 390 et 1440 px ;
+- **jeux des captures** `#2a7f9e` et `#9b3d57` (posés/remis comme
+  `gabarits-captures`) : accueil + fiche actualité, à 390 et 1440 px.
+
+Soit 44 combinaisons. La collection `documents` étant vide en base de dev, un
+document PDF (`audit-accessibilite — registre des délibérations`,
+catégorie délibérations) était créé par le spec puis supprimé et vérifié 404
+par GET. `AxeBuilder.withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa',
+'wcag22aa','best-practices'])` — les règles `best-practices` étaient donc
+auditées aussi (relevées sans bloquer) : aucune n'a été trouvée.
+
+### Résultat : zéro violation sur tout le périmètre
+
+Les 44 combinaisons rendent **0 nœud en violation** (sortie complète : 44
+lignes `AUDIT … : 0 noeud(s)`, `2 passed (31.9s)`). Le tableau par règle est
+donc vide — aucune règle axe à corriger, aucune correction commitée, et le
+test final n'a pas de règle corrigée à faire échouer sur `651e31f`
+(l'exigence du brief est conditionnée aux règles corrigées).
+
+### Preuve que ce zéro n'est pas un zéro à vide
+
+Sonde jetable `zz-sonde.tmp.spec.ts` : une `<img id="sonde-sans-alt">` sans
+`alt` injectée dans le `main` de l'accueil est bien relevée par le même
+harnais (`withTags` identiques) :
+
+```
+SONDE règles relevées : image-alt
+  1 passed (3.7s)
+```
+
+### Vérifications incomplètes (contrastes non tranchés par axe)
+
+Sur l'accueil du gabarit d'origine de la commune (`littoral`, identifié par
+le `link` `gabarits/littoral/theme.css`), axe laisse des `color-contrast`
+**incomplets** (il ne peut pas décider : couleurs dérivées/fond à étages) sur
+le `h1` du héros, les boutons primaire/secondaire, les titres et liens de
+sections, les dates de l'agenda et les libellés de mosaïque, à 390 comme à
+1440. Ce ne sont pas des violations : ces contrastes sont précisément ceux
+que le test 5 de `gabarits-conformite` **mesure dans la page rendue** sur
+trois palettes extrêmes (`#ffff00`, `#777777`, `#3b0a14`) — garantie plus
+forte qu'axe, déjà verte. Rien à exclure pour autant : aucune violation à
+exclure, le test final n'a ni `exclude` ni `disableRules`.
+
+### RGAA vu en passant (hors périmètre, non corrigé)
+
+- `/mentions-legales` (page de contenu) n'a pas de `h1` : ses blocs
+  commencent à `h2` (mesuré : `<title>` présent, trois `<h2>`, aucun `h1`).
+  `page-has-heading-one` (best practice) n'a pas retenti. À trancher par un
+  humain (donner un bloc titre aux pages, ou l'accepter).
+
 
 ## Corrections
 
-(à compléter — une règle par commit)
+Aucune : l'audit avant ne relève aucune violation (voir ci-dessus), il n'y a
+donc ni commit de correction, ni règle à faire échouer sur `651e31f`, ni
+`a-decider-accessibilite.md` (aucune correction arrêtée pour cause
+d'apparence). Le reste de la tâche porte sur le test de non-régression.
 
 ## Test
 
@@ -52,3 +115,6 @@ non-régression. Ces notes se complètent à chaque commit.
 ## Journal
 
 - (ce commit) — squelette de ces notes (ancres vérifiées, cadre).
+- Audit avant — 44 combinaisons (2 gabarits × 7 pages × 2 largeurs en palette
+  démo + 2 jeux × 2 pages × 2 largeurs), zéro violation, preuve par sonde
+  (image-alt), incomplets documentés.
