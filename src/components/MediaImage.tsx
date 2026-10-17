@@ -22,6 +22,7 @@ export function MediaImage({
   const langueAlt =
     'langueAlt' in media ? (media as { langueAlt: CodeLangue }).langueAlt : undefined
   return (
+    // eslint-disable-next-line @next/next/no-img-element -- voulu en v0.1 (cf. doc ci-dessus) : next/image attend les remotePatterns
     <img
       src={src}
       alt={alt}

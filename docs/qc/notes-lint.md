@@ -101,3 +101,17 @@ imports supprimables, pas besoin du préfixe.
     d'entrée `RequiredDataFromCollectionSlug` — ajouter `slug: undefined`
     changerait la donnée émise.
 9 → 2 avertissements, typecheck 0.
+
+### Commit 6 — no-img-element : MediaImage
+
+`src/components/MediaImage.tsx` : la doc du composant dit « img simple —
+l'optimisation next/image viendra avec remotePatterns ». Passer à
+`next/image` changerait le rendu (optimisation, proxy) : désactivation
+locale commentée sur le `<img>`, décision v0.1 inchangée. Ligne listée
+dans « Reste justifié » ci-dessous.
+
+### Commit 7 — no-anonymous-default-export : stub server-only
+
+`tests/stubs/server-only.ts` : fichier écrit à la main, correctif de la
+règle elle-même (constante puis `export default`) — le module exporte
+toujours un objet vide, aucun effet sur les tests (297 verts après).
