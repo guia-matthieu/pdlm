@@ -46,3 +46,10 @@ comportement**. Aucun serveur, base, Docker, e2e ni test d'intégration lancés
 ### Commit 1 — état avant
 
 Ces notes.
+
+### Commit 2 — no-unused-vars : migrations
+
+`eslint.config.mjs` : surcharge `files: ['src/migrations/**/*.ts']` coupant
+**seulement** `@typescript-eslint/no-unused-vars` (les `payload`/`req` inutilisés
+du gabarit de génération Payload). Contenu des migrations intact, pas d'`ignores`
+global du dossier. 45 → 13 avertissements.

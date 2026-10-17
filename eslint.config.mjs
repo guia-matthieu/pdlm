@@ -28,6 +28,15 @@ const eslintConfig = [
     // `.superpowers/` : scritch de travail local (ignoré par git), pas du code du dépôt.
     ignores: ['.next/', '.superpowers/', 'src/payload-types.ts', 'src/payload-generated-schema.ts'],
   },
+  {
+    // Migrations générées par Payload et déjà appliquées : on n'en modifie pas le
+    // contenu, et le gabarit de génération laisse `payload` et `req` inutilisés
+    // dans `up`/`down`. Seule la règle concernée est désactivée pour ce dossier.
+    files: ['src/migrations/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
 ]
 
 export default eslintConfig
