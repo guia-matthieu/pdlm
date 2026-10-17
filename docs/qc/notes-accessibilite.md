@@ -54,26 +54,49 @@ Soit 44 combinaisons. La collection `documents` étant vide en base de dev, un
 document PDF (`audit-accessibilite — registre des délibérations`,
 catégorie délibérations) était créé par le spec puis supprimé et vérifié 404
 par GET. `AxeBuilder.withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa',
-'wcag22aa','best-practices'])` — les règles `best-practices` étaient donc
-auditées aussi (relevées sans bloquer) : aucune n'a été trouvée.
+'wcag22aa','best-practice'])` — les règles `best-practice` (non bloquantes,
+relevées ici) sont donc auditées aussi.
 
-### Résultat : zéro violation sur tout le périmètre
+**Erratum (relecture)** : la première passe écrivait le tag au pluriel
+(`best-practices`). Ce tag n'existe pas : axe ignore silencieusement un tag
+inconnu, donc **aucune règle best-practice n'avait tourné** — mesuré après
+relecture : `best-practice` apparaît 30 fois dans
+`node_modules/axe-core/axe.min.js`, `best-practices` zéro fois ; les tags de
+`page-has-heading-one` sont `["cat.semantics","best-practice"]`. L'audit des
+44 combinaisons a été **relancé** avec le tag correct (sortie complète
+ci-dessous), sondes à l'appui.
 
-Les 44 combinaisons rendent **0 nœud en violation** (sortie complète : 44
-lignes `AUDIT … : 0 noeud(s)`, `2 passed (31.9s)`). Le tableau par règle est
-donc vide — aucune règle axe à corriger, aucune correction commitée, et le
-test final n'a pas de règle corrigée à faire échouer sur `651e31f`
-(l'exigence du brief est conditionnée aux règles corrigées).
+### Résultat : zéro violation WCAG, une règle best-practice
+
+Relance complète : 44 lignes `AUDIT …`, `2 passed (31.8s)`. **Aucune
+violation des tags WCAG** (`wcag2a`…`wcag22aa`) sur tout le périmètre — le
+tableau par règle WCAG est vide, donc aucune règle à corriger, aucune
+correction commitée, et le test final n'a pas de règle corrigée à faire
+échouer sur `651e31f` (l'exigence du brief est conditionnée aux règles
+corrigées). Côté best-practice, une règle retentit :
+
+| Règle (impact, tags) | Combinaisons touchées | Nœuds | Cible | Sort |
+| --- | --- | --- | --- | --- |
+| `page-has-heading-one` (moderate, `cat.semantics`,`best-practice`) | page de contenu uniquement — gabarits `village` et `littoral`, palette démo, 390 **et** 1440 px (jamais ailleurs : accueil, actualités, agenda, documents, mesure-d-audience, ni les jeux `#2a7f9e`/`#9b3d57` qui ne passent que par accueil + actualité) | 4 | `html` entier (la page n'a aucun `h1`) | non bloquant → `a-decider-accessibilite.md` (voir ci-dessous) |
+
+Cause mesurée : la page de contenu type (`accessibilite`, mais les quatre
+pages publiées sont dans ce cas, voir la section suivante) rend ses blocs par
+`RenduBlocs`, dont les titres commencent à `h2` (`src/components/RenduBlocs.tsx:91`
+et `:115`) ; le `titre` de la page n'entre que dans les métadonnées
+(`<title>`, `src/app/(frontend)/[lang]/[slug]/page.tsx:29`). Aucun `h1`
+n'est émis.
 
 ### Preuve que ce zéro n'est pas un zéro à vide
 
-Sonde jetable `zz-sonde.tmp.spec.ts` : une `<img id="sonde-sans-alt">` sans
-`alt` injectée dans le `main` de l'accueil est bien relevée par le même
-harnais (`withTags` identiques) :
+Sonde jetable `zz-sonde.tmp.spec.ts`, deux sondes sur le même harnais : une
+règle WCAG (`image-alt` — `<img>` sans `alt` injectée dans le `main` de
+l'accueil) et une règle best-practice (`page-has-heading-one` sur
+`/mentions-legales`, page sans `h1`) retentissent toutes deux :
 
 ```
-SONDE règles relevées : image-alt
-  1 passed (3.7s)
+SONDE accueil : image-alt
+SONDE mentions-legales : page-has-heading-one
+  2 passed (5.1s)
 ```
 
 ### Vérifications incomplètes (contrastes non tranchés par axe)
@@ -89,20 +112,55 @@ trois palettes extrêmes (`#ffff00`, `#777777`, `#3b0a14`) — garantie plus
 forte qu'axe, déjà verte. Rien à exclure pour autant : aucune violation à
 exclure, le test final n'a ni `exclude` ni `disableRules`.
 
-### RGAA vu en passant (hors périmètre, non corrigé)
+### Compte des `h1` par page de contenu publiée (relecture)
 
-- `/mentions-legales` (page de contenu) n'a pas de `h1` : ses blocs
-  commencent à `h2` (mesuré : `<title>` présent, trois `<h2>`, aucun `h1`).
-  `page-has-heading-one` (best practice) n'a pas retenti. À trancher par un
-  humain (donner un bloc titre aux pages, ou l'accepter).
+Mesuré sur le HTML rendu (curl du serveur de dev, host nu = commune de démo) :
+
+| Page publiée | HTTP | Nombre de `h1` |
+| --- | --- | --- |
+| `/accessibilite` | 200 | **0** |
+| `/confidentialite` | 200 | **0** |
+| `/mentions-legales` | 200 | **0** |
+| `/vie-municipale` | 200 | **0** |
+| `/` (accueil, hors pages de contenu) | 200 | 1 |
+
+Toutes les pages de contenu publiées n'ont aucun `h1` (elles commencent à
+`h2`) ; l'accueil, lui, en a un. Le point est inscrit sans correction dans
+`docs/qc/a-decider-accessibilite.md` — la règle axe correspondante
+(`page-has-heading-one`) est best-practice, non bloquante pour le test final
+(tags WCAG seuls, conformément au brief et à la relecture).
 
 
 ## Corrections
 
-Aucune : l'audit avant ne relève aucune violation (voir ci-dessus), il n'y a
-donc ni commit de correction, ni règle à faire échouer sur `651e31f`, ni
-`a-decider-accessibilite.md` (aucune correction arrêtée pour cause
-d'apparence). Le reste de la tâche porte sur le test de non-régression.
+Aucune violation WCAG à corriger (voir l'audit avant). Le seul constat
+arrêté est un point à décider, pas une correction :
+`docs/qc/a-decider-accessibilite.md` (pages de contenu sans `h1`). Le reste
+de la tâche porte sur le test de non-régression.
+
+## Relectures
+
+- **Message reçu après le commit d'audit avant (a931d3f)** : « le tag axe
+  s'écrit 'best-practice' (singulier), pas 'best-practices'. Avec ton
+  orthographe, aucune règle best-practice n'a tourné — c'est pourquoi
+  page-has-heading-one n'a pas retenti sur /mentions-legales sans h1.
+  Relance l'audit des 44 combinaisons avec 'best-practice' (sonde à
+  l'appui : une règle best-practice connue doit retentir), et écris dans les
+  notes le tableau par règle des best-practice trouvées (non bloquantes).
+  Vérifie aussi, pour chaque page de contenu publiée, la présence d'un h1
+  (compte). Si des pages n'ont pas de h1, inscris-le dans
+  docs/qc/a-decider-accessibilite.md avec deux options, sans corriger. Le
+  test final garde les tags WCAG seuls, comme prévu. Réponse dans les
+  notes. »
+- **Appliqué et mesuré** : le tag pluriel était bien une erreur (mesures et
+  erratum dans « Audit avant → Méthode ») ; l'audit des 44 combinaisons a
+  été relancé avec `best-practice` (sondes `image-alt` et
+  `page-has-heading-one` au vert avant la relance) ; le tableau par règle
+  des best-practice trouvées est dans « Audit avant → Résultat » ; le compte
+  des `h1` par page publiée est dans « Audit avant → Compte des h1 » ;
+  `docs/qc/a-decider-accessibilite.md` est écrit avec deux options, sans
+  correction ; le test final garde `TAGS = ['wcag2a','wcag2aa','wcag21a',
+  'wcag21aa','wcag22aa']` seuls.
 
 ## Test
 
@@ -118,3 +176,8 @@ d'apparence). Le reste de la tâche porte sur le test de non-régression.
 - Audit avant — 44 combinaisons (2 gabarits × 7 pages × 2 largeurs en palette
   démo + 2 jeux × 2 pages × 2 largeurs), zéro violation, preuve par sonde
   (image-alt), incomplets documentés.
+- Relecture — tag `best-practice` corrigé (singulier), audit des 44
+  combinaisons relancé avec sondes : toujours zéro violation WCAG ; une
+  règle best-practice (`page-has-heading-one`, 4 nœuds, pages de contenu
+  sans `h1`) → tableau dans les notes et
+  `a-decider-accessibilite.md` (deux options, sans correction).
