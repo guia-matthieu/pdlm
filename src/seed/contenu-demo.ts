@@ -1,7 +1,12 @@
-import type { Payload } from 'payload'
+import type { Payload, RequiredDataFromCollectionSlug } from 'payload'
+
+import type { Page } from '../payload-types'
+
+/** Bloc `texteRiche` des types générés — sert à typer le lexical ci-dessous. */
+type BlocTexteRiche = Extract<NonNullable<Page['blocs']>[number], { blockType: 'texteRiche' }>
 
 /** Contenu lexical minimal (un paragraphe par chaîne). */
-export function texteRich(...paragraphes: string[]): any {
+export function texteRich(...paragraphes: string[]): BlocTexteRiche['contenu'] {
   return {
     root: {
       type: 'root',
@@ -31,7 +36,7 @@ export function texteRich(...paragraphes: string[]): any {
   }
 }
 
-async function upsertPage(payload: Payload, data: any) {
+async function upsertPage(payload: Payload, data: RequiredDataFromCollectionSlug<'pages'>) {
   const existantes = await payload.find({
     collection: 'pages',
     where: { and: [{ tenant: { equals: data.tenant } }, { slug: { equals: data.slug } }] },

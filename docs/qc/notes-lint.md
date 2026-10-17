@@ -63,3 +63,19 @@ global du dossier. 45 → 13 avertissements.
 13 → 11 avertissements, typecheck toujours 0. La config acceptait déjà le
 préfixe `_` (`argsIgnorePattern: '^_'`) — les deux cas étaient de simples
 imports supprimables, pas besoin du préfixe.
+
+### Commit 4 — no-explicit-any : seed
+
+`src/seed/contenu-demo.ts` :
+
+- `texteRich` : retour typé depuis les types générés —
+  `Extract<NonNullable<Page['blocs']>[number], { blockType: 'texteRiche' }>['contenu']`
+  (alias local `BlocTexteRiche`). Structure lexical identique dans tous les
+  champs lexical du projet (même générateur), donc réutilisable pour
+  `actualites.contenu` et `evenements.description`.
+- `upsertPage` : `data: RequiredDataFromCollectionSlug<'pages'>` — c'est
+  exactement le type que `payload.create` attend (vérifié dans
+  `payload/dist/collections/operations/create.d.ts`). Premier essai avec
+  `DataFromCollectionSlug` : résout vers l'interface `Page` complète (avec
+  `id` obligatoire), incorrect pour une donnée de création.
+11 → 9 avertissements, typecheck 0.
