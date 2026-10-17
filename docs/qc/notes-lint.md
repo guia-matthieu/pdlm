@@ -79,3 +79,25 @@ imports supprimables, pas besoin du préfixe.
   `DataFromCollectionSlug` : résout vers l'interface `Page` complète (avec
   `id` obligatoire), incorrect pour une donnée de création.
 11 → 9 avertissements, typecheck 0.
+
+### Commit 5 — no-explicit-any : spec d'isolation
+
+`tests/int/isolation.int.spec.ts` :
+
+- les quatre utilisateurs deviennent `User` (type généré, importé comme dans
+  les specs sœurs) — ils sortent de `payload.find`/`payload.create` sur
+  `users` ;
+- helper `req` : paramètre `unknown`, aligné sur l'idiome des specs voisines
+  (`communes-suppression`, `journal`, `lignes-mandat`) — aucun changement au
+  runtime ;
+- `as any` de la parution programmée (ex-ligne 503) : **supprimé**, la donnée
+  (slug fourni) satisfait le type — typecheck vert sans lui ;
+- restent deux `any` avec `eslint-disable-next-line` commenté :
+  - `pageMin` (ligne 36) : les blocs émis omettent volontairement `blockType`
+    (donnée lâche sous test), incompatibles avec l'union générée — le typer
+    demanderait de changer la donnée envoyée à Payload ;
+  - `as any` du brouillon « auteur non membre » (ex-ligne 398) : `slug`
+    absent car généré par hook à la création, donc introuvable dans le type
+    d'entrée `RequiredDataFromCollectionSlug` — ajouter `slug: undefined`
+    changerait la donnée émise.
+9 → 2 avertissements, typecheck 0.

@@ -3,6 +3,7 @@ import type { Payload, PayloadRequest } from 'payload'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { getPayloadClient } from '@/lib/payload'
+import type { User } from '@/payload-types'
 import {
   actualiteParSlug,
   actualitesCommune,
@@ -21,18 +22,18 @@ let payload: Payload
 let communeA: number
 let communeB: number
 let communeC: number
-let operateur: any
-let adminA: any
-let redacteurB: any
-let mixte: any
+let operateur: User
+let adminA: User
+let redacteurB: User
+let mixte: User
 
 /** Mot de passe des utilisateurs de test (assemblé — non-secret, base jetable). */
 const MDP_TEST = ['motdepasse', '1234'].join('-')
 
 /** Fausse requête authentifiée — les access functions ne lisent que req.user. */
-const req = (user?: Record<string, unknown> | null) =>
-  ({ user: user ?? null }) as unknown as PayloadRequest
+const req = (user: unknown) => ({ user: user ?? null }) as unknown as PayloadRequest
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- les blocs émis omettent volontairement blockType (donnée lâche sous test), incompatible avec l'union générée
 const pageMin = (titre: string, tenant: number): any => ({
   titre,
   slug: undefined as unknown as string, // généré par hook
@@ -395,6 +396,7 @@ describe('I4 — relations contrôlées au même tenant', () => {
           },
           auteur: adminA.id,
           _status: 'draft',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- slug absent : généré par hook à la création, introuvable dans le type d'entrée
         } as any,
         req: req(operateur),
       }),
@@ -500,7 +502,7 @@ describe('I6/D9 — visibilité et fenêtres de dates', () => {
           },
         },
         _status: 'published',
-      } as any,
+      },
       req: req(operateur),
     })
     expect(programmee.id).toBeDefined()
