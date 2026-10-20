@@ -40,9 +40,11 @@ Repérages complémentaires (grep, une fois) :
   helper (suppression vérifiée 404).
 - 66bff4d — tâche B : `horairesInsecables` (insécables + lieur après le
   tiret), appliquée aux deux affichages des horaires ; 8 tests unitaires.
-- (ce commit) — tâche C : 8 tests e2e dans suites-1440 (carte mairie et
-  pied, village et littoral, 390 et 1440 px) — rouges sur les composants de
+- 55283ec — tâche C : 8 tests e2e dans suites-1440 (carte mairie et pied,
+  village et littoral, 390 et 1440 px) — rouges sur les composants de
   651e31f, verts ensuite.
+- (ce commit) — vérification finale (lint, tsc, unit, batterie e2e
+  complète) et captures littoral après correction.
 
 ## Tâche A — les specs ne dépendent plus de l'amorçage
 
@@ -344,3 +346,62 @@ coupure légitime, rien à y corriger — leur test est vert avant et après.
 ```
 
 `tsc --noEmit` : rien ; `eslint` sur le spec : rien.
+
+## Vérification finale (55283ec)
+
+`npm run lint` :
+
+```
+✖ 45 problems (0 errors, 45 warnings)
+```
+
+Zéro erreur (la barre du brief) ; les 45 avertissements préexistent —
+p. ex. `import/no-anonymous-default-export` dans les fichiers de seed.
+
+`npm run typecheck` (`tsc --noEmit`) : rien.
+
+`npm run test:unit` :
+
+```
+ Test Files  32 passed (32)
+      Tests  305 passed (305)
+```
+
+297 avant la branche + les 8 de `horaires.spec.ts`.
+
+`E2E_PORT=3000 npx playwright test gabarits-captures gabarits-conformite
+littoral-captures village-captures littoral-mairie-390 mosaique-390
+suites-1440 focus frontend` :
+
+```
+  ✓  56 [chromium] › tests/e2e/suites-1440.e2e.spec.ts:321:7 › littoral : courriel de la mairie › à 390 px, horaires du pied : aucune plage coupée (749ms)
+  ✓  60 [chromium] › tests/e2e/suites-1440.e2e.spec.ts:309:7 › littoral : courriel de la mairie › à 1440 px, horaires de la carte mairie : aucune plage coupée (793ms)
+  ✓  61 [chromium] › tests/e2e/suites-1440.e2e.spec.ts:321:7 › littoral : courriel de la mairie › à 1440 px, horaires du pied : aucune plage coupée (714ms)
+  …
+  65 passed (2.3m)
+```
+
+(Les 8 tests horaires — village et littoral, carte et pied, 390 et
+1440 px — sont dans le lot, ainsi que les suites de captures, conformité
+et focus.)
+
+## Captures (après correction, littoral)
+
+Spec jetable `zz-captures-tiret.tmp.spec.ts` : commune passée en littoral,
+coordonnées et HORAIRES de démonstration posées, captures d'élément
+(recadrées sur `.section-mairie` et `.pied-page`, portail du serveur de
+développement masqué), puis état remis et vérifié par GET :
+
+```
+REMIS (GET) : {"gabarit":"littoral","horaires":null,"adresse":"1 quai de la Mairie","codePostal":"01100","ville":"Saint-Exupéry-sur-Mer","telephone":"03 00 00 00 00","email":"mairie@saint-exupery-sur-mer.fr"}
+```
+
+(la commune de démo était déjà en littoral avec ces coordonnées et sans
+horaires — la remise est l'identité, vérifiée champ par champ.)
+
+- `captures-demo-tiret/littoral-mairie-1440.png` (1440×119) — la rive
+  mairie sur sa seule rangée (119 px de haut ; c'est la rangée unique
+  qu'exige le test e2e éponyme), plages horaires entières.
+- `captures-demo-tiret/littoral-pied-390.png` (390×688) — le pied à
+  390 px : chaque plage entière dans sa ligne, aucune ligne ne commence
+  par un tiret.
