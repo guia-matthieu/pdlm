@@ -38,8 +38,11 @@ Repérages complémentaires (grep, une fois) :
 - df882ea — tâche A : helper `evenements`, `gabarits-conformite` crée et
   supprime ses événements, les trois suites de captures passent par le même
   helper (suppression vérifiée 404).
-- (ce commit) — tâche B : `horairesInsecables` (insécables + lieur après le
+- 66bff4d — tâche B : `horairesInsecables` (insécables + lieur après le
   tiret), appliquée aux deux affichages des horaires ; 8 tests unitaires.
+- (ce commit) — tâche C : 8 tests e2e dans suites-1440 (carte mairie et
+  pied, village et littoral, 390 et 1440 px) — rouges sur les composants de
+  651e31f, verts ensuite.
 
 ## Tâche A — les specs ne dépendent plus de l'amorçage
 
@@ -249,3 +252,95 @@ pied : ["Lundi, mardi, jeudi, vendredi : 9 h –\u2060 12 h, ","14 h –\u2060 1
 ```
 
 `tsc --noEmit` : rien ; `eslint` sur les quatre fichiers touchés : rien.
+
+## Tâche C — tests e2e : aucune plage coupée
+
+### Ce qui a changé
+
+`tests/e2e/suites-1440.e2e.spec.ts` :
+
+- `lignesHoraires(page, conteneur)` : lignes réelles du bloc horaires —
+  mêmes Range par caractère que `lignesCourriel`, sur le `<span>` des
+  horaires du bloc (`p:has(strong) span` du conteneur, carte mairie ou
+  pied).
+- `PLAGE_HORAIRE` : la plage « nombre + h + tiret + nombre + h ».
+- `attenduHoraires(lignes, scrollWidth, largeur)` : la page ne déborde
+  pas ; le texte rendu, normalisé (insécables redevenant des espaces,
+  lieurs retirés), est la phrase entière ; **aucune borne de coupure ne
+  tombe strictement à l'intérieur d'une plage** ; aucune ligne ne
+  commence par un tiret.
+- 8 tests dans la boucle existante des largeurs : carte mairie et pied,
+  village et littoral, 390 et 1440 px. Le test de carte repose les
+  coordonnées (les tests courriel précédents laissent le courriel long).
+
+Pourquoi des bornes plutôt que « la plage figure entière dans une
+ligne » : la fixture répète une plage (« 9 h – 12 h » y figure deux
+fois). La première version du test exigeait que chaque plage apparaisse
+entière dans une ligne — mesurée trop faible sur le code de 651e31f :
+la carte village 390 px, qui coupe « … : 9 | h – 12 h… », passait, car
+la même plage, intacte, figure plus loin dans la même ligne
+(« Mercredi : 9 h – 12 h. »). La borne de coupure ne trompe pas : une
+coupure est fautive si et seulement si elle tombe strictement à
+l'intérieur d'une plage de la phrase complète.
+
+### Rouge avant (composants de 651e31f reposés, puis git checkout --)
+
+Le mode série saute les tests qui suivent un échec : quatre passages
+filtrés couvrent les 8 casettes. (Piège de filtrage : `--grep-invert
+1440` exclut aussi le nom de fichier suites-1440 — inverser sur le
+fragment de titre « à 1440 px ».)
+
+Run A — `E2E_PORT=3000 npx playwright test suites-1440 -g "horaires"` :
+
+```
+  ✘ village 390 px, horaires de la carte mairie
+  ✓ littoral 390 px, horaires de la carte mairie
+  ✘ littoral 390 px, horaires du pied
+  2 failed, 1 passed (12.1s)
+    Error: la coupure 1 tombe dans la plage « 9 h – 12 h » : ["Lundi, mardi, jeudi, vendredi : 9 ","h – 12 h, 14 h – 17 h. Mercredi : 9 h – 12 h."]
+    Error: la coupure 1 tombe dans la plage « 9 h – 12 h » : ["Lundi, mardi, jeudi, vendredi : 9 h ","– 12 h, 14 h – 17 h. Mercredi : 9 h – 12 h."]
+```
+
+Run B — idem `--grep-invert "à 390 px"` :
+
+```
+  ✘ village 1440 px, horaires de la carte mairie
+  ✘ littoral 1440 px, horaires de la carte mairie
+  2 failed
+    Error: la coupure 1 tombe dans la plage « 9 h – 12 h » : ["Lundi, mardi, jeudi, vendredi : 9 h – 12 ","h, 14 h – 17 h. Mercredi : 9 h – 12 h."]
+    Error: la coupure 1 tombe dans la plage « 14 h – 17 h » : ["Lundi, mardi, jeudi, vendredi : 9 h – 12 h, 14 h ","– 17 h. Mercredi : 9 h – 12 h."]
+```
+
+Run C — `-g "horaires du pied" --grep-invert "à 390 px"` :
+
+```
+  ✓ village 1440 px, horaires du pied
+  ✘ littoral 1440 px, horaires du pied
+  1 failed, 1 passed (8.6s)
+    Error: la coupure 1 tombe dans la plage « 14 h – 17 h » : ["Lundi, mardi, jeudi, vendredi : 9 h – 12 h, 14 h – 17 ","h. Mercredi : 9 h – 12 h."]
+```
+
+Run D — `-g "horaires du pied" --grep-invert "à 1440 px"` :
+
+```
+  ✘ village 390 px, horaires du pied
+  ✘ littoral 390 px, horaires du pied
+  2 failed
+    Error: la coupure 1 tombe dans la plage « 9 h – 12 h » : ["Lundi, mardi, jeudi, vendredi : 9 ","h – 12 h, 14 h – 17 h. Mercredi : 9 h – 12 h."]
+    Error: la coupure 1 tombe dans la plage « 9 h – 12 h » : ["Lundi, mardi, jeudi, vendredi : 9 h ","– 12 h, 14 h – 17 h. Mercredi : 9 h – 12 h."]
+```
+
+Bilan : **6 casettes rouges sur 8** — exactement les 6 fautives de la
+mesure avant (tâche B). Les 2 casettes vertes avant correction (village
+1440 pied, littoral 390 carte) coupent à la virgule entre deux plages :
+coupure légitime, rien à y corriger — leur test est vert avant et après.
+
+### Vert après (composants restaurés)
+
+`E2E_PORT=3000 npx playwright test suites-1440` :
+
+```
+  24 passed (26.9s)
+```
+
+`tsc --noEmit` : rien ; `eslint` sur le spec : rien.
