@@ -35,3 +35,78 @@ Repérages complémentaires (grep, une fois) :
 ## Journal
 
 - (ce commit) — squelette de ces notes (ancres vérifiées, cadre).
+
+## Tâche A — les specs ne dépendent plus de l'amorçage
+
+### Ce qui a changé
+
+- `tests/helpers/evenements.ts` (nouveau) : `creerEvenements` (POST datés de
+  `Date.now() + jours`, fin à +3 h, `lieu` posé) et `supprimerEvenements`
+  (recherche par titre `draft=true&limit=100`, DELETE puis GET dont le 404 est
+  exigé) — appelés depuis le navigateur comme les `api()` des specs (cookie de
+  session + CSRF).
+- `gabarits-conformite.e2e.spec.ts` : le `beforeAll` retire un éventuel résidu
+  d'un passage interrompu puis crée deux événements (+3 et +10 J, titres
+  « (suite conformité) ») ; l'`afterAll` les supprime (GET 404 vérifié).
+- `littoral-captures`, `village-captures`, `gabarits-captures` : leur boucle de
+  création devient `creerEvenements(...)` ; le filtre `evenements` de
+  `nettoyer()` devient `supprimerEvenements(...)` (suppression maintenant
+  vérifiée par GET 404) ; `crees.evenements` (poussé, jamais lu) disparaît.
+  Le seed (`src/seed/contenu-demo.ts`) et `src/lib/contenu.ts` ne bougent pas.
+
+### Preuve (sorties réelles, base de dév du worktree)
+
+1. Lecture avant touche (spec jetable, GET authentifié) — dates d'origine
+   notées :
+
+   ```
+   EVT 1 Marché de printemps | debut=2026-10-23T09:22:35.379Z fin=2026-10-23T15:22:35.379Z | AVENIR
+   EVT 2 Conseil municipal (séance publique) | debut=2026-10-23T09:22:35.383Z fin=2026-10-23T11:22:35.383Z | AVENIR
+   ```
+
+2. PATCH authentifié des deux événements de démo à -40/-39 J (`PATCHES AU
+   PASSE (-40/-39 J)`), puis `gabarits-conformite` **sans création
+   d'événements** (état du fichier avant ce changement) :
+
+   ```
+     2 failed
+       [chromium] › tests/e2e/gabarits-conformite.e2e.spec.ts:242:5 › Suite de conformité — village › 1 et 2 — accueil 200, sections dans l’ordre du gabarit, rien hors de l’origine, aucun script ajouté
+       [chromium] › tests/e2e/gabarits-conformite.e2e.spec.ts:242:5 › Suite de conformité — littoral › 1 et 2 — accueil 200, sections dans l’ordre du gabarit, rien hors de l’origine, aucun script ajouté
+     12 did not run
+   ```
+
+   Échec sur `expect(rendues).toEqual(gabarit.accueil.map((s) => s.section))`
+   (l. 266 du fichier d'alors) : sans événement à venir, la section `agenda`
+   ne rend plus — la dépendance à l'amorçage que la tâche vise.
+
+3. Même base, événements de démo toujours au passé, `gabarits-conformite`
+   **avec la création par la spec** :
+
+   ```
+     14 passed (26.4s)
+   ```
+
+4. Aucun résidu de test en base (GET, toute la collection, `draft=true`) :
+
+   ```
+   EVENEMENTS EN BASE : 2
+     2 Conseil municipal (séance publique)
+     1 Marché de printemps
+   ```
+
+5. Dates d'origine rétablies par PATCH, vérifiées par GET :
+
+   ```
+   EVT 1 Marché de printemps | debut=2026-10-23T09:22:35.379Z fin=2026-10-23T15:22:35.379Z | AVENIR
+   EVT 2 Conseil municipal (séance publique) | debut=2026-10-23T09:22:35.383Z fin=2026-10-23T11:22:35.383Z | AVENIR
+   ```
+
+6. Suites de captures refactorées :
+
+   ```
+     12 passed (52.6s)
+   ```
+
+- (ce commit) — tâche A : helper `evenements`, `gabarits-conformite` crée et
+  supprime ses événements, les trois suites de captures passent par le même
+  helper (suppression vérifiée 404).
