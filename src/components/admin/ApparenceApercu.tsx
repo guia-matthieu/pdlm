@@ -4,7 +4,7 @@ import { useAuth, useDocumentInfo, useField, useFormFields } from '@payloadcms/u
 import { useEffect, useState } from 'react'
 
 import type { UtilisateurAcces } from '@/access/roles'
-import { peutApercevoir } from '@/lib/apercu'
+import { peutApercevoir } from '@/lib/apercu-acces'
 import { accords, DEFAUTS, deriver, type CleForcee, type Forcees } from '@/lib/couleurs'
 
 /** I24 : la seule écriture d’une couleur acceptée (même forme que Communes.ts). */
