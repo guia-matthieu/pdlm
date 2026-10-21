@@ -89,7 +89,24 @@ Taille, graisse, famille, couleur, marges et interligne : identiques à
 l'`h1` de l'agenda du même gabarit. Le rendu n'est pas cassé — aucun fichier
 `a-decider-pages-titre-h1.md` nécessaire.
 
+## Vérification finale (commit de clôture)
+
+- `npm run lint` : `✖ 45 problems (0 errors, 45 warnings)` — warnings
+  préexistants ; `npx eslint` sur les quatre fichiers touchés : sortie vide
+  (exit 0).
+- `npm run typecheck` : sortie vide (exit 0).
+- `npm run test:unit` : `Tests 308 passed (308)` (dont les 3 de
+  `tests/unit/blocs.spec.ts`).
+- `E2E_PORT=3000 npx playwright test gabarits-conformite frontend focus
+  pages-titre-h1` : `25 passed (54.8s)`.
+- Écritures en base : gabarit de saint-ex composé par PATCH puis restauré
+  dans chaque spec (aprèsAll), restitution vérifiée par GET (`gabarit
+  restauré`). Aucune autre écriture.
+- `git status --short` vide ; serveur de dev arrêté (`lsof -i :3000` vide).
+- `src/payload-types.ts` n'a pas changé (aucune regeneration nécessaire).
+
 ## Journal
 
 - `ec48151` — code + fonction pure + tests, preuves avant/après ci-dessus.
-- (ce commit) — captures des deux gabarits et mesure de cohérence des styles.
+- `e71b241` — captures des deux gabarits et mesure de cohérence des styles.
+- (ce commit) — vérification finale et clôture.
