@@ -109,7 +109,46 @@ Pièges rencontrés (pour la revue) :
 
 ## Étape 2 — générateur `src/lib/nomenclature.ts`
 
-À venir.
+Fonctions pures, aucune dépendance à Payload ni au réseau (décision du brief) :
+
+- `etiquetteDomaine(nom)` — transcription ANCT : minuscules, NFD puis retrait
+  des accents combinants, espaces/apostrophes/tirets réduits à un tiret,
+  tirets de bord coupés. Rend `null` si le résultat n'est pas purement ASCII
+  `a-z0-9-` : **aucun nom IDN n'est jamais proposé** (« Nœux-les-Mines » →
+  aucune forme, pas de `xn--`).
+- `formesRecommandees(nom, codeDepartement, homonyme)` — rend un tableau de
+  rangs (tableaux) : `nom`, `mairie-nom`, `ville-nom` en `.fr`, le geoTLD du
+  département **dans le même rang** (à égalité, jamais après), puis la forme
+  `nom<département>` en dernier rang seulement si homonyme. Département absent
+  ou illisible : `.fr` seul et pas de forme homonyme (fabriquer
+  « quimperXYZ.fr » serait faux). Rend `[]` si le nom ne se transcrit pas.
+- `departementDuCodeInsee(codeInsee)` — 2 chiffres, `2A`/`2B`, ou 3 chiffres
+  pour l'outre-mer (`974`) ; `null` si absent/illisible. Sert à déduire le
+  geoTLD du champ `codeInsee` sans ressaisie.
+- geoTLD (recopiés du § 2) : `.bzh` (22, 29, 35, 56, 44), `.corsica` (2A, 2B),
+  `.alsace` (67, 68).
+
+Tests (`tests/unit/nomenclature.spec.ts`, style `siret.spec.ts`), rouge puis
+vert :
+
+```
+rouge : Test Files 1 failed — Failed to resolve import "@/lib/nomenclature"
+        Tests  no tests
+vert  : Test Files  1 passed (1)
+        Tests  14 passed (14)
+```
+
+Couverture exigée par le brief : Quimper/29 (`.fr`+`.bzh` à égalité),
+L'Île-Rousse/2B (`.corsica` à égalité, apostrophe → tiret),
+Saint-Jean-de-Luz/64 (`.fr` seul), homonymes (42 et 2A, dernier rang seulement
+si homonyme), Saint-Étienne (accent parti), aucune forme IDN (œ + garde
+`/^[\x20-\x7E]+$/` sur toutes les formes proposées).
+
+Deux corrections en cours de route : ma première assertion attendait
+« saint-lô » accentué (la transcription est ASCII : « saint-lo »), et la regex
+Corse `[12]ab` exigeait trois caractères au lieu de `[12][ab]` — les tests
+l'ont attrapé immédiatement.
+
 
 ## Étape 3 — `evaluerDomaine` (signalement I35, jamais bloquant)
 
