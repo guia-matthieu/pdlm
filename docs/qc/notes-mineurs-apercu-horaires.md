@@ -90,3 +90,14 @@ supprimé) :
 
 L'aperçu n'est pas cassé : la page s'affiche encadrée, polices et couleurs
 comprises (visible sur la capture). Pas de fichier « à décider ».
+
+## C. `importMap.js` — sortie du générateur
+
+`npm run generate:importmap` : « No new imports found, skipping writing
+import map ». Pour éprouver la forme aussi (le saut d'écriture ne compare
+que les imports), le fichier a été supprimé puis le générateur relancé :
+« Writing import map to …/admin/importMap.js ». `git diff --stat` sur
+`src/app/(payload)/admin/importMap.js` : **aucune différence** — le fichier
+de la branche est octet pour octet la sortie du générateur (le reformatage
+de la tâche 9 est déjà la forme générée). Rien à garder ni à changer, aucune
+édition à la main.
