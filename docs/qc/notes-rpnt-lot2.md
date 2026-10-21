@@ -304,4 +304,32 @@ Après corrections : lint 0 avertissement, `tsc --noEmit` 0 erreur.
 
 ## Étape 5 — vérification finale
 
-À venir.
+Vérifications du 21/10, chaque commande avec son env en ligne de commande
+(le worktree n'a pas de `.env`) : unit sur la base dédiée `pdlm_rpnt_test`,
+int et e2e selon l'environnement décrit aux étapes précédentes.
+
+```
+npm run lint                  → 0 erreur, 0 avertissement
+npm run typecheck             → 0 erreur (tsc --noEmit, sortie vide)
+npm run test:unit             → Test Files 32 passed (32)
+                                Tests 317 passed (317)
+npm run test:int              → Test Files 26 passed (26)
+                                Tests 236 passed (236)
+E2E_PORT=3000 npm run test:e2e → 80 passed, 6 skipped,
+                                1 failed + 3 did not run
+```
+
+Le seul échec e2e est externe au lot 2 : `gabarits-captures.e2e.spec.ts`
+(tâche 10) téléverse en `beforeAll` des photos de maquette volontairement
+hors dépôt (`docs/recherche/`, exclu par `.git/info/exclude`, 0 fichier
+suivi dans tout l'historique) — absentes de tout worktree neuf. La garde de
+saut du fichier ne peut pas s'exécuter (elle est dans les corps de test),
+d'où 1 failed + 3 did not run au lieu de 4 skipped ; `littoral-captures`,
+face aux mêmes images absentes, saute proprement (c'est l'essentiel des
+6 skipped). Mesures, options et recommandation : `bloque-rpnt-lot2.md`.
+Aucun test e2e ne référence le lot 2
+(`grep -rln 'nomenclature\|codeInsee' tests/e2e/` → vide).
+
+Nettoyage de fin : script jetable de capture supprimé, serveur de dev
+arrêté (`lsof -i :3000` vide), base de dev restaurée et vérifiée (étape 4),
+`git status --short` vide.
