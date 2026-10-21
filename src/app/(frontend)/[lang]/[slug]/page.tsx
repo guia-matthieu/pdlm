@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { ContenuEnLangue } from '@/components/ContenuEnLangue'
 import { RenduBlocs } from '@/components/RenduBlocs'
 import { adressesAlternatives, cheminLangue } from '@/lib/adresses'
+import { aUnBlocHero } from '@/lib/blocs'
 import {
   basePlateforme,
   domainesCommune,
@@ -46,10 +47,17 @@ export default async function PageGenerique({ params }: Props) {
   const fr = await pageParSlug(ctx.site.commune.id, slug)
   if (!fr) notFound()
   const { doc, langue } = await versionEnLangue('pages', ctx.site.commune.id, fr, ctx.langue)
+  const blocs = doc.blocs ?? []
   return (
     <ContenuEnLangue langueContenu={langue} langue={ctx.langue} t={ctx.t}>
+      {/* Un bloc hero porte déjà le h1 : pas de titre de page dans ce cas. */}
+      {!aUnBlocHero(blocs) && (
+        <section className="bloc bloc-texte">
+          <h1>{doc.titre}</h1>
+        </section>
+      )}
       <RenduBlocs
-        blocs={doc.blocs ?? []}
+        blocs={blocs}
         lien={(c) => cheminLangue(c, ctx.langue, ctx.site.langueRacine)}
       />
     </ContenuEnLangue>

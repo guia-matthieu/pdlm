@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 
+import { creerEvenements, supprimerEvenements } from '../helpers/evenements'
 import { connecterAdmin } from '../helpers/login'
 
 /**
@@ -154,7 +155,7 @@ test.describe.serial('Captures du gabarit Village', () => {
   let origine: Record<string, unknown>
   let actusDemo: Array<{ id: number; image?: number | null }>
   let tuiles: Array<Record<string, unknown>>
-  const crees = { media: [] as number[], actualites: [] as number[], evenements: [] as number[] }
+  const crees = { media: [] as number[], actualites: [] as number[] }
 
   const patchCommune = (corps: unknown) =>
     api(page, `/api/communes/${idCommune}`, json('PATCH', corps))
@@ -163,9 +164,6 @@ test.describe.serial('Captures du gabarit Village', () => {
   async function nettoyer() {
     const filtres = {
       actualites: `where[slug][like]=${MARQUE}`,
-      evenements: EVENEMENTS.map(
-        (e, i) => `where[titre][in][${i}]=${encodeURIComponent(e.titre)}`,
-      ).join('&'),
       media: `where[alt][like]=${MARQUE}`,
     }
     for (const [collection, filtre] of Object.entries(filtres)) {
@@ -174,6 +172,7 @@ test.describe.serial('Captures du gabarit Village', () => {
         await api(page, `/api/${collection}/${doc.id}`, { method: 'DELETE' })
       }
     }
+    await supprimerEvenements(page, EVENEMENTS.map((e) => e.titre))
   }
 
   test.beforeAll(async ({ browser }) => {
@@ -270,21 +269,7 @@ test.describe.serial('Captures du gabarit Village', () => {
       .entries()) {
       await api(page, `/api/actualites/${id}`, json('PATCH', { image: images[i] }))
     }
-    for (const e of EVENEMENTS) {
-      const debut = Date.now() + e.jours * J
-      const { doc } = await api(
-        page,
-        '/api/evenements',
-        json('POST', {
-          tenant: idCommune,
-          titre: e.titre,
-          dateDebut: new Date(debut).toISOString(),
-          dateFin: new Date(debut + 3 * 3600_000).toISOString(),
-          lieu: e.lieu,
-        }),
-      )
-      crees.evenements.push(doc.id)
-    }
+    await creerEvenements(page, idCommune, EVENEMENTS)
   })
 
   test.afterAll(async () => {
