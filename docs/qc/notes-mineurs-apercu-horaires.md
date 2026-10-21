@@ -63,3 +63,30 @@ propre). Options pour trancher :
    conception, à décider.
 3. Découper les chunks admin (config webpack) — fragile, n'économise rien tant
    que la frise charge le registre.
+
+## B. Iframe d'aperçu — `sandbox="allow-same-origin"`
+
+### Ce qui a changé (commit `Aperçu — iframe de l'aperçu posée en sandbox`)
+
+`ApparenceApercu.tsx` l. 161 : l'iframe reçoit
+`sandbox="allow-same-origin"` (sans `allow-scripts` : l'aperçu est rendu côté
+serveur). Lien de la spec HTML vérifié : same-origin conservé, scripts et
+formulaires coupés.
+
+### Vérification sur capture
+
+`docs/qc/captures-mineurs-apercu-horaires/apercu-sandbox-1440.png` — onglet
+Apparence de saint-ex (gabarit « Village », sélecteur 1440 px), navigateur
+Chromium 1440×900, serveur de dev port 3000. Aucune écriture en base (lecture
+de la fiche seule, aucun champ touché, aucun verrou posé).
+
+Mesures dans l'iframe au moment de la capture (script Playwright jetable,
+supprimé) :
+
+- attribut `sandbox` rendu : `allow-same-origin` ;
+- titre du document : « Aperçu de l'apparence », `h1` « Saint-Exupéry-les-Bains » ;
+- police calculée du `h1` : `Bricolage, "Atkinson Next", system-ui, sans-serif` ;
+- couleur calculée : `rgb(14, 34, 42)`.
+
+L'aperçu n'est pas cassé : la page s'affiche encadrée, polices et couleurs
+comprises (visible sur la capture). Pas de fichier « à décider ».

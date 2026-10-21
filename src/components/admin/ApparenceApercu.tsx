@@ -158,7 +158,8 @@ export function ApparenceApercu() {
           </div>
           <div className="viseur-apercu" data-largeur={largeur}>
             {urlApresRebond !== null && (
-              <iframe src={urlApresRebond} title="Aperçu du site public" />
+              // Pas d'allow-scripts : l'aperçu est rendu côté serveur.
+              <iframe src={urlApresRebond} title="Aperçu du site public" sandbox="allow-same-origin" />
             )}
           </div>
           <p className="field-description">
