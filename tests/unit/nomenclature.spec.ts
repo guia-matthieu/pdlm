@@ -19,10 +19,17 @@ describe('etiquetteDomaine — transcription ANCT d’un nom', () => {
     expect(etiquetteDomaine('Arradon')).toBe('arradon')
   })
 
-  it('jamais d’IDN : un nom sans équivalent ASCII ne transcrit pas', () => {
-    // « œ » ne se décompose pas en ASCII (NFD) : aucune forme proposée,
-    // plutôt qu’un nom punycode (xn--…).
-    expect(etiquetteDomaine('Nœux-les-Mines')).toBeNull()
+  it('les ligatures se translittèrent : œ→oe, æ→ae', () => {
+    expect(etiquetteDomaine('Œuilly')).toBe('oeuilly') // communes réelles 02565 et 51410
+    expect(etiquetteDomaine('La Gaubretière')).toBe('la-gaubretiere')
+    expect(etiquetteDomaine('Œuilly-sur-Marne')).toBe('oeuilly-sur-marne')
+  })
+
+  it('jamais d’IDN : hors œ/æ, un signe non ASCII ne transcrit pas', () => {
+    // Une fois œ→oe et æ→ae passés, un nom resté non ASCII n’a pas
+    // d’équivalent : aucune forme proposée, plutôt qu’un punycode (xn--…).
+    expect(etiquetteDomaine('Жуан')).toBeNull()
+    expect(etiquetteDomaine('cerf-œuf²')).toBeNull()
   })
 })
 
@@ -87,9 +94,18 @@ describe('formesRecommandees — formes ANCT, geoTLD à égalité (RPNT § 2)', 
     expect(formesRecommandees('Quimper', '9Z', true)).toHaveLength(3)
   })
 
+  it('Œuilly homonyme (02 et 51 réels) : œ→oe puis nom+département', () => {
+    expect(formesRecommandees('Œuilly', '02', true)).toEqual([
+      ['oeuilly.fr'],
+      ['mairie-oeuilly.fr'],
+      ['ville-oeuilly.fr'],
+      ['oeuilly02.fr'],
+    ])
+  })
+
   it('nom intraduisible : aucune forme, jamais d’IDN', () => {
-    expect(formesRecommandees('Nœux-les-Mines', '62', false)).toEqual([])
-    expect(formesRecommandees('Nœux-les-Mines', '62', true)).toEqual([])
+    expect(formesRecommandees('Жуан', '62', false)).toEqual([])
+    expect(formesRecommandees('Жуан', '62', true)).toEqual([])
   })
 
   it('aucune forme proposée ne contient de punycode', () => {

@@ -35,7 +35,7 @@ const validerCouleur = (v: string | null | undefined) =>
  */
 const validerCodeInsee = (v: string | null | undefined) =>
   !v ||
-  /^(?:\d{5}|2[ABab]\d{3})$/.test(v) ||
+  /^(?:\d{5}|2[AB]\d{3})$/.test(v) ||
   'Code INSEE attendu : 5 chiffres, ou 2A/2B suivis de 3 chiffres (Quimper : 29232, Ajaccio : 2A004)'
 
 /**
@@ -372,6 +372,14 @@ export const Communes: CollectionConfig = {
       label: 'Code INSEE',
       unique: true,
       index: true,
+      // Canonique en MAJUSCULES avant validation et unicité : sinon « 2a004 »
+      // et « 2A004 » coexisteraient malgré l'index unique, et le rapprochement
+      // avec la ligne ANCT échouerait.
+      hooks: {
+        beforeValidate: [
+          ({ value }) => (typeof value === 'string' ? value.toUpperCase() : value),
+        ],
+      },
       validate: validerCodeInsee,
       admin: {
         description:

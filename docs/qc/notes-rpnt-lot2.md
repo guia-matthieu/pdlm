@@ -149,6 +149,41 @@ Deux corrections en cours de route : ma première assertion attendait
 Corse `[12]ab` exigeait trois caractères au lieu de `[12][ab]` — les tests
 l'ont attrapé immédiatement.
 
+### Relecture des commits 8a760ab et 98c80a2 — trois corrections
+
+1. **Casse du code INSEE** (8a760ab) : la regex acceptait `2a004` minuscule,
+   donc `2a004` et `2A004` coexistaient malgré l'index unique, et le
+   rapprochement avec la ligne ANCT échouerait. Corrigé par un
+   `hooks.beforeValidate` champ qui met en MAJUSCULES avant validation ET
+   unicité ; la regex est resserrée sur `2[AB]` (la minuscule n'y arrive
+   plus). Test int ajouté : `2a004` stocké `2A004`, puis `2A004` sur l'autre
+   commune refusé `/unique/` — rouge (`expected '2a004' to be '2A004'`)
+   avant le hook, vert après. Anciennes lignes éventuelles en minuscules :
+   aucune (migration toute récente, aucune saisie réelle).
+2. **Mandataire** (8a760ab) : test int ajouté — refus 403, comme le rédacteur
+   (même accès collection `update`). Passe d'emblée : preuve ajoutée, pas
+   régression corrigée (l'accès préexistait), même statut que le test
+   rédacteur à l'étape 1.
+3. **Ligatures** (98c80a2) : `etiquetteDomaine` rendait `null` pour
+   « Œuilly » (communes réelles 02565 et 51410, homonymes) — aucune
+   proposition. Translittération `œ→oe`, `æ→ae` AVANT le test ASCII (NFD ne
+   les décompose pas). Tests unitaires ajoutés : `Œuilly` → `oeuilly.fr` …
+   `oeuilly02.fr` (homonyme, 02) ; l'ancien garde-fou « Nœux-les-Mines →
+   aucune forme » est remplacé : `noeux-les-mines.fr` est bien la forme
+   réelle, et l'absence d'IDN reste prouvée par des signes hors latin
+   (`Жуан`, `²`). Rouge (`expected null to be 'oeuilly'`) avant, vert après.
+
+Sorties réelles :
+
+```
+unitaire rouge : Tests  2 failed | 14 passed (16)
+unitaire vert  : Tests  16 passed (16)
+int      rouge : Tests  1 failed |  7 passed (8)   (normalisation ; mandataire déjà vert)
+int      vert  : Tests   8 passed (8)
+typecheck      : tsc --noEmit, aucune erreur
+```
+
+
 
 ## Étape 3 — `evaluerDomaine` (signalement I35, jamais bloquant)
 

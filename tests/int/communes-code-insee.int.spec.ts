@@ -114,12 +114,43 @@ describe('Communes — code INSEE (RPNT § 1)', () => {
     })
     expect(c.codeInsee).toBe('29232')
   })
+
+  it('normalise en majuscules : 2a004 stocké 2A004, l’unicité ignore la casse', async () => {
+    // Sans normalisation, « 2a004 » et « 2A004 » coexisteraient malgré
+    // l’unicité, et le rapprochement avec la ligne ANCT échouerait.
+    const pose = await payload.update({
+      collection: 'communes',
+      id: communeB,
+      data: { codeInsee: '2a004' }, // distinct du « 2B134 » de communeA
+      overrideAccess: true,
+      depth: 0,
+    })
+    expect(pose.codeInsee).toBe('2A004')
+    await refus(
+      payload.update({
+        collection: 'communes',
+        id: communeA,
+        data: { codeInsee: '2A004' }, // pris par communeB, à la casse près
+        overrideAccess: true,
+      }),
+      'codeInsee',
+      /unique/i,
+    )
+    // Ménage : communeB repart sans code, communeA garde « 2B134 ».
+    await payload.update({
+      collection: 'communes',
+      id: communeB,
+      data: { codeInsee: null },
+      overrideAccess: true,
+    })
+  })
 })
 
 describe('droits — code INSEE (opérateur et admin, personne d’autre)', () => {
   const MDP_TEST = ['motdepasse', '1234'].join('-')
   let adminA: User
   let redacteurA: User
+  let mandataireA: User
   let operateur: User
 
   // Rejouable après une exécution interrompue : purge par critère, pas par id.
@@ -133,7 +164,7 @@ describe('droits — code INSEE (opérateur et admin, personne d’autre)', () =
 
   beforeAll(async () => {
     await purger()
-    const mkUser = (suffixe: string, roles: Array<'admin' | 'redacteur'>) =>
+    const mkUser = (suffixe: string, roles: Array<'admin' | 'redacteur' | 'mandataire'>) =>
       payload.create({
         collection: 'users',
         data: {
@@ -146,6 +177,7 @@ describe('droits — code INSEE (opérateur et admin, personne d’autre)', () =
       })
     adminA = await mkUser('admin-a', ['admin'])
     redacteurA = await mkUser('redacteur-a', ['redacteur'])
+    mandataireA = await mkUser('mandataire-a', ['mandataire'])
     operateur = await payload.create({
       collection: 'users',
       data: {
@@ -162,8 +194,9 @@ describe('droits — code INSEE (opérateur et admin, personne d’autre)', () =
     await purger()
   })
 
-  // Le rédacteur (comme le mandataire, même accès collection, prouvé dans
-  // communes-apparence et mandataire-i36) ne touche pas la fiche commune.
+  // Rédacteur et mandataire : même accès collection (update limité à
+  // l’opérateur et aux admins de la commune), prouvé aussi dans
+  // communes-apparence et mandataire-i36.
   it('le rédacteur ne modifie pas le code INSEE (refus 403)', async () => {
     await refusAcces(
       payload.update({
@@ -172,6 +205,18 @@ describe('droits — code INSEE (opérateur et admin, personne d’autre)', () =
         data: { codeInsee: '29000' },
         overrideAccess: false,
         user: redacteurA,
+      }),
+    )
+  })
+
+  it('le mandataire ne modifie pas non plus le code INSEE (refus 403)', async () => {
+    await refusAcces(
+      payload.update({
+        collection: 'communes',
+        id: communeA,
+        data: { codeInsee: '29000' },
+        overrideAccess: false,
+        user: mandataireA,
       }),
     )
   })

@@ -21,16 +21,19 @@ const departementValide = (departement: string): boolean =>
 
 /**
  * Transcrit un nom de commune en étiquette de domaine : minuscules, sans
- * accent, espaces/apostrophes/tirets réduits à un tiret unique, sans tiret de
- * bord. Rend `null` quand aucune écriture ASCII n'existe : on ne proposera
- * jamais de nom IDN (punycode).
+ * accent (ligatures œ→oe, æ→ae), espaces/apostrophes/tirets réduits à un
+ * tiret unique, sans tiret de bord. Rend `null` quand aucune écriture ASCII
+ * n'existe : on ne proposera jamais de nom IDN (punycode).
  */
 export function etiquetteDomaine(nom: string): string | null {
   const sansAccents = nom
     .trim()
     .toLowerCase()
+    // Les ligatures ne se décomposent pas (NFD) : translittérées d'abord
+    // (Œuilly → oeuilly, communes réelles 02565 et 51410).
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae')
     .normalize('NFD')
-    // Seuls les accents combinants partent : œ ou ß ne se décomposent pas.
     .replace(/\p{M}/gu, '')
   const etiquette = sansAccents
     .replace(/[\s'’-]+/g, '-')
