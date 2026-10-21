@@ -1,3 +1,5 @@
+Tranché le 21/10 : option 1, branche `pages-titre-h1`
+
 # Accessibilité — à décider : les pages de contenu n'ont pas de `h1`
 
 Constat arrêté pendant l'audit axe du site public (brief 2026-10-17,
