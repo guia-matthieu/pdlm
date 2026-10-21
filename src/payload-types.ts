@@ -170,6 +170,10 @@ export interface Commune {
     email?: string | null;
   };
   /**
+   * Code INSEE du Code officiel géographique, pas le code postal (Quimper : 29232, pas 29000). À chercher sur l’API Découpage administratif : https://geo.api.gouv.fr/communes?nom=<nom>&fields=nom,code,codesPostaux (champ « code »). pdlm ne fait aucun appel ni téléchargement pour ce champ.
+   */
+  codeInsee?: string | null;
+  /**
    * Horaires de la mairie (texte libre en v0.1).
    */
   horaires?: string | null;
@@ -276,8 +280,6 @@ export interface Media {
    * Obligatoire en français pour l’accessibilité (RGAA). Traduire dans chaque langue du site.
    */
   alt?: string | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -689,8 +691,6 @@ export interface Document {
    * Seule une traduction validée est montrée au public dans cette langue.
    */
   traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -895,6 +895,7 @@ export interface CommunesSelect<T extends boolean = true> {
         telephone?: T;
         email?: T;
       };
+  codeInsee?: T;
   horaires?: T;
   reseaux?:
     | T
@@ -1055,8 +1056,6 @@ export interface MandatsSelect<T extends boolean = true> {
 export interface MediaSelect<T extends boolean = true> {
   tenant?: T;
   alt?: T;
-  prefix?: T;
-  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1271,8 +1270,6 @@ export interface DocumentsSelect<T extends boolean = true> {
   dateDocument?: T;
   dureeConservation?: T;
   traduction?: T;
-  prefix?: T;
-  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;

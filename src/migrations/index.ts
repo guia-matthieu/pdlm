@@ -1,11 +1,12 @@
-import * as migration_20260920_154554 from './20260920_154554'
-import * as migration_20260921_161136_ajout_instantanes_journal from './20260921_161136_ajout_instantanes_journal'
-import * as migration_20260921_212414_couleur_par_defaut_neutre from './20260921_212414_couleur_par_defaut_neutre'
-import * as migration_20260923_165520_mesure_audience from './20260923_165520_mesure_audience'
-import * as migration_20260925_182417_multilingue from './20260925_182417_multilingue'
-import * as migration_20261001_171239_mandats from './20261001_171239_mandats'
-import * as migration_20261004_144904_gabarits_couleurs from './20261004_144904_gabarits_couleurs'
-import * as migration_20261012_075826_tailles_heros_panorama from './20261012_075826_tailles_heros_panorama'
+import * as migration_20260920_154554 from './20260920_154554';
+import * as migration_20260921_161136_ajout_instantanes_journal from './20260921_161136_ajout_instantanes_journal';
+import * as migration_20260921_212414_couleur_par_defaut_neutre from './20260921_212414_couleur_par_defaut_neutre';
+import * as migration_20260923_165520_mesure_audience from './20260923_165520_mesure_audience';
+import * as migration_20260925_182417_multilingue from './20260925_182417_multilingue';
+import * as migration_20261001_171239_mandats from './20261001_171239_mandats';
+import * as migration_20261004_144904_gabarits_couleurs from './20261004_144904_gabarits_couleurs';
+import * as migration_20261012_075826_tailles_heros_panorama from './20261012_075826_tailles_heros_panorama';
+import * as migration_20261021_150512_rpnt_lot2_code_insee from './20261021_150512_rpnt_lot2_code_insee';
 
 export const migrations = [
   {
@@ -48,4 +49,9 @@ export const migrations = [
     down: migration_20261012_075826_tailles_heros_panorama.down,
     name: '20261012_075826_tailles_heros_panorama',
   },
-]
+  {
+    up: migration_20261021_150512_rpnt_lot2_code_insee.up,
+    down: migration_20261021_150512_rpnt_lot2_code_insee.down,
+    name: '20261021_150512_rpnt_lot2_code_insee'
+  },
+];

@@ -30,6 +30,15 @@ const validerCouleur = (v: string | null | undefined) =>
   !v || /^#[0-9a-fA-F]{6}$/.test(v) || 'Format attendu : #RRGGBB'
 
 /**
+ * RPNT § 1 : code INSEE du Code officiel géographique — 5 chiffres, ou 2A/2B
+ * suivis de 3 chiffres pour la Corse. Facultatif : il n'entrave jamais l'activation.
+ */
+const validerCodeInsee = (v: string | null | undefined) =>
+  !v ||
+  /^(?:\d{5}|2[ABab]\d{3})$/.test(v) ||
+  'Code INSEE attendu : 5 chiffres, ou 2A/2B suivis de 3 chiffres (Quimper : 29232, Ajaccio : 2A004)'
+
+/**
  * Clés des lignes d'une liste de l'accueil (démarches, tuiles). Une ligne sans
  * identifiant est une ligne nouvelle. Modèle : `clesLignes` de `Menus`.
  */
@@ -353,6 +362,21 @@ export const Communes: CollectionConfig = {
         { name: 'telephone', type: 'text', label: 'Téléphone' },
         { name: 'email', type: 'email', label: 'Courriel' },
       ],
+    },
+    {
+      // RPNT § 1 : facultatif, unique quand il est rempli. L'accès `update` de
+      // la collection (opérateur + admin de la commune) suffit à écarter
+      // rédacteur et mandataire : pas d'access au niveau du champ.
+      name: 'codeInsee',
+      type: 'text',
+      label: 'Code INSEE',
+      unique: true,
+      index: true,
+      validate: validerCodeInsee,
+      admin: {
+        description:
+          'Code INSEE du Code officiel géographique, pas le code postal (Quimper : 29232, pas 29000). À chercher sur l’API Découpage administratif : https://geo.api.gouv.fr/communes?nom=<nom>&fields=nom,code,codesPostaux (champ « code »). pdlm ne fait aucun appel ni téléchargement pour ce champ.',
+      },
     },
     {
       name: 'horaires',
