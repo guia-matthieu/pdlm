@@ -1,6 +1,7 @@
-/** Une heure : « 9 h », « 9h », « 9 h 30 » — le « h » seul (jamais
- *  « heures »), minutes optionnelles, espaces sécables ou déjà insécables. */
-const HEURE = /\d+[ \u00A0]?h\b(?:[ \u00A0]?\d{1,2}(?!\d))?/
+/** Une heure : « 9 h », « 9h », « 9 h 30 », « 9h30 » — le « h » seul (jamais
+ *  « heures »), minutes optionnelles, collées ou espacées. Après le « h » :
+ *  des minutes, ou rien d'alphabétique (le « e » de « heures »). */
+const HEURE = /\d+[ \u00A0]?h(?:(?=[ \u00A0]?\d)[ \u00A0]?\d{1,2}(?!\d)|(?!\w))/
 
 /** Une plage : deux heures autour d'un tiret (court, long ou trait
  *  d'union), les espaces autour du tiret étant optionnels. */
@@ -13,11 +14,11 @@ const PLAGE = new RegExp(`${HEURE.source}[ \u00A0]?[–—-][ \u00A0]?${HEURE.so
  * le nombre et le « h » comme autour du tiret. L'insécable ne referme
  * qu'une des deux coutures du tiret : après un tiret, la coupure devant une
  * insécable reste permise (UAX #14, règle LB12a), d'où le lieur de mots
- * (U+2060) posé après le tiret. Une plage sans espace interne (« 9h-12h »)
- * n'a rien à protéger et ressort inchangée.
+ * (U+2060) posé après le tiret — même sans espace interne (« 9h-12h ») :
+ * UAX #14 permet aussi la coupure après un tiret, espaces ou non.
  */
 export function horairesInsecables(texte: string): string {
   return texte.replace(PLAGE, (plage) =>
-    plage.replace(/ /g, '\u00A0').replace(/([–—-])\u00A0/g, '$1\u2060\u00A0'),
+    plage.replace(/ /g, '\u00A0').replace(/([–—-])(\u00A0)?/g, '$1\u2060$2'),
   )
 }

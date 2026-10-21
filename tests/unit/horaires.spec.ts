@@ -16,8 +16,8 @@ describe('horairesInsecables', () => {
     expect(horairesInsecables('9 h - 12 h')).toBe('9\u00A0h\u00A0-\u2060\u00A012\u00A0h')
   })
 
-  it('laisse une plage sans espace interne telle quelle (rien à protéger)', () => {
-    expect(horairesInsecables('9h-12h')).toBe('9h-12h')
+  it('lie aussi le tiret court d’une plage sans espace interne', () => {
+    expect(horairesInsecables('9h-12h')).toBe('9h-\u206012h')
   })
 
   it('ne touche que les plages dans une phrase d’horaires', () => {
@@ -28,6 +28,15 @@ describe('horairesInsecables', () => {
     // La ponctuation garde ses espaces sécables.
     expect(horairesInsecables(horaires)).not.toContain(',\u00A014')
     expect(horairesInsecables(horaires)).not.toContain('.\u00A0Mercredi')
+  })
+
+  it('reconnaît les minutes collées et lie le tiret sans espace', () => {
+    expect(horairesInsecables('9h30–12h')).toBe('9h30–\u206012h')
+    expect(horairesInsecables('9h–12h')).toBe('9h–\u206012h')
+    // Même plage, espaces sécables : déjà couverte plus haut, reprise ici.
+    expect(horairesInsecables('9 h 30 – 12 h')).toBe(
+      '9\u00A0h\u00A030\u00A0–\u2060\u00A012\u00A0h',
+    )
   })
 
   it('ne reconnaît pas « heures » comme une heure', () => {

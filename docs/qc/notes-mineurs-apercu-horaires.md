@@ -101,3 +101,46 @@ que les imports), le fichier a été supprimé puis le générateur relancé :
 de la branche est octet pour octet la sortie du générateur (le reformatage
 de la tâche 9 est déjà la forme générée). Rien à garder ni à changer, aucune
 édition à la main.
+
+## D. Plages horaires — minutes collées, lieur sans espace
+
+### Rouge avant la correction
+
+Nouveau test `reconnaît les minutes collées et lie le tiret sans espace`
+(`tests/unit/horaires.spec.ts`) :
+
+```
+AssertionError: expected '9h30–12h' to be '9h30–⁠12h'
+```
+
+Code points rendus par `horairesInsecables` avant correction (script jetable,
+supprimé ; `2013` = tiret long, `2060` attendu, absent) :
+
+```
+9h30–12h -> 39 68 33 30 2013 31 32 68
+9h–12h   -> 39 68 2013 31 32 68
+```
+
+### Ce qui a changé (commit `Horaires — minutes collées et lieur sans espace`)
+
+- `src/lib/horaires.ts`, `HEURE` : `\b` après le « h » remplacé par
+  « des minutes, ou rien d'alphabétique »
+  (`(?:(?=[  ]?\d)[  ]?\d{1,2}(?!\d)|(?!\w))`) — « 9h30 » est
+  reconnu, « 9 heures » ne l'est toujours pas.
+- Remise en forme : `([–—-])( )?` → `$1⁠$2` — le lieur U+2060 est
+  posé après le tiret même sans espace interne (« 9h-12h »), l'insécable
+  éventuelle conservée. Commentaire du module mis en accord.
+- Tests : le nouveau bloc (les deux cas du brief, plus « 9 h 30 – 12 h »
+  déjà couvert plus haut) ; l'ancien test « laisse une plage sans espace
+  interne telle quelle » codait le comportement corrigé — son attente
+  devient `9h-12h` → `9h-⁠12h`.
+
+### Vert après
+
+`npx vitest run tests/unit/horaires.spec.ts` : **9 passed** (8 anciens + 1
+nouveau). Code points après correction :
+
+```
+9h30–12h -> 39 68 33 30 2013 2060 31 32 68
+9h–12h   -> 39 68 2013 2060 31 32 68
+```
