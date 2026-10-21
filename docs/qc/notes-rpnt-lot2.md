@@ -187,7 +187,34 @@ typecheck      : tsc --noEmit, aucune erreur
 
 ## Étape 3 — `evaluerDomaine` (signalement I35, jamais bloquant)
 
-À venir.
+Dans `src/lib/nomenclature.ts`, toujours pure. Rend `{ conforme: true }` ou
+`{ conforme: false, critere: 'extension' | 'idn' | 'forme' }`, dans cet ordre
+de jugement :
+
+1. signe hors ASCII imprimable → `idn` (écriture directe : `quimpér.fr`) ;
+2. hôte ASCII mal formé (moins de deux labels, label vide ou mal délimité) →
+   `forme` ;
+3. label `xn--…` → `idn` (écriture punycode), AVANT le jugement d'extension :
+   `xn--quimpr-fva.fr` signale IDN même si `.fr` est accepté ;
+4. dernier label hors liste souveraine du § 1.2 (16 extensions : `.fr`,
+   `.eu`, `.alsace`, `.bzh`, `.corsica`, `.paris`, et les 10 ccTLD
+   d'outre-mer) → `extension`.
+
+**I35 : jamais bloquant.** `grep -rn "evaluerDomaine" src/` ne montre que sa
+définition dans `nomenclature.ts` — aucun `validate`, aucun hook ne l'appelle
+(elle servira à l'affichage admin de l'étape 4).
+
+Tests, rouge puis vert :
+
+```
+rouge : Tests  4 failed | 16 passed (20)   ← fonction inexistante
+vert  : Tests  20 passed (20)
+```
+
+Couverture : conformes `.fr`/`.bzh`/`.corsica`/`.alsace`/`.re`, sous-domaine
+`www.`, casse ignorée ; non conformes `.com`/`.org` (extension), `quimpér.fr`
+et `xn--quimpr-fva.fr` y compris en MAJUSCULES (idn), `sans-point`, `..`,
+`-quimper.fr`, chaîne vide (forme).
 
 ## Étape 4 — affichage admin sous `hostname` (Domaines)
 

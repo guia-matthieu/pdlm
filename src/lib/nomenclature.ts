@@ -91,3 +91,58 @@ export function departementDuCodeInsee(codeInsee: string | null | undefined): st
   }
   return null
 }
+
+// Extensions acceptées par le § 1.2 : le `.fr` souverain, les geoTLD ANCT,
+// le `.eu`, et les ccTLD des territoires français d'outre-mer.
+const EXTENSIONS_ACCEPTEES: ReadonlySet<string> = new Set([
+  'fr',
+  'eu',
+  'alsace',
+  'bzh',
+  'corsica',
+  'paris',
+  're',
+  'yt',
+  'gp',
+  'mq',
+  'gf',
+  'pm',
+  'wf',
+  'tf',
+  'nc',
+  'pf',
+])
+
+// Un label d'hôte ASCII sain : lettres, chiffres, tirets, jamais aux bords.
+const LABEL_SAIN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
+
+/** Signalement I35 : conforme, ou critère précis du non-conforme. */
+export type EvaluationDomaine =
+  | { conforme: true }
+  | { conforme: false; critere: 'extension' | 'idn' | 'forme' }
+
+/**
+ * Dit si un domaine respecte le § 1.2 : extension dans la liste souveraine,
+ * jamais d'IDN — ni en écriture directe (`quimpér.fr`) ni en punycode
+ * (`xn--…`). I35 : cette fonction ne fait que signaler — aucun `validate`
+ * ne doit l'appeler.
+ */
+export function evaluerDomaine(domaine: string): EvaluationDomaine {
+  const valeur = domaine.trim().toLowerCase()
+  // Écriture directe : tout signe hors ASCII imprimable est un IDN.
+  if (/[^\x20-\x7E]/.test(valeur)) {
+    return { conforme: false, critere: 'idn' }
+  }
+  const labels = valeur.split('.')
+  if (labels.length < 2 || labels.some((l) => l.length === 0 || !LABEL_SAIN.test(l))) {
+    return { conforme: false, critere: 'forme' }
+  }
+  // Écriture punycode : chaque label xn-- est un IDN déguisé.
+  if (labels.some((l) => l.startsWith('xn--'))) {
+    return { conforme: false, critere: 'idn' }
+  }
+  if (!EXTENSIONS_ACCEPTEES.has(labels.at(-1) ?? '')) {
+    return { conforme: false, critere: 'extension' }
+  }
+  return { conforme: true }
+}

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   departementDuCodeInsee,
   etiquetteDomaine,
+  evaluerDomaine,
   formesRecommandees,
 } from '@/lib/nomenclature'
 
@@ -112,6 +113,37 @@ describe('formesRecommandees — formes ANCT, geoTLD à égalité (RPNT § 2)', 
     const formes = formesRecommandees("L'Île-Rousse", '2B', true).flat()
     expect(formes.length).toBeGreaterThan(0)
     expect(formes.every((f) => !f.includes('xn--') && /^[\x20-\x7E]+$/.test(f))).toBe(true)
+  })
+})
+
+describe('evaluerDomaine — alerte I35 (§ 1.2), jamais bloquante', () => {
+  it('conformes : .fr, geoTLD ANCT, outre-mer, sous-domaine', () => {
+    expect(evaluerDomaine('quimper.fr')).toEqual({ conforme: true })
+    expect(evaluerDomaine('quimper.bzh')).toEqual({ conforme: true })
+    expect(evaluerDomaine('l-ile-rousse.corsica')).toEqual({ conforme: true })
+    expect(evaluerDomaine('strasbourg.alsace')).toEqual({ conforme: true })
+    expect(evaluerDomaine('saint-denis.re')).toEqual({ conforme: true })
+    expect(evaluerDomaine('www.saint-exupery-les-bains.fr')).toEqual({ conforme: true })
+    expect(evaluerDomaine('QUIMPER.FR')).toEqual({ conforme: true })
+  })
+
+  it('extension hors liste : refusée, critère extension', () => {
+    expect(evaluerDomaine('quimper.com')).toEqual({ conforme: false, critere: 'extension' })
+    expect(evaluerDomaine('quimper.org')).toEqual({ conforme: false, critere: 'extension' })
+    expect(evaluerDomaine('quimper.fr.org')).toEqual({ conforme: false, critere: 'extension' })
+  })
+
+  it('IDN refusé dans les deux écritures, critère idn', () => {
+    expect(evaluerDomaine('quimpér.fr')).toEqual({ conforme: false, critere: 'idn' })
+    expect(evaluerDomaine('xn--quimpr-fva.fr')).toEqual({ conforme: false, critere: 'idn' })
+    expect(evaluerDomaine('XN--QUIMPR-FVA.fr')).toEqual({ conforme: false, critere: 'idn' })
+  })
+
+  it('forme illisible : refusée, critère forme', () => {
+    expect(evaluerDomaine('sans-point')).toEqual({ conforme: false, critere: 'forme' })
+    expect(evaluerDomaine('quimper..fr')).toEqual({ conforme: false, critere: 'forme' })
+    expect(evaluerDomaine('-quimper.fr')).toEqual({ conforme: false, critere: 'forme' })
+    expect(evaluerDomaine('')).toEqual({ conforme: false, critere: 'forme' })
   })
 })
 
