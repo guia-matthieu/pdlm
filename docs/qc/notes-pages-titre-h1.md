@@ -66,6 +66,30 @@ la non-régression.
 Typecheck `npx tsc --noEmit -p .` : sortie vide (exit 0) avant commit ;
 `tests/unit/blocs.spec.ts` : `Tests 3 passed`.
 
+## Captures (commit `Captures — h1 des pages de contenu`)
+
+`docs/qc/captures-pages-titre-h1/vie-municipale-{village,littoral}-{1440,390}.png`
+— haut de page (viewport entier : 1440×900 et 390×844), produites par un spec
+playwright jetable (même méthode que suites-1440 : commune composée par PATCH
+puis restaurée, vérifiée par GET), supprimé après exécution.
+
+Mon outil ne m'a pas affiché ces images visuellement (liens seulement) : le
+relecteur les regardera. La cohérence visuelle a quand même été **mesurée** —
+styles calculés du `h1` de `/vie-municipale` contre celui de `/agenda`, même
+gabarit (spec jetable, supprimé) :
+
+```
+[village] vie-municipale : {"texte":"Vie municipale","fontSize":"57.6px","fontWeight":"800","fontFamily":"Bricolage, \"Atkinson Next\", system-ui, s","color":"rgb(14, 34, 42)","marges":"38.592px / 38.592px","lineHeight":"62.208px"}
+[village] agenda         : {"texte":"Agenda","fontSize":"57.6px","fontWeight":"800","fontFamily":"Bricolage, \"Atkinson Next\", system-ui, s","color":"rgb(14, 34, 42)","marges":"38.592px / 38.592px","lineHeight":"62.208px"}
+[littoral] vie-municipale : {"texte":"Vie municipale","fontSize":"57.8px","fontWeight":"400","fontFamily":"\"Source Serif 4\", Georgia, \"Times New Ro","color":"rgb(22, 22, 22)","marges":"38.726px / 38.726px","lineHeight":"61.268px"}
+[littoral] agenda         : {"texte":"Agenda","fontSize":"57.8px","fontWeight":"400","fontFamily":"\"Source Serif 4\", Georgia, \"Times New Ro","color":"rgb(22, 22, 22)","marges":"38.726px / 38.726px","lineHeight":"61.268px"}
+```
+
+Taille, graisse, famille, couleur, marges et interligne : identiques à
+l'`h1` de l'agenda du même gabarit. Le rendu n'est pas cassé — aucun fichier
+`a-decider-pages-titre-h1.md` nécessaire.
+
 ## Journal
 
-- (ce commit) — code + fonction pure + tests, preuves avant/après ci-dessus.
+- `ec48151` — code + fonction pure + tests, preuves avant/après ci-dessus.
+- (ce commit) — captures des deux gabarits et mesure de cohérence des styles.
