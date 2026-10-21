@@ -2,6 +2,7 @@ import { FriseApercu as FriseApercu_f89dc3f6b5ba8075961a696ab58d87cf } from '../
 import { ApparenceApercu as ApparenceApercu_d0aa89253e57255382bce6f60b0227c8 } from '../../../components/admin/ApparenceApercu'
 import { EffacerHistorique as EffacerHistorique_005f2f4307e81d9a3b1411756fd85cb3 } from '../../../components/admin/EffacerHistorique'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
+import { NomenclatureDomaines as NomenclatureDomaines_6d2170e405207944bf0355525c22de0f } from '../../../components/admin/NomenclatureDomaines'
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { AssignTenantFieldTrigger as AssignTenantFieldTrigger_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -40,6 +41,7 @@ export const importMap = {
   "/components/admin/ApparenceApercu#ApparenceApercu": ApparenceApercu_d0aa89253e57255382bce6f60b0227c8,
   "/components/admin/EffacerHistorique#EffacerHistorique": EffacerHistorique_005f2f4307e81d9a3b1411756fd85cb3,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
+  "/components/admin/NomenclatureDomaines#NomenclatureDomaines": NomenclatureDomaines_6d2170e405207944bf0355525c22de0f,
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@payloadcms/plugin-multi-tenant/client#AssignTenantFieldTrigger": AssignTenantFieldTrigger_1d0591e3cf4f332c83a86da13a0de59a,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,

@@ -160,6 +160,19 @@ export const Domaines: CollectionConfig = {
       },
     },
     {
+      // RPNT § 2 et I35 : formes recommandées pour la commune choisie et
+      // signalement (jamais bloquant) du hostname saisi. Champ `ui` : rien
+      // en base, aucune migration.
+      type: 'ui',
+      name: 'nomenclature',
+      label: 'Nomenclature',
+      admin: {
+        components: {
+          Field: '/components/admin/NomenclatureDomaines#NomenclatureDomaines',
+        },
+      },
+    },
+    {
       name: 'commune',
       type: 'relationship',
       relationTo: 'communes',

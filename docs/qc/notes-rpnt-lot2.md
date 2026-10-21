@@ -218,7 +218,89 @@ et `xn--quimpr-fva.fr` y compris en MAJUSCULES (idn), `sans-point`, `..`,
 
 ## Étape 4 — affichage admin sous `hostname` (Domaines)
 
-À venir.
+Pas de fichier `a-decider` : le champ `ui` existait déjà dans le répertoire
+(FriseApercu, EffacerHistorique), aucune adaptation multi-tenant nécessaire.
+
+Ce qui est fait :
+
+- `Domaines.ts` : champ `type: 'ui'`, `name: 'nomenclature'`, posé juste sous
+  `hostname` — **rien en base, aucune migration**. `importMap.js` régénéré par
+  `npm run generate:importmap` **avec l'env S3 complet** (piège connu : sans
+  lui, l'entrée `S3ClientUploadHandler` disparaît du diff).
+- `src/components/admin/NomenclatureDomaines.tsx` (client) : lit `hostname` et
+  `commune` du formulaire (`useFormFields`), va chercher `nom` + `codeInsee`
+  de la commune par REST (`depth=0`, `credentials: 'include'`,
+  `cache: 'no-store'` — données vives), puis affiche :
+  - les rangs du § 2 en liste ordonnée, geoTLD **dans le même rang** (affiché
+    « ou ») quand le code INSEE donne un département à geoTLD ;
+  - la forme homonyme en ligne séparée (« dernier rang ») ;
+  - un indice quand la commune n'a pas de code INSEE (pas de geoTLD ni
+    d'homonyme proposés) ;
+  - le signalement I35 du hostname saisi en `role="alert"` (critère extension /
+    idn / forme), avec la mention explicite que rien n'est bloqué — et la ligne
+    « conforme » dans le cas contraire ;
+  - le lien vers le référentiel ANCT.
+  Aucune écriture, aucun `validate` : purement indicatif.
+- ESLint `react-hooks/set-state-in-effect` interdit un `setState` synchrone
+  dans l'effet : cache `Record<number, CommuneLégère>` + garde de
+  non-regression + `setState` fonctionnel dans le `.then` du fetch.
+
+Captures (`docs/qc/captures-rpnt-lot2/`, 3 PNG — je ne peux pas afficher les
+images, le relecteur les regardera ; le texte réel du panneau est collé
+ci-dessous comme preuve d'équivalence) :
+
+1. `commune-code-insee.png` — le champ sur la fiche commune (label, saisie
+   vide, description avec l'exemple Quimper et le renvoi geo.api.gouv.fr).
+2. `domaines-nomenclature.png` — panneau avec `codeInsee: 29232` posé
+   temporairement sur Saint-Exupéry-les-Bains (démo d'un geoTLD). Texte réel :
+
+   ```
+   Nomenclature des domaines (RPNT § 2)
+   saint-exupery-les-bains.fr ou saint-exupery-les-bains.bzh
+   mairie-saint-exupery-les-bains.fr ou mairie-saint-exupery-les-bains.bzh
+   ville-saint-exupery-les-bains.fr ou ville-saint-exupery-les-bains.bzh
+   En cas d'homonymie nationale : saint-exupery-les-bains29.fr ou
+     saint-exupery-les-bains29.bzh (dernier rang).
+   « saint-exupery-les-bains.fr » est conforme au § 1.2 (extension souveraine).
+   ```
+
+3. `domaines-nomenclature-i35.png` — hostname saisi
+   `saint-exupery-les-bains.fr.com` (jamais enregistré), même panneau avec :
+
+   ```
+   I35 — « saint-exupery-les-bains.fr.com » : extension hors liste souveraine
+   du RPNT (.fr, .bzh, .corsica…). Signalement seul : l'enregistrement n'est
+   pas bloqué.
+   ```
+
+Base de dev : la pose `29232` (PATCH REST opérateur) est retirée en fin de
+script, vérifiée par GET (`codeInsee: null`) **et** par
+`psql -tc "SELECT id, code_insee FROM communes"` (deux lignes vides).
+
+Pièges rencontrés (script de capture Playwright, jetable, hors commit) :
+
+1. **CSRF sur REST** : une requête qui porte le cookie de session sans en-tête
+   `Origin` est rejetée 403 « Vous n'êtes pas autorisé » sur TOUTES les
+   collections — `page.request` de Playwright n'envoie ni `Origin` ni
+   `Referer`. En-tête `origin` explicite requis dans le script. Le composant
+   n'est pas concerné (fetch same-origin du navigateur, `Referer` envoyé).
+2. `waitForURL('**/admin**')` matcherait la page de login elle-même
+   (`/admin/login` contient `/admin`) : attendre sa disparition, et hydrater
+   la page avant de cliquer (`waitUntil: 'networkidle'`), sinon le clic
+   n'enregistre pas la connexion.
+3. Un champ `ui` n'a pas d'id `field-<name>` : le conteneur à capturer est le
+   parent direct du `p.field-label` (le `div.field-type` du composant).
+4. **Bug de mon script, pas du produit** : `page.request.patch(url, { data })`
+   enrobe le corps en `{"data":{...}}` — champ inconnu que Payload ignore
+   silencieusement : PATCH 200 **sans aucun effet** (la réponse du PATCH le
+   montrait : `codeInsee: null`). Les données se passent directement. Le
+   diagnostic a coûté plusieurs courses : le panneau affichait exactement
+   l'état réel de la base, qui n'avait jamais été modifiée.
+5. Le `POST /api/communes` visible dans les logs du serveur n'est PAS une
+   création : c'est l'hydratation du champ `commune` par l'admin, un find en
+   POST (`where[id][in]`, `draft=true`, `select[nom]`).
+
+Après corrections : lint 0 avertissement, `tsc --noEmit` 0 erreur.
 
 ## Étape 5 — vérification finale
 
