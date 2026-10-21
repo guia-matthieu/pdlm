@@ -144,3 +144,25 @@ nouveau). Code points après correction :
 9h30–12h -> 39 68 33 30 2013 2060 31 32 68
 9h–12h   -> 39 68 2013 2060 31 32 68
 ```
+
+Au passage, les échappements `⁠`/` ` des nouvelles attentes
+étaient arrivés en caractères réels (invisibles) dans le fichier de tests —
+remis en échappements, comme le reste du fichier ; tests repassés verts
+après.
+
+## Vérification finale
+
+| contrôle | sortie |
+| --- | --- |
+| `npm run lint` | rien (0 erreur) |
+| `npm run typecheck` | rien (0 erreur) |
+| `npm run test:unit` | 33 fichiers, **309 passed** |
+| `npm run test:int` | 25 fichiers, **228 passed** |
+| `E2E_PORT=3000 npm run test:e2e` | **144 passed, 4 skipped** (4,4 min), serveur de dev port 3000 |
+| `npm run build` | réussi (serveur arrêté avant) |
+
+`src/payload-types.ts` : inchangé (`git status --short` ne le montre pas).
+Serveur de dev tué, `lsof -i :3000` et `-i :3007` : rien en écoute. Script
+Playwright jetable et son exécution tsx : supprimés. Arbre propre après le
+dernier commit de notes.
+
