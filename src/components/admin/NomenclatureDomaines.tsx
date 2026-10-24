@@ -115,8 +115,11 @@ export function NomenclatureDomaines() {
       {alerte?.conforme && (
         <p className="field-description">{`« ${hostname} » est conforme au § 1.2 (extension souveraine).`}</p>
       )}
-      <p className="field-description">
-        Référentiel complet :{' '}
+      {/* .field-description est display:flex dans l'admin : un nœud texte
+          d'espaces seules n'y est jamais rendu (l'espace collait le lien aux
+          deux-points). Retour au flux en ligne + insécable avant « : ». */}
+      <p className="field-description" style={{ display: 'block' }}>
+        Référentiel complet&nbsp;:{' '}
         <a
           href="https://suiteterritoriale.anct.gouv.fr/conformite/referentiel"
           target="_blank"
