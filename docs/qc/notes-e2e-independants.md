@@ -163,3 +163,55 @@ afterAll rend `village`, curl → `/gabarits/village/theme.css`.
 | --------------------- | -------------------- | ------------------ |
 | `village` (seed)      | `6 passed`           | `6 passed (32.7s)` |
 | `littoral` (résiduel) | `4 failed, 2 passed` | `6 passed (32.3s)` |
+
+## Vérification finale
+
+| Commande | Sortie |
+|---|---|
+| `npm run lint` | 0 erreur (eslint silencieux) |
+| `npm run typecheck` | 0 erreur (`tsc --noEmit` silencieux) |
+| `npm run test:unit` | `Test Files 32 passed (32)`, `Tests 300 passed (300)` |
+| `E2E_PORT=3000 npm run test:e2e` | `90 passed (5.7m)` — 0 échec, 0 saut, 0 « did not run » |
+
+### Incident du premier passage : agenda périmé (étranger aux correctifs)
+
+Premier passage de la suite complète : `3 failed, 12 did not run, 75 passed
+(4.0m)` — les tests « 1 et 2 » de `gabarits-conformite` (village et littoral)
+plus, en cascade d'état, `multilingue` l. 96 (rejoué seul, il passait). La
+section `agenda` manquait à l'accueil rendu : elle ne se rend que s'il reste
+des événements (`src/gabarits/Accueil.tsx` l. 136, `evenements.length > 0`),
+et les deux événements de la base dataient du 23/10 au matin — passés la
+veille au soir (base seedée le 04/10, dates posées relativement au seed). Les
+deux correctifs de cette branche n'y touchent pas (deux fichiers de tests
+seulement, aucune écriture hors `apparence.gabarit` remis).
+
+Remise en état calquée sur le seed actuel (`src/seed/contenu-demo.ts` l. 248
+et 260 : J+5 avec 6 h, J+12 avec 2 h). Un re-seed n'aurait rien re-daté : il
+ne crée les événements que s'il n'en existe pas (`totalDocs === 0`) :
+
+```console
+$ docker compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d pdlm_gabarits_dev -c "update evenements set date_debut = now() + interval '5 days', date_fin = now() + interval '5 days 6 hours' where id = 1; update evenements set date_debut = now() + interval '12 days', date_fin = now() + interval '12 days 2 hours' where id = 2;"
+UPDATE 1
+UPDATE 1
+$ curl -s http://localhost:3000/ | grep -o 'data-section="[a-z]*"' | sort -u
+data-section="actualites"
+data-section="agenda"
+…
+$ E2E_PORT=3000 npx playwright test tests/e2e/gabarits-conformite.e2e.spec.ts
+  14 passed (34.0s)
+```
+
+Puis la suite complète ci-dessus : `90 passed (5.7m)`. Zéro saut à lister : les
+photos de la maquette sont présentes dans ce worktree (gabarits-captures
+tourne avec photos) et la suite a tourné sur un serveur démarré par Playwright
+lui-même — le mien, lancé sans les vars `UMAMI_*`, a été arrêté avant, pour
+que `mesure` tourne au lieu de sauter. État final vérifié :
+`apparence_gabarit = 'village'`, 2 événements futurs.
+
+Piège à signaler au hub : le seed date les événements relativement au moment
+du seed — une base de dev non re-datée périmera ~3 semaines plus tard, et ce
+sont les e2e d'accueil (sections attendues) qui le signalent.
+
+`src/payload-types.ts`, régénéré par les runs de dev sans changement réel, a
+été restauré (`git checkout --`) conformément au brief ; il ne fait partie
+d'aucun commit de cette branche.
