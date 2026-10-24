@@ -90,10 +90,10 @@ $ # (renommage interne docs/recherche.absent, méthode ci-dessus) :
   6 passed (23.4s)
 ```
 
-| Photos maquette J | Avant correctif | Après correctif |
-|---|---|---|
-| absentes | `1 failed, 3 did not run, 4 passed` | `2 skipped, 6 passed` |
-| présentes | `8 passed` | `8 passed` |
+| Photos maquette J | Avant correctif                     | Après correctif       |
+| ----------------- | ----------------------------------- | --------------------- |
+| absentes          | `1 failed, 3 did not run, 4 passed` | `2 skipped, 6 passed` |
+| présentes         | `8 passed`                          | `8 passed`            |
 
 Détail du « après, absentes » : les 2 tests « avec photos » du Littoral sautent
 (garde existante `test.skip(!avecPhotos, 'photos de la maquette absentes')`,
@@ -102,4 +102,64 @@ Village passent. Plus aucun échec ni « did not run ».
 
 ## B. `apercu.e2e.spec.ts` — l'état de départ « village » est posé par le fichier
 
-À venir (commit suivant).
+Le fichier supposait `saint-ex` au gabarit « Village » (état du seed) sans le
+poser. La base de dev étant partagée entre worktrees, un `littoral` résiduel
+d'une session interrompue avant sa remise en état faisait échouer 4 tests sur
+l'état de départ, pas sur l'aperçu (mesure et reproduction :
+`git show integration-2026-10-21:docs/qc/bloque-integration.md`, rejoué ici à
+l'identique : `4 failed, 2 passed (1.0m)`).
+
+Correctif : un `beforeAll` de fichier lit le gabarit présent, PATCHe `village`,
+et un `afterAll` rend le gabarit trouvé (les hooks de fichier ne tournent qu'une
+fois, `workers: 1`). Deux points venus de la relecture, mesurés au passage :
+
+- **Session opérateur, pas admin de commune.** `apparence.gabarit` est réservé
+  à l'opérateur (Décision 15, `src/collections/Communes.ts` l. 405-408,
+  `access.update: isOperateur`) : un PATCH par l'admin de la commune répond 200
+  mais Payload retire le champ en silence — l'update n'a aucun effet. Une
+  première version des hooks connectée en admin l'a prouvé sur pièce : depuis
+  `littoral` posé par psql, `4 failed … 2 passed (1.3m)` comme sans correctif,
+  puis un run suivant vert uniquement parce que le `finally` du test
+  « opérateur » (lui connecté en opérateur) était retombé sur `village`.
+- **Relecture après chaque PATCH** : le code 200 ne prouve rien (ci-dessus) ;
+  un GET relit la commune et vérifie `apparence.gabarit` (avant comme après).
+
+### Preuve (fichier rejoué seul, `E2E_PORT=3000 npx playwright test tests/e2e/apercu.e2e.spec.ts`)
+
+```console
+$ # Départ posé à la main, comme dans bloque-integration.md :
+$ docker compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d pdlm_gabarits_dev -c "update communes set apparence_gabarit='littoral' where slug='saint-ex';"
+UPDATE 1
+$ curl -s http://localhost:3000/ | grep -o '/gabarits/[a-z]*/theme.css' | head -1
+/gabarits/littoral/theme.css
+
+$ E2E_PORT=3000 npx playwright test tests/e2e/apercu.e2e.spec.ts
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › tests/e2e/apercu.e2e.spec.ts:161:3 › Aperçu d’apparence — accès et en-têtes › anonyme : 404, même pour une commune qui existe (I28) (2.2s)
+  ✓  2 [chromium] › tests/e2e/apercu.e2e.spec.ts:172:3 › Aperçu d’apparence — accès et en-têtes › admin : l’accueil du gabarit servi, encadrable, ni en cache ni indexé (2.3s)
+  ✓  3 [chromium] › tests/e2e/apercu.e2e.spec.ts:205:3 › Aperçu d’apparence — accès et en-têtes › le site public garde frame-ancestors none (821ms)
+  ✓  4 [chromium] › tests/e2e/apercu.e2e.spec.ts:213:3 › Aperçu d’apparence — onglet de l’admin › admin : aperçu en direct, sans écriture tant qu’on n’enregistre pas (6.6s)
+  ✓  5 [chromium] › tests/e2e/apercu.e2e.spec.ts:286:3 › Aperçu d’apparence — onglet de l’admin › admin : une couleur forcée est marquée et alertée dans la bande des contrastes (8.6s)
+  ✓  6 [chromium] › tests/e2e/apercu.e2e.spec.ts:333:3 › Aperçu d’apparence — onglet de l’admin › opérateur : le gabarit basculé est servi dans l’aperçu (6.0s)
+
+  6 passed (32.3s)
+
+$ # Après le run, l'afterAll a rendu l'état initial trouvé (littoral) :
+$ docker compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d pdlm_gabarits_dev -t -c "select apparence_gabarit from communes where slug='saint-ex';"
+ littoral
+
+$ # Remise à l'état de repos du worktree, puis vérification par curl :
+$ docker compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d pdlm_gabarits_dev -c "update communes set apparence_gabarit='village' where slug='saint-ex';"
+UPDATE 1
+$ curl -s http://localhost:3000/ | grep -o '/gabarits/[a-z]*/theme.css' | head -1
+/gabarits/village/theme.css
+```
+
+Départ `village` (nominal, état du seed), après correctif : `6 passed (32.7s)`,
+afterAll rend `village`, curl → `/gabarits/village/theme.css`.
+
+| Gabarit de départ     | Avant correctif      | Après correctif    |
+| --------------------- | -------------------- | ------------------ |
+| `village` (seed)      | `6 passed`           | `6 passed (32.7s)` |
+| `littoral` (résiduel) | `4 failed, 2 passed` | `6 passed (32.3s)` |
