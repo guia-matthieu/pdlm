@@ -97,7 +97,18 @@ export function NomenclatureDomaines() {
         </p>
       )}
       {alerte && !alerte.conforme && (
-        <p role="alert">
+        // Avertissement, pas une erreur : mêmes teintes que les bandeaux
+        // warning de l'admin (variables --theme-warning-… de @payloadcms/ui).
+        <p
+          role="alert"
+          style={{
+            background: 'var(--theme-warning-150)',
+            color: 'var(--theme-warning-650)',
+            padding: '0.5rem 0.75rem',
+            borderRadius: '4px',
+            margin: '0.5rem 0',
+          }}
+        >
           {`I35 — « ${hostname} » : ${CRITERES[alerte.critere]}. Signalement seul : l’enregistrement n’est pas bloqué.`}
         </p>
       )}
