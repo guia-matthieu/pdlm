@@ -39,14 +39,61 @@ suivies dans `src/`) et les tests « sans photo » tournent dans les deux cas.
 
 Particularité de CE worktree : les 37 images de la maquette J y sont présentes
 (copiées hors git — exclues par `.git/info/exclude`, donc `git status` propre),
-contrairement à un worktree neuf. L'absence a donc été simulée en déplaçant
-`docs/recherche/` hors du worktree le temps du run, puis en le restaurant
-(37 fichiers revenus, statut git vérifié).
+contrairement à un worktree neuf. L'absence a donc été simulée le temps de
+chaque run, puis les fichiers remis en place.
+
+**Simulation de l'absence.** Les premières mesures (celles du tableau
+avant/après) ont déplacé le dossier hors du worktree, vers `/tmp` :
+
+```console
+$ mv /Users/matthieucredou/Projects/glm.gabarits/docs/recherche /tmp/recherche-e2e-absente
+$ # … run Playwright …
+$ mv /tmp/recherche-e2e-absente /Users/matthieucredou/Projects/glm.gabarits/docs/recherche
+$ ls docs/recherche/2026-09-25_front-beau/J-maquette-littoral/images/ | wc -l
+     37
+$ git status --short          # vide
+```
+
+Sur consigne du relecteur, toute simulation suivante se fait par renommage
+à l'intérieur du worktree, sans sortie hors `~/Projects/glm.gabarits` :
+
+```console
+$ mv docs/recherche docs/recherche.absent
+$ # … run Playwright …
+$ mv docs/recherche.absent docs/recherche
+```
+
+**Sorties Playwright brutes** (lignes de résumé telles quelles) :
+
+```console
+$ # Avant correctif, photos absentes :
+  1 failed
+    [chromium] › tests/e2e/gabarits-captures.e2e.spec.ts:423:5 › Captures du gabarit
+    Littoral — deux jeux de couleurs (tâche 10) › jeu #2a7f9e avec photos : gabarit
+    composé, dérivation appliquée      (Error: ENOENT: … phare-pano-2000.jpg, à televerser l. 214, appelé par le beforeAll l. 347)
+  3 did not run
+  4 passed (22.0s)
+
+$ # Après correctif, photos absentes :
+  2 skipped
+  6 passed (24.8s)
+
+$ # Avant correctif, photos présentes :
+  8 passed (38.6s)
+
+$ # Après correctif, photos présentes :
+  8 passed (34.3s)
+
+$ # Après correctif, photos absentes — re-mesure de contrôle
+$ # (renommage interne docs/recherche.absent, méthode ci-dessus) :
+  2 skipped
+  6 passed (23.4s)
+```
 
 | Photos maquette J | Avant correctif | Après correctif |
 |---|---|---|
-| absentes | `1 failed, 3 did not run, 4 passed (22.0s)` | `2 skipped, 6 passed (24.8s)` |
-| présentes | `8 passed (38.6s)` | `8 passed (34.3s)` |
+| absentes | `1 failed, 3 did not run, 4 passed` | `2 skipped, 6 passed` |
+| présentes | `8 passed` | `8 passed` |
 
 Détail du « après, absentes » : les 2 tests « avec photos » du Littoral sautent
 (garde existante `test.skip(!avecPhotos, 'photos de la maquette absentes')`,
