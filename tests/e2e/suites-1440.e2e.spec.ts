@@ -13,6 +13,9 @@ import { connecterAdmin } from '../helpers/login'
  * avec téléphone mais sans courriel rend sa carte mairie sans erreur.
  * (Retouches) le courriel du pied suit la même règle que la carte mairie,
  * et à 1440 px la rive mairie du littoral tient sur une seule rangée.
+ * (Démo tiret) les plages horaires, carte mairie et pied, ne se coupent
+ * plus en deux : aucune ligne ne commence par un tiret, chaque plage de la
+ * fixture est entière dans une seule ligne.
  *
  * Fichier séparé, composition minimale (gabarit + coordonnées + horaires),
  * sur le modèle de mosaique-390 : prouver le rouge avant / vert après en
@@ -44,6 +47,10 @@ const GABARITS = [
 ] as const
 const HORAIRES =
   'Lundi, mardi, jeudi, vendredi : 9 h – 12 h, 14 h – 17 h. Mercredi : 9 h – 12 h.'
+/** Une plage « nombre + h + tiret + nombre + h » — pour exiger que la
+ *  fixture en soit rendue entière dans une seule ligne. */
+const PLAGE_HORAIRE =
+  /\d+[ \u00A0]?h\b(?:[ \u00A0]?\d{1,2}(?!\d))?[ \u00A0]?[–—-][ \u00A0]?\d+[ \u00A0]?h\b(?:[ \u00A0]?\d{1,2}(?!\d))?/g
 const LARGEURS = [390, 1440] as const
 /** Ne tient dans aucune casette mesurée : le repli est garanti. */
 const COURRIEL_LONG = 'secretariat.mairie@commune-saint-exupery-sur-mer.fr'
@@ -136,6 +143,71 @@ function attenduCourriel(courriel: string, lignes: string[], href: string | null
         `la coupure ${i + 1} se fait après l’arobase : ${JSON.stringify(lignes)}`,
       ).toBe(true)
     }
+  }
+}
+
+/** Lignes réelles du bloc horaires : mêmes Range par caractère que
+ *  lignesCourriel, sur le <span> des horaires du bloc (carte mairie ou
+ *  pied). */
+async function lignesHoraires(page: Page, conteneur: string) {
+  return page.evaluate((conteneur: string) => {
+    const racine = document.querySelector(conteneur)
+    const span = racine?.querySelector('p:has(strong) span')
+    if (!span) return null
+    const lignes: string[] = []
+    let cle = -99
+    const range = document.createRange()
+    const marcheur = document.createTreeWalker(span, NodeFilter.SHOW_TEXT)
+    let n: Node | null
+    while ((n = marcheur.nextNode())) {
+      const t = n.textContent ?? ''
+      for (let i = 0; i < t.length; i++) {
+        range.setStart(n, i)
+        range.setEnd(n, i + 1)
+        const haut = range.getBoundingClientRect().top
+        if (Math.abs(haut - cle) > 2) {
+          lignes.push('')
+          cle = haut
+        }
+        lignes[lignes.length - 1] += t[i]
+      }
+    }
+    return { lignes, scrollWidth: document.documentElement.scrollWidth }
+  }, conteneur)
+}
+
+/** Le bloc horaires rendu respecte la règle : texte complet, chaque plage
+ *  de la fixture entière dans une seule ligne (aucune coupure entre le
+ *  nombre et le « h » ni autour du tiret), aucune ligne ne commençant par
+ *  un tiret. Les insécables (U+00A0) et le lieur (U+2060) posés à
+ *  l'affichage sont normalisés avant comparaison. */
+function attenduHoraires(lignes: string[], scrollWidth: number, largeur: number) {
+  expect(scrollWidth, 'la page ne déborde pas').toBeLessThanOrEqual(largeur)
+  const normalisees = lignes.map((l) => l.replace(/\u00A0/g, ' ').replace(/\u2060/g, ''))
+  expect(normalisees.join(''), 'le texte rendu est la phrase entière').toBe(HORAIRES)
+  // Une plage peut apparaître deux fois dans la fixture : c'est la borne de
+  // coupure qu'on contrôle, pas la présence du texte de la plage (présent
+  // intact ailleurs, une coupure passerait inaperçue).
+  const texte = normalisees.join('')
+  const plages = [...HORAIRES.matchAll(PLAGE_HORAIRE)].map((m) => [
+    m.index!,
+    m.index! + m[0].length,
+  ])
+  let borne = 0
+  for (let i = 0; i < normalisees.length - 1; i++) {
+    borne += normalisees[i].length
+    for (const [debut, fin] of plages) {
+      expect(
+        !(borne > debut && borne < fin),
+        `la coupure ${i + 1} tombe dans la plage « ${texte.slice(debut, fin)} » : ${JSON.stringify(normalisees)}`,
+      ).toBe(true)
+    }
+  }
+  for (const ligne of normalisees) {
+    expect(
+      ligne.trim(),
+      `aucune ligne ne commence par un tiret : ${JSON.stringify(normalisees)}`,
+    ).not.toMatch(/^[–—-]/)
   }
 }
 
@@ -234,9 +306,31 @@ for (const g of GABARITS) {
         ).toBeLessThanOrEqual(2)
       })
 
+      test(`à ${largeur} px, horaires de la carte mairie : aucune plage coupée`, async () => {
+        // Chaque test repose son état : le précédent a pu laisser le
+        // courriel long en base.
+        await api(page, `/api/communes/${idCommune}`, json('PATCH', {
+          coordonnees: g.coordonnees,
+        }))
+        await ouvrir(page, largeur)
+        const m = await lignesHoraires(page, '.section-mairie')
+        expect(m, 'la carte mairie est rendue').toBeTruthy()
+        attenduHoraires(m!.lignes, m!.scrollWidth, largeur)
+      })
+
+      test(`à ${largeur} px, horaires du pied : aucune plage coupée`, async () => {
+        // Le test précédent vient de reposer les coordonnées, et les
+        // horaires de démonstration tiennent encore : ouvrir suffit.
+        await ouvrir(page, largeur)
+        const m = await lignesHoraires(page, '.pied-page')
+        expect(m, 'le pied est rendu').toBeTruthy()
+        attenduHoraires(m!.lignes, m!.scrollWidth, largeur)
+      })
+
       if (g.nom === 'village') {
         test(`à ${largeur} px, © du pied aligné sur la première colonne`, async () => {
-          // Le test précédent a laissé le courriel long : sans importance,
+          // Les tests précédents ont reposé le courriel de capture : sans
+          // importance,
           // le pied ne dépend pas des coordonnées de la carte mairie.
           await ouvrir(page, largeur)
           const mesure = await page.evaluate(() => {

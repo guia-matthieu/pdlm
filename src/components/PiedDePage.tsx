@@ -1,6 +1,7 @@
 import { Courriel } from '@/components/Courriel'
 import { cheminLangue } from '@/lib/adresses'
 import type { TexteEnLangue } from '@/lib/contenu'
+import { horairesInsecables } from '@/lib/horaires'
 import type { ContexteLangue } from '@/lib/langue-courante'
 import { siteMesure } from '@/lib/mesure/etat'
 import { lienTelephone } from '@/lib/telephone'
@@ -43,7 +44,9 @@ export function PiedDePage({
           {identite.horaires && (
             <p>
               <strong>{t.horaires}</strong>{' '}
-              <span lang={lang(identite.horaires)}>{identite.horaires.texte}</span>
+              <span lang={lang(identite.horaires)}>
+                {horairesInsecables(identite.horaires.texte)}
+              </span>
             </p>
           )}
         </div>

@@ -5,6 +5,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 
 import { GABARITS } from '../../src/gabarits/registre'
 import { VARIABLES_CONTRAT } from '../../src/lib/couleurs'
+import { creerEvenements, supprimerEvenements } from '../helpers/evenements'
 import { connecterAdmin } from '../helpers/login'
 
 /**
@@ -18,6 +19,16 @@ import { connecterAdmin } from '../helpers/login'
  * temps du gabarit provisoire (décision 18, close à la tâche 5).
  */
 const OPERATEUR = { email: 'operateur@pdlm.dev', motDePasse: 'demo1234' }
+/** Événements créés par la suite, datés depuis maintenant : l'agenda ne
+ *  dépend plus des événements de démonstration, figés à la date de l'amorçage. */
+const EVENEMENTS = [
+  {
+    titre: 'Assemblée générale du comité des fêtes (suite conformité)',
+    lieu: 'Salle des fêtes',
+    jours: 3,
+  },
+  { titre: 'Réunion publique du budget (suite conformité)', lieu: 'Salle du conseil', jours: 10 },
+]
 
 /** Couleurs littérales admises dans theme.css (spec § 6, point 3). */
 const BLANCHE = ['#fff', '#ffffff', '#000', '#000000']
@@ -181,6 +192,12 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
       ).docs as Array<{ id: number }>
       idPageAccueil = pagesAccueil[0]?.id ?? null
 
+      // L'agenda doit ses événements à cette suite, pas à l'amorçage de la
+      // démonstration (figé à sa date) : retrait d'un passage interrompu,
+      // puis création datée de maintenant.
+      await supprimerEvenements(page, EVENEMENTS.map((e) => e.titre))
+      await creerEvenements(page, idCommune, EVENEMENTS)
+
       // Bascule sur le gabarit éprouvé (opérateur seul, décision 15) et
       // coordonnées complètes : la carte mairie n'est pas vide, l'ordre des
       // sections s'éprouve sans section filtrée.
@@ -234,6 +251,7 @@ for (const [nom, { gabarit }] of Object.entries(GABARITS)) {
             body: JSON.stringify({ _status: 'published' }),
           })
         }
+        await supprimerEvenements(page, EVENEMENTS.map((e) => e.titre))
       } finally {
         await contexte.close()
       }

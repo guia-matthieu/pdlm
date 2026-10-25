@@ -1,6 +1,7 @@
 import { Courriel } from '@/components/Courriel'
 import type { Dictionnaire } from '@/i18n'
 import type { TexteEnLangue } from '@/lib/contenu'
+import { horairesInsecables } from '@/lib/horaires'
 import type { CodeLangue } from '@/lib/langues'
 import { lienTelephone } from '@/lib/telephone'
 import type { Commune } from '@/payload-types'
@@ -35,7 +36,7 @@ export function Mairie({
         <p>
           <strong>{t.horaires}</strong>{' '}
           <span lang={horaires.langue !== langue ? horaires.langue : undefined}>
-            {horaires.texte}
+            {horairesInsecables(horaires.texte)}
           </span>
         </p>
       )}

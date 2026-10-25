@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 
+import { creerEvenements, supprimerEvenements } from '../helpers/evenements'
 import { connecterAdmin } from '../helpers/login'
 
 /**
@@ -280,9 +281,6 @@ for (const g of GABARITS) {
     async function nettoyer() {
       const filtres = {
         actualites: `where[slug][like]=${MARQUE}`,
-        evenements: g.evenements.map(
-          (e, i) => `where[titre][in][${i}]=${encodeURIComponent(e.titre)}`,
-        ).join('&'),
         media: `where[alt][like]=${MARQUE}`,
       }
       for (const [collection, filtre] of Object.entries(filtres)) {
@@ -291,6 +289,7 @@ for (const g of GABARITS) {
           await api(page, `/api/${collection}/${doc.id}`, { method: 'DELETE' })
         }
       }
+      await supprimerEvenements(page, g.evenements.map((e) => e.titre))
     }
 
     /**
@@ -378,20 +377,7 @@ for (const g of GABARITS) {
         )
         crees.actualites.push(doc.id)
       }
-      for (const e of g.evenements) {
-        const debut = Date.now() + e.jours * J
-        await api(
-          page,
-          '/api/evenements',
-          json('POST', {
-            tenant: idCommune,
-            titre: e.titre,
-            dateDebut: new Date(debut).toISOString(),
-            dateFin: new Date(debut + 3 * 3600_000).toISOString(),
-            lieu: e.lieu,
-          }),
-        )
-      }
+      await creerEvenements(page, idCommune, g.evenements)
     })
 
     test.afterAll(async () => {

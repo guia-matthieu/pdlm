@@ -4,7 +4,7 @@ import { useAuth, useDocumentInfo, useField, useFormFields } from '@payloadcms/u
 import { useEffect, useState } from 'react'
 
 import type { UtilisateurAcces } from '@/access/roles'
-import { peutApercevoir } from '@/lib/apercu'
+import { peutApercevoir } from '@/lib/apercu-acces'
 import { accords, DEFAUTS, deriver, type CleForcee, type Forcees } from '@/lib/couleurs'
 
 /** I24 : la seule écriture d’une couleur acceptée (même forme que Communes.ts). */
@@ -158,7 +158,8 @@ export function ApparenceApercu() {
           </div>
           <div className="viseur-apercu" data-largeur={largeur}>
             {urlApresRebond !== null && (
-              <iframe src={urlApresRebond} title="Aperçu du site public" />
+              // Pas d'allow-scripts : l'aperçu est rendu côté serveur.
+              <iframe src={urlApresRebond} title="Aperçu du site public" sandbox="allow-same-origin" />
             )}
           </div>
           <p className="field-description">

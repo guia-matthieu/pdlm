@@ -14,7 +14,6 @@
 
 import { GABARITS } from '@/gabarits/registre'
 
-import { aRoleSur, isOperateur, type UtilisateurAcces } from '@/access/roles'
 import type { Choix, CleForcee, Forcees } from './couleurs'
 import { FRANCAIS, estCodeLangue, type CodeLangue } from './langues'
 
@@ -93,15 +92,6 @@ export function lireParametresApercu(
   return { communeId: idCommune(params), gabarit, choix, forcees, lang }
 }
 
-/**
- * I28 : l'aperçu d'apparence d'une commune est servi à l'opérateur et à
- * l'admin de cette commune, à personne d'autre. Décision 15 : le mandataire
- * n'a pas la main sur la fiche commune — il n'aperçoit pas non plus.
- */
-export function peutApercevoir(
-  user: UtilisateurAcces | null | undefined,
-  communeId: string | number | null | undefined,
-): boolean {
-  if (isOperateur(user)) return true
-  return aRoleSur(user, communeId, 'admin')
-}
+// Contrôle d'accès déplacé dans apercu-acces (sans registre) pour tenir le
+// registre hors du bundle admin ; réexporté pour ne casser aucun appelant.
+export { peutApercevoir } from './apercu-acces'
