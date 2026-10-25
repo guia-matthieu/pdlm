@@ -57,7 +57,15 @@ for v in POSTGRES_PASSWORD PAYLOAD_SECRET MINIO_ROOT_PASSWORD S3_APP_PASSWORD \
          DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR; do
   printf '%s=%s\n' "$v" "$(openssl rand -hex 32)" >> .env
 done
+printf 'COMPOSE_PROJECT_NAME=%s\n'  pdlm-demo                                  >> .env
+printf 'COMPOSE_FILE=%s\n'          'docker-compose.yml:docker-compose.demo.yml' >> .env
 ```
+
+Les deux dernières lignes figent le projet Compose pour tout `docker compose`
+lancé **depuis ce dossier sans `-p` ni `-f`** : `scripts/backup.sh` et
+`scripts/restore.sh` (cf. § 10) sont dans ce cas — ils visent ainsi la démo et
+rien d'autre. Ne pas lancer de commande Compose d'une autre pile depuis ce
+dossier.
 
 - Les 64 caractères hexadécimaux satisfont le garde-fou du seed
   (mots de passe ≥ 16 caractères).
@@ -188,11 +196,23 @@ jour ajoute des communes ou du contenu de démo.
 ## 10. Sauvegarde et retour arrière
 
 Avant chaque mise à jour, une sauvegarde (cf. README, « Sauvegarde et
-restauration ») :
+restauration »). Les scripts n'ont ni `-p` ni `-f` : le `.env` du § 3 les
+porte (`COMPOSE_PROJECT_NAME`, `COMPOSE_FILE`). **Avant toute sauvegarde ou
+restauration**, vérifier que le Compose nu depuis ce dossier ne liste bien
+que la démo :
 
 ```bash
+conteneurs=$(docker compose ps --all --format '{{.Name}}')
+printf '%s\n' "$conteneurs"
+printf '%s\n' "$conteneurs" | grep -q '^pdlm-demo-' \
+  || { echo 'STOP — aucun conteneur pdlm-demo-* : le .env ne vise pas la démo' >&2; exit 1; }
+if hors_demo=$(printf '%s\n' "$conteneurs" | grep -v '^pdlm-demo-'); then
+  echo "STOP — des conteneurs hors démo seraient visés : $hors_demo" >&2; exit 1
+fi
 ./scripts/backup.sh    # base + bucket cohérents, dans backups/AAAAMMJJ-HHMMSS
 ```
+
+Même contrôle avant `./scripts/restore.sh <dossier>`.
 
 Les migrations ne sont pas réversibles :
 

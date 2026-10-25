@@ -14,6 +14,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `f35b658` | B | Correction hub : app aussi sur le réseau externe `vps-network`, alias `pdlm-demo` |
 | `832c005` | C | Essai Docker complet local (`pdlm-demo-essai`), preuves ci-dessous |
 | `1127e0f` | D | `docs/deploiement-demo.md` pour le hub |
+| `f277aaa` | Retouche A | Alias `pdlm-demo-postgres`/`pdlm-demo-minio`, URIs redirigées, essai avec leurre |
+| (ce commit) | Retouche B | `COMPOSE_PROJECT_NAME`/`COMPOSE_FILE` dans le `.env` serveur + garde avant sauvegarde |
 
 ## Cadre de travail
 
@@ -422,3 +424,27 @@ Démontage complet (`down -v` volumes et réseau de pile compris, leurre `rm`-é
 `pdlm-demo-essai-*` supprimées) ; `docker ps -a` final : plus aucun
 `pdlm-demo-essai-*` ni `postgres`, ne restent que les piles dev/prod
 préexistantes.
+
+### Retouche B — projet Compose figé dans le `.env` du serveur
+
+**Changé** (`docs/deploiement-demo.md` § 3 et § 10, scripts intacts) : le
+`.env` gagne `COMPOSE_PROJECT_NAME=pdlm-demo` et
+`COMPOSE_FILE=docker-compose.yml:docker-compose.demo.yml` ; avant toute
+sauvegarde/restauration, un contrôle `docker compose ps --all` doit ne lister
+que des `pdlm-demo-*` (sinon STOP), car `scripts/backup.sh` et
+`scripts/restore.sh` lancent un Compose nu.
+
+Preuve (essai local, projet nommé `pdlm-demo-essai` avec ces deux lignes dans
+son `.env` — le `docker compose` nu lancé depuis le dossier de l'essai) :
+
+     $ conteneurs=$(docker compose ps --all --format '{{.Name}}')
+     $ printf '%s\n' "$conteneurs"
+     pdlm-demo-essai-app-1
+     pdlm-demo-essai-createbuckets-1
+     pdlm-demo-essai-migrate-1
+     pdlm-demo-essai-minio-1
+     pdlm-demo-essai-postgres-1
+     GARDE B : OK — seuls des conteneurs pdlm-demo-essai-* listés
+
+La pile dev `pdlm-*` pourtant active sur la machine n'apparaît pas : le
+projet est bien figé par le `.env`.
