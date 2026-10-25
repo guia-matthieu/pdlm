@@ -172,8 +172,11 @@ Comptes créés (courriels `.invalid`, RFC 2606) :
 
 ## 7. Caddy partagé et rafraîchissement périodique
 
-Ajouter au Caddyfile du **Caddy partagé** (conteneur connecté à
-`pdlm-demo-edge`, § 4, il résout l'alias) :
+Le Caddyfile est **monté** dans le conteneur Caddy : édition et copie se
+font côté **hôte**, sur le fichier monté. `<CADDYFILE_HOTE>` désigne son
+chemin côté hôte, `<CHEMIN_CADDYFILE>` le même fichier vu depuis le
+conteneur (conteneur connecté à `pdlm-demo-edge`, § 4, il résout l'alias).
+Ajouter le bloc :
 
 ```
 demo.pdlm.guia.fr, saint-ex.demo.pdlm.guia.fr, port-lavanne.demo.pdlm.guia.fr {
@@ -185,27 +188,38 @@ demo.pdlm.guia.fr, saint-ex.demo.pdlm.guia.fr, port-lavanne.demo.pdlm.guia.fr {
 `X-Robots-Tag` interdit l'indexation : une démo avec données fictives ne doit
 pas se retrouver dans les moteurs de recherche.
 
-Ce Caddyfile sert **d'autres sites** : copie horodatée avant édition (retour
-arrière), validation avant rechargement, et **jamais `caddy restart`** — un
+Ce Caddyfile sert **d'autres sites** : copie horodatée côté hôte avant
+édition, validation avant rechargement, et **jamais `caddy restart`** — un
 `reload` remplace la configuration à chaud, un `restart` couperait tous les
-autres sites le temps du redémarrage :
+autres sites le temps du redémarrage. Chaque étape enchaînée par `&&` :
 
 ```bash
-SAUVE=<CHEMIN_CADDYFILE>.$(date +%Y%m%d-%H%M%S)
-docker exec <CONTENEUR_CADDY> cp <CHEMIN_CADDYFILE> "$SAUVE"    # copie horodatée
-# … éditer <CHEMIN_CADDYFILE> pour ajouter le bloc ci-dessus …
-docker exec <CONTENEUR_CADDY> caddy validate --config <CHEMIN_CADDYFILE> \
-  && docker exec <CONTENEUR_CADDY> caddy reload --config <CHEMIN_CADDYFILE>
+SAUVE=<CADDYFILE_HOTE>.$(date +%Y%m%d-%H%M%S)
+cp <CADDYFILE_HOTE> "$SAUVE"    # copie horodatée, côté hôte
+# … éditer <CADDYFILE_HOTE> côté hôte pour ajouter le bloc ci-dessus …
+docker exec <CONTENEUR_CADDY> caddy validate --config <CHEMIN_CADDYFILE> --adapter caddyfile \
+  && docker exec <CONTENEUR_CADDY> grep -c pdlm-demo <CHEMIN_CADDYFILE> \
+  && docker exec <CONTENEUR_CADDY> caddy reload --config <CHEMIN_CADDYFILE> --adapter caddyfile
 ```
 
-Retour arrière écrit (si l'édition ou le `reload` pose problème) :
+Le `grep -c pdlm-demo` (≥ 1) prouve que le **conteneur voit le nouveau
+bloc** : s'il rend 0, le montage pointe encore sur l'ancien inode — le
+fichier a été remplacé par-dessus (éditeur qui réécrit, `mv`, `cp` d'une
+source vers le fichier monté) au lieu d'être écrit. Reprendre l'édition en
+écrivant **dans** le fichier (`cat <source> > <CADDYFILE_HOTE>`), puis
+rejouer la chaîne ci-dessus.
+
+Retour arrière écrit (si l'édition ou le `reload` pose problème) : la copie
+horodatée sert de source, réécrite dans le fichier monté — l'inode du
+montage est conservé — puis validée avant rechargement :
 
 ```bash
-docker exec <CONTENEUR_CADDY> caddy validate --config "$SAUVE" \
-  && docker exec <CONTENEUR_CADDY> caddy reload --config "$SAUVE"
+cat "$SAUVE" > <CADDYFILE_HOTE>
+docker exec <CONTENEUR_CADDY> caddy validate --config <CHEMIN_CADDYFILE> --adapter caddyfile \
+  && docker exec <CONTENEUR_CADDY> caddy reload --config <CHEMIN_CADDYFILE> --adapter caddyfile
 ```
 
-(nom du conteneur Caddy et chemin de sa configuration : connus de
+(nom du conteneur Caddy et chemins de sa configuration : connus de
 l'exploitant).
 
 Agenda vivant — **optionnel** : relancer le seed chaque semaine (`crontab -e`)

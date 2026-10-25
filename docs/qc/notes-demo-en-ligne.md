@@ -23,6 +23,7 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | (ce commit) | Retouche G | Garde-fous du seed : DEMO_DOMAIN ≥ 3 étiquettes, = PLATFORM_DOMAIN, base et domaines vérifiés |
 | (ce commit) | Retouche H | Réseau dédié `pdlm-demo-edge` : plus de `vps-network`, Caddy connecté hors Compose |
 | (ce commit) | Retouche I | `scripts/demo-controles.sh` rejouable, chaîné par la procédure — plus d'`exit` en session |
+| (ce commit) | Retouche J | Caddy : édition/copie côté hôte, chaîne `validate && grep -c && reload`, retour arrière écrit |
 
 ## Cadre de travail
 
@@ -689,3 +690,30 @@ après dans la chaîne) :
 
 Cas avec état Docker (port pris par un tiers, Compose visant une autre
 pile, cas passant complet) : section « Essai local des retouches H-M ».
+
+### Retouche J — Caddy : édition et retour arrière côté hôte, qui marche
+
+**Changé** (`docs/deploiement-demo.md` § 7) :
+
+- l'édition et la copie horodatée se font **côté hôte**, sur le fichier
+  monté : `<CADDYFILE_HOTE>` (hôte) remplace l'ancienne copie `docker exec
+  cp` faîte **dans** le conteneur — elle n'était pas récupérable côté hôte,
+  et éditer dans le conteneur ne touchait pas forcément le fichier monté ;
+  `<CHEMIN_CADDYFILE>` reste le même fichier vu du conteneur ;
+- chaîne unique `validate → grep -c → reload`, chaque étape liée par `&&` :
+  `caddy validate --config <CHEMIN_CADDYFILE> --adapter caddyfile` avant le
+  rechargement, `grep -c pdlm-demo <CHEMIN_CADDYFILE>` ≥ 1 prouve que le
+  conteneur **voit** le nouveau bloc — sinon le montage pointe encore sur
+  l'ancien inode (fichier remplacé par-dessus au lieu d'écrit) et la
+  procédure le dit, avec le geste qui rend l'inode (`cat <source> >
+  <CADDYFILE_HOTE>`) ;
+- retour arrière : `cat "$SAUVE" > <CADDYFILE_HOTE>` (écrit dans le fichier,
+  inode du montage conservé) puis la même chaîne `validate && reload` —
+  l'ancienne version validait la copie **depuis le conteneur**, chemin qui
+  n'y existe pas quand le montage est un fichier unique ;
+- `caddy reload` partout, `restart` nommé pour être banni.
+
+Preuve d'exécution (chaîne complète rejouée sur un `caddy-essai` local,
+copie horodatée côté hôte comprise, `grep -c` rendant 1, retour arrière
+remettant le Caddyfile d'origine) : section « Essai local des retouches
+H-M ».
