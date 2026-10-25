@@ -151,9 +151,12 @@ dans la session après la commande :
 ```bash
 ( set -a; . ./.env; set +a
   docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml \
-    run --rm -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR \
+    run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR \
     migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts )
 ```
+
+`-T` : pas de pseudo-terminal alloué — la commande est scriptable (cron du
+§ 7) et son journal reste lisible, sans séquences de contrôle.
 
 Succès attendu : « Démo en ligne prête — saint-ex (Village) et port-lavanne
 (Littoral) sur *.demo.pdlm.guia.fr, comptes operateur@pdlm.invalid,
@@ -228,7 +231,7 @@ supprimé par un visiteur est recréé ; les modifications faites dans l'admin
 survivent (upserts, cf. § 6). C'est voulu pour une démo :
 
 ```
-17 4 * * 1 flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1'
+17 4 * * 1 flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1'
 ```
 
 Le verrou `<DOSSIER>/.verrou` est **le même que celui de la mise à jour**
@@ -268,7 +271,7 @@ ssh <HOTE>
 cd <DOSSIER>
 flock <DOSSIER>/.verrou docker compose -p pdlm-demo --env-file .env \
   -f docker-compose.yml -f docker-compose.demo.yml \
-  up --build -d --force-recreate migrate app
+  up -d --build --no-deps --force-recreate migrate app
 docker compose -p pdlm-demo --env-file .env \
   -f docker-compose.yml -f docker-compose.demo.yml logs migrate | tail
 ```
@@ -276,6 +279,14 @@ docker compose -p pdlm-demo --env-file .env \
 Le `flock` porte le même verrou que le cron optionnel du § 7 : la mise à
 jour attend que le cron en cours finisse, le cron s'écarte tant qu'une
 mise à jour tient le verrou.
+
+`--no-deps` : la mise à jour ne recrée **ni** `postgres`, **ni** `minio`,
+**ni** `createbuckets` — la base ne redémarre pas. L'ordre migration → app
+ne change pas : `app` dépend de `migrate` (`service_completed_successfully`,
+`docker-compose.yml`) et les deux services sont dans la liste, `--no-deps`
+n'exclut que les dépendances **absentes** de la liste — Compose attend donc
+la fin de `migrate` avant de démarrer `app` (mesuré à l'essai : `migrate`
+fini avant le démarrage de `app`, cf. notes).
 
 `--force-recreate migrate` est indispensable (cf. README) : sans lui, un
 ancien conteneur `migrate` déjà terminé avec succès peut démarrer l'app sans

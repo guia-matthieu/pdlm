@@ -24,6 +24,7 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | (ce commit) | Retouche H | Réseau dédié `pdlm-demo-edge` : plus de `vps-network`, Caddy connecté hors Compose |
 | (ce commit) | Retouche I | `scripts/demo-controles.sh` rejouable, chaîné par la procédure — plus d'`exit` en session |
 | (ce commit) | Retouche J | Caddy : édition/copie côté hôte, chaîne `validate && grep -c && reload`, retour arrière écrit |
+| (ce commit) | Retouche K | `-T` sur les `run` (seed, cron) ; mise à jour `--no-deps` : la base ne redémarre pas |
 
 ## Cadre de travail
 
@@ -717,3 +718,24 @@ Preuve d'exécution (chaîne complète rejouée sur un `caddy-essai` local,
 copie horodatée côté hôte comprise, `grep -c` rendant 1, retour arrière
 remettant le Caddyfile d'origine) : section « Essai local des retouches
 H-M ».
+
+### Retouche K — commandes non interactives, mise à jour sans redémarrer la base
+
+**Changé** (`docs/deploiement-demo.md` § 6, § 7, § 9) :
+
+- `-T` sur **tous** les `docker compose run` de la procédure : le seed du
+  § 6 et le cron du § 7 — aucun pseudo-terminal alloué, commandes
+  scriptables, journaux sans séquences de contrôle ;
+- mise à jour (§ 9) : `up -d --build --no-deps --force-recreate migrate
+  app` — `postgres`, `minio` et `createbuckets` ne sont **pas** recréés, la
+  base ne redémarre pas (l'ancienne commande `up --build -d
+  --force-recreate migrate app` sans `--no-deps` recréait toute la pile).
+
+`--no-deps` change-t-il l'ordre migration → app ? **Non.** `app` dépend de
+`migrate` avec `condition: service_completed_successfully`
+(`docker-compose.yml`), et les deux services figurent dans la liste :
+`--no-deps` n'exclut que les dépendances **absentes** de la liste (postgres,
+minio, createbuckets), Compose attend toujours la fin de `migrate` avant de
+démarrer `app`. La procédure le garantit ainsi : ne jamais retirer `migrate`
+de cette commande ni de celle du premier `up` (§ 5). Mesure à l'essai :
+section « Essai local des retouches H-M ».
