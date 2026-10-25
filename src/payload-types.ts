@@ -280,6 +280,8 @@ export interface Media {
    * Obligatoire en français pour l’accessibilité (RGAA). Traduire dans chaque langue du site.
    */
   alt?: string | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -691,6 +693,8 @@ export interface Document {
    * Seule une traduction validée est montrée au public dans cette langue.
    */
   traduction?: ('non-traduite' | 'a-relire' | 'validee') | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -1056,6 +1060,8 @@ export interface MandatsSelect<T extends boolean = true> {
 export interface MediaSelect<T extends boolean = true> {
   tenant?: T;
   alt?: T;
+  prefix?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1270,6 +1276,8 @@ export interface DocumentsSelect<T extends boolean = true> {
   dateDocument?: T;
   dureeConservation?: T;
   traduction?: T;
+  prefix?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
