@@ -1,15 +1,23 @@
 # pdlm — surcouche de l'instance de démonstration en ligne
 #
 # Usage : docker compose -f docker-compose.yml -f docker-compose.demo.yml …
-# Le serveur cible a déjà un Caddy partagé sur 80/443 : la pile de démo ne
-# lance PAS le sien et publie l'application sur la boucle locale uniquement,
-# en IPv4 et IPv6 — le Caddy partagé proxifie https:// vers ce port.
-# Procédure complète : docs/deploiement-demo.md.
+# Le serveur cible a déjà un Caddy partagé — un CONTENEUR sur le réseau Docker
+# externe `vps-network` : la pile de démo ne lance PAS son propre Caddy, et
+# l'app y est jointe par son alias `pdlm-demo` (reverse_proxy pdlm-demo:3000).
+# Les publications 127.0.0.1:3110 / [::1]:3110 restent utiles pour contrôler
+# depuis l'hôte. Procédure complète : docs/deploiement-demo.md.
 
 services:
   app:
+    # `default` explicite : poser `networks` sur un service le retire sinon du
+    # réseau de la pile — il perdrait postgres et minio.
+    networks:
+      default: {}
+      vps-network:
+        aliases:
+          - pdlm-demo
     # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
-    # tout passe par le Caddy partagé du serveur (reverse_proxy localhost:3110).
+    # tout passe par le Caddy partagé du serveur.
     ports:
       - '127.0.0.1:3110:3000'
       - '[::1]:3110:3000'
@@ -20,3 +28,10 @@ services:
     # partagé de l'hôte.
     profiles:
       - desactive
+
+networks:
+  # Externe : créé hors Compose par l'exploitant du serveur (réseau des
+  # conteneurs exposés, dont le Caddy partagé). En essai local, le créer
+  # d'abord : docker network create vps-network.
+  vps-network:
+    external: true

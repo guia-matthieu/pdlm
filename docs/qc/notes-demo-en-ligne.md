@@ -11,6 +11,7 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | --- | --- | --- |
 | (ci-dessous) | A | Seed `demo-en-ligne.ts` + garde-fous + tests + script npm |
 | (ci-dessous) | B | `docker-compose.demo.yml` (caddy désactivé, app sur 3110 boucle locale) |
+| (ci-dessous) | B | Correction hub : app aussi sur le réseau externe `vps-network`, alias `pdlm-demo` |
 
 ## Cadre de travail
 
@@ -151,3 +152,24 @@ Fichier : `docker-compose.demo.yml`, à utiliser
 (`PAYLOAD_SECRET=x` : valeur jetable, uniquement pour l'interpolation `:?`
 de la config en mode dry-run — aucune pile lancée.) La partie C prouve la
 surcouche en conditions réelles (build, up, curl).
+
+### Correction du hub (mesurée sur le serveur cible)
+
+Le Caddy partagé tourne dans un CONTENEUR sur le réseau Docker externe
+`vps-network` : `localhost:3110` y désignerait le conteneur Caddy lui-même,
+pas l'hôte. La surcouche rattache donc aussi `app` à `vps-network` avec
+l'alias `pdlm-demo` (le Caddy partagé proxifie par `reverse_proxy
+pdlm-demo:3000`, cf. partie D), tout en le gardant sur le réseau `default`
+de la pile — poser `networks` sur un service le retire sinon du réseau de la
+pile, et il perdrait postgres et minio. Les publications 127.0.0.1:3110 /
+[::1]:3110 restent : elles servent aux contrôles depuis l'hôte.
+
+    $ docker network create vps-network   # absent localement, créé pour l'essai
+    6835f903a4fe…682039d99
+
+    $ docker compose … config --format json | extraction
+    app.networks = {"default": {}, "vps-network": {"aliases": ["pdlm-demo"]}}
+    app.ports   = [{"host_ip": "127.0.0.1", "published": "3110", "target": 3000},
+                   {"host_ip": "::1",       "published": "3110", "target": 3000}]
+    caddy présent : False
+    networks = {"default": "pdlm-prod_default", "vps-network": "vps-network (externe)"}
