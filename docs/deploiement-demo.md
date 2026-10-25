@@ -24,9 +24,16 @@ curl, login, 404 sur host inconnu) sont consignés dans
 
 ## 1. DNS
 
+Trois enregistrements explicites, aucun générique :
+
 - `demo.pdlm.guia.fr` : enregistrement A (et AAAA si IPv6) vers le serveur ;
-- `*.demo.pdlm.guia.fr` : CNAME vers `demo.pdlm.guia.fr` — toute commune
-  ajoutée à la démo sera servie sans nouvel enregistrement.
+- `saint-ex.demo.pdlm.guia.fr` : CNAME vers `demo.pdlm.guia.fr` ;
+- `port-lavanne.demo.pdlm.guia.fr` : CNAME vers `demo.pdlm.guia.fr`.
+
+Un `*.demo.pdlm.guia.fr` publierait **n'importe quel** sous-domaine résolu
+par la pile ; la démo n'en a que trois. Ajouter une commune à la démo
+devient : un enregistrement DNS de plus ici, une ligne de plus au bloc
+Caddy du § 7 — et rien d'ouvert par avance.
 
 ## 2. Copie du code (sans dépôt distant)
 

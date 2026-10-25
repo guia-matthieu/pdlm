@@ -17,7 +17,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `f277aaa` | Retouche A | Alias `pdlm-demo-postgres`/`pdlm-demo-minio`, URIs redirigées, essai avec leurre |
 | `e8d2253` | Retouche B | `COMPOSE_PROJECT_NAME`/`COMPOSE_FILE` dans le `.env` serveur + garde avant sauvegarde |
 | `2d784c2` | Retouche C | Contrôle `docker-compose.demo.yml` présent avant le `up` |
-| (ce commit) | Retouche D | Gestes sûrs serveur mutualisé : réseau, port, noms, Caddy, secrets, désinstallation |
+| `7801656` | Retouche D | Gestes sûrs serveur mutualisé : réseau, port, noms, Caddy, secrets, désinstallation |
+| (ce commit) | Retouche E | DNS : trois enregistrements explicites, plus de générique |
 
 ## Cadre de travail
 
@@ -511,3 +512,18 @@ garde `ss` pour le serveur Linux, l'équivalent local est `lsof`) :
      caddy validate, copie locale du Caddyfile de démo :
      bloc d'origine   → exit=0, « Valid configuration »
      syntaxe cassée   → exit=1, « Error: adapting config using caddyfile: … syntax error »
+
+### Retouche E — DNS sans enregistrement générique
+
+**Changé** (`docs/deploiement-demo.md` § 1) : le CNAME `*.demo.pdlm.guia.fr`
+disparaît ; trois enregistrements explicites le remplacent — `demo` en A
+(AAAA si IPv6), `saint-ex.demo` et `port-lavanne.demo` en CNAME vers
+`demo.pdlm.guia.fr`. Le § 1 dit aussi pourquoi, et ce que devient l'ajout
+d'une commune (un DNS de plus, une ligne Caddy de plus, rien d'ouvert par
+avance).
+
+Aucune sortie de commande : rien de jouable localement, la zone DNS vit
+chez l'exploitant. Le reste du document était déjà aligné — le bloc Caddy
+du § 7 énumère les trois hôtes, le § 11 parle des « trois enregistrements
+DNS (§ 1) » ; la seule occurrence restante d'un `*.` est la citation
+littérale du journal de succès du seed (§ 6), qui reste exacte.
