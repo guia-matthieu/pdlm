@@ -1,16 +1,19 @@
 # pdlm — surcouche de l'instance de démonstration en ligne
 #
 # Usage : docker compose -f docker-compose.yml -f docker-compose.demo.yml …
-# Le serveur cible a déjà un Caddy partagé — un CONTENEUR sur le réseau Docker
-# externe `vps-network` : la pile de démo ne lance PAS son propre Caddy, et
-# l'app y est jointe par son alias `pdlm-demo` (reverse_proxy pdlm-demo:3000).
-# Les publications 127.0.0.1:3110 / [::1]:3110 restent utiles pour contrôler
-# depuis l'hôte. Procédure complète : docs/deploiement-demo.md.
+# Le serveur cible a déjà un Caddy partagé — un CONTENEUR, que la procédure
+# connecte au réseau `pdlm-demo-edge` ci-dessous : la pile de démo ne lance
+# PAS son propre Caddy, et l'app y est jointe par son alias `pdlm-demo`
+# (reverse_proxy pdlm-demo:3000). Les publications 127.0.0.1:3110 / [::1]:3110
+# restent utiles pour contrôler depuis l'hôte. Procédure complète :
+# docs/deploiement-demo.md.
 #
-# Le réseau partagé du serveur porte déjà un conteneur nommé `postgres` (base
-# d'autres sites) : depuis `app`, attachée aux deux réseaux, ce nom serait
-# ambigu. `postgres` et `minio` reçoivent donc des alias sans ambiguïté sur le
-# réseau `default` de la pile, et les URIs pointent dessus (retouche A).
+# Isolation (retouche H) : la pile ne touche PAS `vps-network`, le réseau des
+# autres sites du serveur — un conteneur de la pile n'y voit ni leur site ni
+# leur base. Seul le Caddy partagé est connecté à `pdlm-demo-edge`, réseau
+# créé et possédé par la pile. Les alias sans ambiguïté `pdlm-demo-postgres`
+# et `pdlm-demo-minio` (retouche A) restent : défense en profondeur à coût
+# nul, un éventuel `postgres` étranger n'entre jamais en concurrence.
 
 services:
   postgres:
@@ -32,10 +35,12 @@ services:
 
   app:
     # `default` explicite : poser `networks` sur un service le retire sinon du
-    # réseau de la pile — il perdrait postgres et minio.
+    # réseau de la pile — il perdrait postgres et minio. `pdlm-demo-edge` porte
+    # l'alias `pdlm-demo` : c'est là, et là seulement, que le Caddy partagé
+    # trouve l'app.
     networks:
       default: {}
-      vps-network:
+      pdlm-demo-edge:
         aliases:
           - pdlm-demo
     environment:
@@ -55,8 +60,11 @@ services:
       - desactive
 
 networks:
-  # Externe : créé hors Compose par l'exploitant du serveur (réseau des
-  # conteneurs exposés, dont le Caddy partagé). En essai local, le créer
-  # d'abord : docker network create vps-network.
-  vps-network:
-    external: true
+  # Réseau DÉDIÉ au dialogue Caddy partagé ↔ app de démo (retouche H). Nom
+  # fixe : la procédure y connecte le conteneur Caddy du serveur, quel que
+  # soit le projet Compose qui a créé la pile. Jamais dans le Compose du
+  # Caddy partagé : absent au démarrage de celui-ci, il l'empêcherait de
+  # démarrer — la connexion vit hors Compose, par `docker network connect`
+  # (docs/deploiement-demo.md § 4).
+  pdlm-demo-edge:
+    name: pdlm-demo-edge

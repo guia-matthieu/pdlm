@@ -21,6 +21,7 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `ef30c74` | Retouche E | DNS : trois enregistrements explicites, plus de générique |
 | `58e640c` | Retouche F | Cron de re-seed optionnel, verrou `flock` partagé avec la mise à jour |
 | (ce commit) | Retouche G | Garde-fous du seed : DEMO_DOMAIN ≥ 3 étiquettes, = PLATFORM_DOMAIN, base et domaines vérifiés |
+| (ce commit) | Retouche H | Réseau dédié `pdlm-demo-edge` : plus de `vps-network`, Caddy connecté hors Compose |
 
 ## Cadre de travail
 
@@ -594,3 +595,58 @@ Unitaires (`npx vitest run tests/unit/garde-fous-demo.spec.ts`) :
 
 Les messages ne citent jamais les valeurs testées (test dédié : aucune
 erreur ne contient la valeur du domaine ni du mot de passe).
+
+## Retouches après la seconde relecture (2026-10-25, brief du hub)
+
+Seconde relecture : REJECTED — six lettres (H à M). Un commit par lettre,
+jamais d'`--amend`. Les preuves Docker de ces lettres (isolation réseau,
+contrôles du script, ordre de la mise à jour, mesures de fin de procédure)
+viennent d'un essai local rejoué sur l'état final : section « Essai local des
+retouches H-M » ci-dessous.
+
+### Retouche H — isolation réseau : l'app ne rejoint plus `vps-network`
+
+**Changé** (`docker-compose.demo.yml`, `docs/deploiement-demo.md`) :
+
+- la surcouche déclare le réseau **`pdlm-demo-edge`** (nom fixe :
+  `name: pdlm-demo-edge`), créé et possédé par la pile ; plus **aucune**
+  référence à `vps-network` ;
+- `app` est sur `default` **et** `pdlm-demo-edge`, avec l'alias `pdlm-demo`
+  **sur `pdlm-demo-edge` seul** — c'est le seul chemin par lequel le Caddy
+  partagé joint l'app (`reverse_proxy pdlm-demo:3000` inchangé) ;
+- alias `pdlm-demo-postgres`/`pdlm-demo-minio` et URIs qui les visent :
+  conservés (défense en profondeur à coût nul) ;
+- procédure (§ 4) : après le `up`, connexion **idempotente** du seul
+  conteneur Caddy — `docker network inspect pdlm-demo-edge … | grep -qw
+  <CONTENEUR_CADDY> || docker network connect pdlm-demo-edge
+  <CONTENEUR_CADDY>` — sans arrêt ni rechargement de Caddy ; la procédure
+  documente que cette connexion **disparaît si le conteneur Caddy est
+  recréé** (elle survit à un `restart`), symptôme = 502 sur la seule démo,
+  remède = rejouer la commande ; et pourquoi ce réseau n'ira **jamais** dans
+  le Compose du Caddy partagé (absent à son démarrage, il l'empêcherait de
+  démarrer — tous les sites tomberaient) ;
+- désinstallation (§ 11) : `docker network disconnect pdlm-demo-edge
+  <CONTENEUR_CADDY>` **avant** `down -v` (un point d'accès hors pile
+  empêcherait la suppression du réseau), après retrait du bloc Caddy et
+  rechargement ;
+- contrôles d'alias sur `vps-network` retirés du § 5 : sans objet, la pile
+  n'y est plus. Seul contrôle réseau préalable restant : le conteneur Caddy
+  existe.
+
+Preuve statique (`docker compose -f docker-compose.yml -f
+docker-compose.demo.yml config`, valeurs jetables) — `app` porte
+`pdlm-demo` sur `pdlm-demo-edge` seul, `vps-network` absent du rendu :
+
+     networks:
+       default: {}
+       pdlm-demo-edge:
+         aliases:
+           - pdlm-demo
+     …
+     networks:
+       pdlm-demo-edge:
+         name: pdlm-demo-edge
+
+Les preuves d'exécution (leurre `postgres` invisible depuis l'app, Caddy
+simulé joint à `pdlm-demo:3000`, idempotence de la connexion, démontage) :
+section « Essai local des retouches H-M ».

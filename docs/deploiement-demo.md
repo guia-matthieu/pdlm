@@ -8,8 +8,10 @@ Caddy partagé sur 80/443, la pile de démo passe derrière lui.
 Spécificités par rapport à une production « normale » (cf. README) :
 
 - la pile ne lance **pas** son Caddy (`docker-compose.demo.yml` le neutralise) ;
-- l'app est jointe par le Caddy partagé **par nom de conteneur** : elle est
-  rattachée au réseau Docker externe `vps-network` sous l'alias `pdlm-demo` ;
+- l'app est jointe par le Caddy partagé **par nom de conteneur** : la pile
+  crée le réseau `pdlm-demo-edge`, l'app y porte l'alias `pdlm-demo` et le
+  conteneur Caddy du serveur y est connecté par la procédure (§ 4) — la pile
+  ne rejoint **pas** `vps-network`, le réseau des autres sites du serveur ;
 - elle publie aussi `127.0.0.1:3110` et `[::1]:3110` (boucle locale IPv4 et
   IPv6) pour les contrôles depuis l'hôte — rien n'est joignable directement
   depuis l'extérieur ;
@@ -85,42 +87,50 @@ dossier.
   `DEMO_MDP_ADMIN` dans le `.env` après coup ne change pas le mot de passe du
   compte existant (à faire depuis l'admin).
 
-## 4. Réseau Docker partagé
+## 4. Réseau dédié `pdlm-demo-edge`
 
-La pile s'attache au réseau externe `vps-network` (celui du Caddy partagé).
-Sur le serveur mutualisé il **existe déjà** — les autres sites l'utilisent.
-S'il manque, quelque chose ne va pas : **arrêt, jamais de création à la
-place** (la création n'a servi qu'à l'essai local, cf. notes) :
+La pile crée son propre réseau `pdlm-demo-edge` (nom fixe, posé par la
+surcouche) : l'app y porte l'alias `pdlm-demo`, et c'est le seul chemin par
+lequel le Caddy partagé la joint (`reverse_proxy pdlm-demo:3000`). La pile ne
+rejoint **pas** `vps-network`, le réseau des autres sites du serveur : aucun
+conteneur de la démo n'y figure, aucun conteneur de la démo ne peut voir le
+`postgres` ou le site d'un autre hébergé.
+
+Après le `up` (§ 5), connecter **le seul conteneur Caddy** du serveur à ce
+réseau — commande idempotente, à rejouer telle quelle :
 
 ```bash
-docker network ls --format '{{.Name}}' | grep -qx vps-network \
-  || { echo 'vps-network absent du serveur — à éclaircir avec l’exploitant, ne pas le créer' >&2; exit 1; }
+docker network inspect pdlm-demo-edge --format '{{range .Containers}}{{.Name}} {{end}}' \
+  | grep -qw <CONTENEUR_CADDY> \
+  || docker network connect pdlm-demo-edge <CONTENEUR_CADDY>
 ```
+
+`docker network connect` n'arrête ni ne recharge Caddy. Deux mises en garde :
+
+- cette connexion **disparaît si le conteneur Caddy est recréé** (elle
+  survit à un simple `docker restart`). Symptôme : des **502 sur la seule
+  démo**, les autres sites du serveur répondant normalement — remède :
+  rejouer la commande ci-dessus ;
+- **jamais** ajouter `pdlm-demo-edge` au fichier Compose du Caddy partagé :
+  un réseau déclaré mais absent à son démarrage l'empêcherait de démarrer —
+  tous les sites du serveur tomberaient. La connexion vit hors Compose,
+  c'est voulu.
 
 ## 5. Build et démarrage
 
 La référence déployée est `main`, fusionné avant déploiement : l'archive doit
-contenir la surcouche de démo. Contrôle avant tout `up` :
+contenir la surcouche de démo. Contrôles avant tout `up` — surcouche
+présente, port de contrôle libre, conteneur Caddy existant (le seul contrôle
+réseau préalable : c'est lui qu'on connectera à `pdlm-demo-edge`, § 4) :
 
 ```bash
 test -f docker-compose.demo.yml \
   || { echo 'docker-compose.demo.yml absent — l’archive déployée ne contient pas la démo ; STOP' >&2; exit 1; }
-# port de contrôle libre
 ss -ltn | grep -q ':3110 ' \
   && { echo 'port 3110 déjà écouté — STOP' >&2; exit 1; } || true
-# aucun nom ou alias réservé déjà pris sur le réseau partagé
-pris=$( { docker network inspect vps-network --format '{{range .Containers}}{{.Name}} {{end}}'
-  for c in $(docker network inspect vps-network --format '{{range .Containers}}{{.Name}} {{end}}'); do
-    docker inspect "$c" --format '{{range $net, $cfg := .NetworkSettings.Networks}}{{if eq $net "vps-network"}}{{range $cfg.Aliases}}{{.}} {{end}}{{end}}{{end}}'
-  done
-} | tr ' ' '\n' | sort -u | grep -xE 'app|pdlm-demo|pdlm-demo-postgres|pdlm-demo-minio' || true)
-[ -z "$pris" ] || { echo "nom ou alias déjà pris sur vps-network : $(echo $pris)" >&2; exit 1; }
+docker inspect <CONTENEUR_CADDY> >/dev/null \
+  || { echo "conteneur Caddy <CONTENEUR_CADDY> introuvable — STOP" >&2; exit 1; }
 ```
-
-Les noms `app` (nom de service Compose, alias réseau automatique),
-`pdlm-demo`, `pdlm-demo-postgres` et `pdlm-demo-minio` sont réservés à la
-démo sur `vps-network` : la pile ne démarre pas sur un serveur où un autre
-conteneur les porte déjà.
 
 ```bash
 docker compose -p pdlm-demo --env-file .env \
@@ -132,7 +142,7 @@ docker compose -p pdlm-demo --env-file .env \
 
 `-p pdlm-demo` est obligatoire : le `docker-compose.yml` de base pose
 `name: pdlm-prod`, sans `-p` la démo écraserait toute pile de production du
-même serveur.
+même serveur. Puis connecter le Caddy partagé au réseau de la pile : § 4.
 
 ## 6. Seed de la démo
 
@@ -164,8 +174,8 @@ Comptes créés (courriels `.invalid`, RFC 2606) :
 
 ## 7. Caddy partagé et rafraîchissement périodique
 
-Ajouter au Caddyfile du **Caddy partagé** (conteneur déjà sur
-`vps-network`, il résout l'alias) :
+Ajouter au Caddyfile du **Caddy partagé** (conteneur connecté à
+`pdlm-demo-edge`, § 4, il résout l'alias) :
 
 ```
 demo.pdlm.guia.fr, saint-ex.demo.pdlm.guia.fr, port-lavanne.demo.pdlm.guia.fr {
@@ -290,17 +300,27 @@ Les migrations ne sont pas réversibles :
 
 ## 11. Désinstallation
 
-```bash
-docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml down -v
-```
-
-Puis, dans l'ordre :
+Dans l'ordre (les gestes Caddy sont détaillés au § 7) :
 
 1. retirer le bloc `demo.pdlm.guia.fr …` du Caddyfile partagé (copie
    horodatée, `caddy validate` puis `reload`, comme au § 7) ;
-2. si le cron optionnel du § 7 a été posé : le retirer (`crontab -e`) ;
-3. retirer les trois enregistrements DNS (§ 1) ;
-4. contrôle anti-mauvais-dossier, puis suppression — le `.env` disparaît
+2. déconnecter le Caddy partagé du réseau de la pile — **avant** le `down`
+   qui suit, sinon le réseau ne peut pas être supprimé (un point d'accès
+   hors pile l'y retient) :
+
+   ```bash
+   docker network disconnect pdlm-demo-edge <CONTENEUR_CADDY>
+   ```
+
+3. démonter la pile (volumes compris) :
+
+   ```bash
+   docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml down -v
+   ```
+
+4. si le cron optionnel du § 7 a été posé : le retirer (`crontab -e`) ;
+5. retirer les trois enregistrements DNS (§ 1) ;
+6. contrôle anti-mauvais-dossier, puis suppression — le `.env` disparaît
    avec, donc les mots de passe des comptes de démo : la pile est déjà
    supprimée, rien n'en dépend :
 
@@ -310,8 +330,7 @@ Puis, dans l'ordre :
    rm -rf <DOSSIER>
    ```
 
-5. **ne pas** supprimer `vps-network` : les autres sites du serveur l'utilisent ;
-6. au besoin, retirer les images construites de la démo :
+7. au besoin, retirer les images construites de la démo :
    `docker rmi pdlm-demo-app pdlm-demo-migrate` — et rien d'autre : jamais
    `docker image prune` sur un serveur mutualisé, il emporterait les images
    des autres sites.
