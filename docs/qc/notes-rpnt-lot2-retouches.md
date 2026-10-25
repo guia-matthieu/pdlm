@@ -120,6 +120,45 @@ l'écart :
 rendu : 3,59 px d'écart entre « : » et le lien (0 avant). Les 4 combinaisons
 (alerte/sans alerte × clair/sombre) capturées : `apresB-{light,dark}-{alerte,sans-alerte}.png`.
 
+## Retouche C — l'insécable étendue aux autres « : » affichés du panneau
+
+**Inventaire.** `grep -n ':'` sur le composant : 44 « : » sur 40 lignes. Écartés (ni affichés) :
+clés des littéraux objets et types (l. 8, 12-14), gabarits d'URL et ternaires du code
+(l. 30-38, 45-53, 65-69), commentaires (l. 18, 25, 40, 47, 57, 100, 118-120), propriétés
+`style` en ligne (l. 83, 105-109, 121), `https://` du lien (l. 124) et la ligne déjà corrigée
+par B (l. 122). Restent **cinq** « : » rendus, sur quatre lignes : 80, 91, 96 et 112 (deux
+fois).
+
+**Règle de B appliquée telle quelle :** insécable avant « : », espace normale après. En JSX
+(l. 80, 91, 96) : `&nbsp;`, forme retenue en B. Dans le gabarit de chaîne de la l. 112,
+`&nbsp;` y serait rendu littéralement (entités non décodées hors JSX) : U+00A0 littéral
+en source, choix du brief.
+
+Avant → après (l'insécable est notée ⟨NBSP⟩ car invisible ; `…` abrège) :
+
+| Ligne | Avant | Après (source) |
+|---|---|---|
+| 80 | `ASCII : aucune forme…` | `ASCII&nbsp;: aucune forme…` |
+| 91 | `nationale : {formeHomonyme…}` | `nationale&nbsp;: {formeHomonyme…}` |
+| 96 | `commune : pas de geoTLD…` | `commune&nbsp;: pas de geoTLD…` |
+| 112 | `» : ${CRITERES…}` | `»⟨NBSP⟩: ${CRITERES…}` (U+00A0 en source) |
+| 112 | `seul : l’enregistrement…` | `seul⟨NBSP⟩: l’enregistrement…` (U+00A0 en source) |
+
+**Preuve en source (points de code autour de chaque « : » touché).** l. 80, 91, 96 :
+`[ 0x70, 0x3b, 0x3a, 0x20 ]` (…`p`, `;`, `:`, espace) ; l. 112, les deux : `[ 0xa0, 0x3a,
+0x20 ]` (U+00A0, « : », espace). Espace normale (U+0020) après partout, 0xa0 avant partout.
+
+**Résidu signalé, hors périmètre de C.** La l. 91 reste dans un `p.field-description`
+(display flex, cf. B) avec trois enfants texte : l'espace **après** « : » y est en bord
+d'item anonyme flex — au même titre que l'espace avant « (dernier rang) », elle risque de
+ne pas se rendre (le collage l. 122 en B avait cette cause). Ce collage, s'il existe,
+**précède C** (l'espace y était tout aussi bord d'item) et relèverait du même
+`display: 'block'` que B — à trancher hors C, le brief n'y touche pas. Les l. 80, 96 (texte
+unique, espaces internes) et 112 (paragraphe bloc, gabarit unique) ne sont pas concernées.
+
+Aucun serveur, capture ou écriture en base pour C (brief) : rien à rétablir côté
+`src/payload-types.ts` cette fois.
+
 ## Vérification finale
 
 `src/payload-types.ts` a été régénéré par le serveur de dev pendant les mesures — rétabli par
@@ -146,10 +185,13 @@ Test Files  32 passed (32)
 grep -rln "Nomenclature\|nomenclature" tests/e2e/   → vide (exit 1)
 ```
 
+Relancés intégralement après la retouche C : sorties identiques (lint 0, typecheck 0,
+317/317).
+
 Aucun spec e2e ne couvre le panneau : e2e non joué, conformément au brief (seul
-`tests/unit/nomenclature.spec.ts` teste les fonctions pures, non touchées). Les deux
-retouches sont présentationnelles et prouvées par les mesures du DOM servi ci-dessus ; aucun
-test unitaire ajouté (aucun comportement testable en isolé, le rendu est un composant admin
-Payload).
+`tests/unit/nomenclature.spec.ts` teste les fonctions pures, non touchées). Les retouches
+A et B sont présentationnelles et prouvées par les mesures du DOM servi ci-dessus, la C par
+les points de code en source ; aucun test unitaire ajouté (aucun comportement testable en
+isolé, le rendu est un composant admin Payload).
 
 Script jetable supprimé avant la fin de session.

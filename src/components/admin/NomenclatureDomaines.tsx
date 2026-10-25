@@ -77,7 +77,7 @@ export function NomenclatureDomaines() {
         <p className="field-description">Chargement des formes…</p>
       ) : rangs.length === 0 ? (
         <p className="field-description">
-          Nom sans transcription ASCII : aucune forme recommandée, jamais d’IDN.
+          Nom sans transcription ASCII&nbsp;: aucune forme recommandée, jamais d’IDN.
         </p>
       ) : (
         <ol style={{ margin: 0, paddingLeft: '1.25rem' }}>
@@ -88,12 +88,12 @@ export function NomenclatureDomaines() {
       )}
       {commune && formeHomonyme && (
         <p className="field-description">
-          En cas d’homonymie nationale : {formeHomonyme.join(' ou ')} (dernier rang).
+          En cas d’homonymie nationale&nbsp;: {formeHomonyme.join(' ou ')} (dernier rang).
         </p>
       )}
       {commune && !departement && (
         <p className="field-description">
-          Sans code INSEE sur la fiche de la commune : pas de geoTLD ni de forme homonyme proposés.
+          Sans code INSEE sur la fiche de la commune&nbsp;: pas de geoTLD ni de forme homonyme proposés.
         </p>
       )}
       {alerte && !alerte.conforme && (
@@ -109,7 +109,7 @@ export function NomenclatureDomaines() {
             margin: '0.5rem 0',
           }}
         >
-          {`I35 — « ${hostname} » : ${CRITERES[alerte.critere]}. Signalement seul : l’enregistrement n’est pas bloqué.`}
+          {`I35 — « ${hostname} » : ${CRITERES[alerte.critere]}. Signalement seul : l’enregistrement n’est pas bloqué.`}
         </p>
       )}
       {alerte?.conforme && (
