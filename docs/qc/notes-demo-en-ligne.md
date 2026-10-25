@@ -12,7 +12,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `e3d855d` | A | Seed `demo-en-ligne.ts` + garde-fous + tests + script npm |
 | `5316cd1` | B | `docker-compose.demo.yml` (caddy désactivé, app sur 3110 boucle locale) |
 | `f35b658` | B | Correction hub : app aussi sur le réseau externe `vps-network`, alias `pdlm-demo` |
-| (ce commit) | C | Essai Docker complet local (`pdlm-demo-essai`), preuves ci-dessous |
+| `832c005` | C | Essai Docker complet local (`pdlm-demo-essai`), preuves ci-dessous |
+| (ce commit) | D | `docs/deploiement-demo.md` pour le hub |
 
 ## Cadre de travail
 
@@ -335,3 +336,28 @@ aucune trace `pdlm-demo-essai` sur la machine.
   `_parent_id` et `_locale`) — `titre` n'existe pas dans `evenements`.
 - L'image `runner` n'a pas d'ENTRYPOINT (CMD `node server.js` seulement) :
   `docker run … <image> wget …` marche et sert à sonder depuis un conteneur.
+
+## Partie D — procédure de déploiement (`docs/deploiement-demo.md`)
+
+Écrite pour le hub qui déploiera. Structure : aperçu (pile sans Caddy, app
+derrière le Caddy partagé par alias `pdlm-demo` sur `vps-network`,
+publications 3110 pour contrôle), DNS (A/AAAA + wildcard), copie
+`git archive main | ssh … tar -x`, `.env` serveur généré par substitution de
+shell (jamais affiché), réseau partagé, build/up (`-p pdlm-demo`
+obligatoire), seed, bloc Caddy `reverse_proxy pdlm-demo:3000` avec
+`X-Robots-Tag: noindex, nofollow` + cron de rafraîchissement hebdomadaire de
+l'agenda, vérifications, mise à jour (`--force-recreate migrate app`, cf.
+README), sauvegarde/retour arrière (migrations non réversibles), désinstallation.
+
+Points d'attention reflétés dans la doc :
+
+- `-p pdlm-demo` partout : le compose de base pose `name: pdlm-prod` ;
+- placeholders uniquement (`<HOTE>`, `<DOSSIER>`, `<CONTENEUR_CADDY>`,
+  `<CHEMIN_CADDYFILE>`, `<chemin-du-dépôt>`) — aucune IP ni chemin inventé ;
+- les `DEMO_MDP_*` ne sont lus qu'à la création des comptes : la doc dit
+  explicitement qu'un changement dans le `.env` ne change pas un mot de passe
+  existant ;
+- désinstallation : `down -v`, bloc Caddy retiré + reload, DNS retiré,
+  `rm -rf <DOSSIER>`, et **ne pas** supprimer `vps-network` (partagé) ;
+- le wildcard DNS `*.demo.pdlm.guia.fr` sert toute future commune de démo
+  sans nouvel enregistrement.
