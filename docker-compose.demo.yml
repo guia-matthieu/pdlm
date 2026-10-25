@@ -6,8 +6,30 @@
 # l'app y est jointe par son alias `pdlm-demo` (reverse_proxy pdlm-demo:3000).
 # Les publications 127.0.0.1:3110 / [::1]:3110 restent utiles pour contrôler
 # depuis l'hôte. Procédure complète : docs/deploiement-demo.md.
+#
+# Le réseau partagé du serveur porte déjà un conteneur nommé `postgres` (base
+# d'autres sites) : depuis `app`, attachée aux deux réseaux, ce nom serait
+# ambigu. `postgres` et `minio` reçoivent donc des alias sans ambiguïté sur le
+# réseau `default` de la pile, et les URIs pointent dessus (retouche A).
 
 services:
+  postgres:
+    networks:
+      default:
+        aliases:
+          - pdlm-demo-postgres
+
+  minio:
+    networks:
+      default:
+        aliases:
+          - pdlm-demo-minio
+
+  migrate:
+    environment:
+      # Mêmes variables que docker-compose.yml, seul l'hôte change.
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
+
   app:
     # `default` explicite : poser `networks` sur un service le retire sinon du
     # réseau de la pile — il perdrait postgres et minio.
@@ -16,6 +38,9 @@ services:
       vps-network:
         aliases:
           - pdlm-demo
+    environment:
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
+      S3_ENDPOINT: http://pdlm-demo-minio:9000
     # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
     # tout passe par le Caddy partagé du serveur.
     ports:

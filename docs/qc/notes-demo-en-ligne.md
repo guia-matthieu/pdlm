@@ -13,7 +13,7 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `5316cd1` | B | `docker-compose.demo.yml` (caddy désactivé, app sur 3110 boucle locale) |
 | `f35b658` | B | Correction hub : app aussi sur le réseau externe `vps-network`, alias `pdlm-demo` |
 | `832c005` | C | Essai Docker complet local (`pdlm-demo-essai`), preuves ci-dessous |
-| (ce commit) | D | `docs/deploiement-demo.md` pour le hub |
+| `1127e0f` | D | `docs/deploiement-demo.md` pour le hub |
 
 ## Cadre de travail
 
@@ -361,3 +361,64 @@ Points d'attention reflétés dans la doc :
   `rm -rf <DOSSIER>`, et **ne pas** supprimer `vps-network` (partagé) ;
 - le wildcard DNS `*.demo.pdlm.guia.fr` sert toute future commune de démo
   sans nouvel enregistrement.
+
+## Retouches après relecture (2026-10-25, brief du hub)
+
+Le relecteur a rejeté la branche ; le hub a mesuré le serveur cible (un
+conteneur `postgres` — base d'autres sites — et un `umami` existent déjà sur
+`vps-network`). Retouches A à G ci-dessous, un commit par lettre.
+
+### Retouche A — noms non ambigus sur les réseaux
+
+**Changé** (`docker-compose.demo.yml` seul, `docker-compose.yml` intact) :
+sur le réseau `default` de la pile, `postgres` reçoit l'alias
+`pdlm-demo-postgres` et `minio` l'alias `pdlm-demo-minio` ; `DATABASE_URI`
+d'`app` **et** de `migrate` vise `pdlm-demo-postgres`, `S3_ENDPOINT` d'`app`
+vise `http://pdlm-demo-minio:9000` (mêmes variables que le compose de base,
+seul l'hôte change). Le seed tourne par le service `migrate` (image
+`migrator`) : il hérite donc de l'URI redirigée.
+
+Config fusionnée (`docker compose config`, mot de passe masqué) :
+
+        DATABASE_URI: postgres://postgres:***@pdlm-demo-postgres:5432/pdlm
+        S3_ENDPOINT: http://pdlm-demo-minio:9000
+          aliases:
+        DATABASE_URI: postgres://postgres:***@pdlm-demo-postgres:5432/pdlm
+          aliases:
+          aliases:
+
+**Essai local rejoué avec un leurre** — `docker network create vps-network`
+(absent de la machine, retiré à la fin), puis
+`docker run -d --name postgres --network vps-network postgres:17-alpine`
+(mot de passe jetable) : la pile doit réussir leurre présent. Réseau résultant :
+
+     vps-network postgres=172.27.0.2/16 pdlm-demo-essai-app-1=172.27.0.3/16
+     default pdlm-demo-essai-postgres-1=172.28.0.3/16 pdlm-demo-essai-minio-1=172.28.0.2/16 pdlm-demo-essai-app-1=172.28.0.4/16
+
+Depuis `app`, le nom nu `postgres` désigne l'un ou l'autre conteneur (ici il
+a résolu vers 172.28.0.3, celui de la démo — sans aucun contrat : c'est le
+lot mesuré par le hub sur le serveur) ; les alias ne dépendent plus de ce
+tirage :
+
+     $ docker exec pdlm-demo-essai-app-1 getent hosts pdlm-demo-postgres
+     172.28.0.3        pdlm-demo-postgres  pdlm-demo-postgres
+
+Migrations (`docker logs …migrate`, fin) : `Done.` — seed passé **deux fois**
+(idempotence : 2 communes, 2 domaines, 3 comptes, 8 pages après le 2e passage).
+HTTP sur 127.0.0.1:3110 : `saint-ex` 200, `port-lavanne` 200 (palette littoral
+rendue : `--picto-1:#2a7f9e;--picto-2:#d2462f;…#f2b134` dans le `<body>`),
+`/api/health` 200, hôte inconnu 404, `[::1]:3110` 200.
+
+Le leurre n'a servi à rien, preuve qu'il n'a pas été joint :
+
+     == le leurre contient-il pdlm ? ==
+     0
+     == communes de la base démo ==
+     saint-ex|t
+     port-lavanne|t
+
+Démontage complet (`down -v` volumes et réseau de pile compris, leurre `rm`-é,
+`vps-network` retiré — il n'existait pas avant l'essai, images
+`pdlm-demo-essai-*` supprimées) ; `docker ps -a` final : plus aucun
+`pdlm-demo-essai-*` ni `postgres`, ne restent que les piles dev/prod
+préexistantes.
