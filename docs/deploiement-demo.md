@@ -200,11 +200,21 @@ docker exec <CONTENEUR_CADDY> caddy validate --config "$SAUVE" \
 (nom du conteneur Caddy et chemin de sa configuration : connus de
 l'exploitant).
 
-Agenda vivant — cron hebdomadaire sur le serveur (`crontab -e`) :
+Agenda vivant — **optionnel** : relancer le seed chaque semaine (`crontab -e`)
+remet la démo dans son état de référence — l'agenda est re-daté, un contenu
+supprimé par un visiteur est recréé ; les modifications faites dans l'admin
+survivent (upserts, cf. § 6). C'est voulu pour une démo :
 
 ```
-17 4 * * 1 cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -e DEMO_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1
+17 4 * * 1 flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1'
 ```
+
+Le verrou `<DOSSIER>/.verrou` est **le même que celui de la mise à jour**
+(§ 9) : le cron s'écarte (`flock -n`) si une mise à jour est en cours, une
+mise à jour attend son tour si le cron tourne. `flock` ne connaît pas les
+secrets — le `.env` reste lisible par son seul propriétaire (§ 3).
+
+Retrait du cron à la désinstallation : § 11, point 2.
 
 ## 8. Vérifications
 
@@ -234,11 +244,16 @@ le `DEMO_MDP_ADMIN` du `.env`.
 git -C <chemin-du-dépôt> archive main | ssh <HOTE> 'tar -x -C <DOSSIER>'   # ou un SHA précis
 ssh <HOTE>
 cd <DOSSIER>
-docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml \
+flock <DOSSIER>/.verrou docker compose -p pdlm-demo --env-file .env \
+  -f docker-compose.yml -f docker-compose.demo.yml \
   up --build -d --force-recreate migrate app
 docker compose -p pdlm-demo --env-file .env \
   -f docker-compose.yml -f docker-compose.demo.yml logs migrate | tail
 ```
+
+Le `flock` porte le même verrou que le cron optionnel du § 7 : la mise à
+jour attend que le cron en cours finisse, le cron s'écarte tant qu'une
+mise à jour tient le verrou.
 
 `--force-recreate migrate` est indispensable (cf. README) : sans lui, un
 ancien conteneur `migrate` déjà terminé avec succès peut démarrer l'app sans

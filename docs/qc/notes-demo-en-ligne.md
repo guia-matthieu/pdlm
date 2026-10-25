@@ -18,7 +18,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `e8d2253` | Retouche B | `COMPOSE_PROJECT_NAME`/`COMPOSE_FILE` dans le `.env` serveur + garde avant sauvegarde |
 | `2d784c2` | Retouche C | Contrôle `docker-compose.demo.yml` présent avant le `up` |
 | `7801656` | Retouche D | Gestes sûrs serveur mutualisé : réseau, port, noms, Caddy, secrets, désinstallation |
-| (ce commit) | Retouche E | DNS : trois enregistrements explicites, plus de générique |
+| `ef30c74` | Retouche E | DNS : trois enregistrements explicites, plus de générique |
+| (ce commit) | Retouche F | Cron de re-seed optionnel, verrou `flock` partagé avec la mise à jour |
 
 ## Cadre de travail
 
@@ -527,3 +528,26 @@ chez l'exploitant. Le reste du document était déjà aligné — le bloc Caddy
 du § 7 énumère les trois hôtes, le § 11 parle des « trois enregistrements
 DNS (§ 1) » ; la seule occurrence restante d'un `*.` est la citation
 littérale du journal de succès du seed (§ 6), qui reste exacte.
+
+### Retouche F — cron de re-seed optionnel et verrouillé
+
+**Changé** (`docs/deploiement-demo.md` § 7 et § 9) : le cron de re-seed
+reste, présenté **optionnel**, et gagne un verrou `flock` sur
+`<DOSSIER>/.verrou` — le même fichier que le `up` de la mise à jour (§ 9),
+lancé sous `flock` : le cron s'écarte (`flock -n`) pendant une mise à jour,
+la mise à jour attend un cron en cours. Sa ligne cite le comportement réel
+et voulu : la démo revient à son état de référence chaque semaine (agenda
+re-daté, contenu supprimé recréé), les modifications admin survivent
+(upserts, cf. § 6) ; `-e PLATFORM_DOMAIN` complète la liste des `-e`,
+alignée sur le § 6. Le retrait du cron à la désinstallation était déjà au
+§ 11 point 2 (retouche D).
+
+Preuves :
+
+     sh -n -c '<corps du cron>…' → « sh -n : syntaxe OK (corps du cron, hors flock) »
+
+`flock` n'existe pas sur macOS : le verrou lui-même n'est pas rejouable
+localement, il le sera sur le serveur Linux (util-linux). Le corps du cron
+hors `flock` est la commande du § 6, elle, éprouvée deux fois dans l'essai
+de la partie C et à nouveau lors de la retouche A (idempotence : 2 communes,
+2 domaines, 3 comptes, 8 pages après double passage).
