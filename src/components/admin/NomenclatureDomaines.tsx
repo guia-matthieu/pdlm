@@ -109,7 +109,7 @@ export function NomenclatureDomaines() {
             margin: '0.5rem 0',
           }}
         >
-          {`I35 — « ${hostname} » : ${CRITERES[alerte.critere]}. Signalement seul : l’enregistrement n’est pas bloqué.`}
+          {`I35 — « ${hostname} »\u00a0: ${CRITERES[alerte.critere]}. Signalement seul\u00a0: l’enregistrement n’est pas bloqué.`}
         </p>
       )}
       {alerte?.conforme && (
