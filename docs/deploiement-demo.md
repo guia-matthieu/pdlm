@@ -56,18 +56,21 @@ shell : jamais affichées, jamais dans un journal.
 ```bash
 ssh <HOTE>
 cd <DOSSIER>
-umask 077                       # .env lisible par son seul propriétaire
-: > .env
-printf 'DEMO_DOMAIN=%s\n'        demo.pdlm.guia.fr        >> .env
-printf 'PLATFORM_DOMAIN=%s\n'    demo.pdlm.guia.fr        >> .env
-printf 'ADMIN_URL=%s\n'          https://demo.pdlm.guia.fr >> .env
-printf 'NEXT_PUBLIC_APP_URL=%s\n' https://demo.pdlm.guia.fr >> .env
-for v in POSTGRES_PASSWORD PAYLOAD_SECRET MINIO_ROOT_PASSWORD S3_APP_PASSWORD \
-         DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR; do
-  printf '%s=%s\n' "$v" "$(openssl rand -hex 32)" >> .env
-done
-printf 'COMPOSE_PROJECT_NAME=%s\n'  pdlm-demo                                  >> .env
-printf 'COMPOSE_FILE=%s\n'          'docker-compose.yml:docker-compose.demo.yml' >> .env
+( umask 077                     # .env lisible par son seul propriétaire —
+  # sous-shell : ni le umask ni les variables ne fuient dans la session,
+  # et rien ci-dessous n'a besoin d'un `exit`.
+  : > .env
+  printf 'DEMO_DOMAIN=%s\n'        demo.pdlm.guia.fr        >> .env
+  printf 'PLATFORM_DOMAIN=%s\n'    demo.pdlm.guia.fr        >> .env
+  printf 'ADMIN_URL=%s\n'          https://demo.pdlm.guia.fr >> .env
+  printf 'NEXT_PUBLIC_APP_URL=%s\n' https://demo.pdlm.guia.fr >> .env
+  for v in POSTGRES_PASSWORD PAYLOAD_SECRET MINIO_ROOT_PASSWORD S3_APP_PASSWORD \
+           DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR; do
+    printf '%s=%s\n' "$v" "$(openssl rand -hex 32)" >> .env
+  done
+  printf 'COMPOSE_PROJECT_NAME=%s\n'  pdlm-demo                                  >> .env
+  printf 'COMPOSE_FILE=%s\n'          'docker-compose.yml:docker-compose.demo.yml' >> .env
+)
 ```
 
 Les deux dernières lignes figent le projet Compose pour tout `docker compose`
@@ -119,22 +122,17 @@ docker network inspect pdlm-demo-edge --format '{{range .Containers}}{{.Name}} {
 ## 5. Build et démarrage
 
 La référence déployée est `main`, fusionné avant déploiement : l'archive doit
-contenir la surcouche de démo. Contrôles avant tout `up` — surcouche
-présente, port de contrôle libre, conteneur Caddy existant (le seul contrôle
-réseau préalable : c'est lui qu'on connectera à `pdlm-demo-edge`, § 4) :
+contenir la surcouche de démo. Les contrôles préalables (surcouche présente,
+conteneur Caddy existant — le seul contrôle réseau préalable, cf. § 4 —,
+port 3110 libre ou tenu par la démo elle-même, Compose du dossier ne visant
+que la démo) vivent dans `scripts/demo-controles.sh` : rejouables, sans
+état, ils ne quittent pas la session — la commande suivante n'est exécutée
+que s'ils passent :
 
 ```bash
-test -f docker-compose.demo.yml \
-  || { echo 'docker-compose.demo.yml absent — l’archive déployée ne contient pas la démo ; STOP' >&2; exit 1; }
-ss -ltn | grep -q ':3110 ' \
-  && { echo 'port 3110 déjà écouté — STOP' >&2; exit 1; } || true
-docker inspect <CONTENEUR_CADDY> >/dev/null \
-  || { echo "conteneur Caddy <CONTENEUR_CADDY> introuvable — STOP" >&2; exit 1; }
-```
-
-```bash
-docker compose -p pdlm-demo --env-file .env \
-  -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+./scripts/demo-controles.sh <CONTENEUR_CADDY> \
+  && docker compose -p pdlm-demo --env-file .env \
+     -f docker-compose.yml -f docker-compose.demo.yml up -d --build
 docker compose -p pdlm-demo --env-file .env \
   -f docker-compose.yml -f docker-compose.demo.yml logs migrate
 # doit se terminer par « Done. »
@@ -275,21 +273,18 @@ jour ajoute des communes ou du contenu de démo.
 Avant chaque mise à jour, une sauvegarde (cf. README, « Sauvegarde et
 restauration »). Les scripts n'ont ni `-p` ni `-f` : le `.env` du § 3 les
 porte (`COMPOSE_PROJECT_NAME`, `COMPOSE_FILE`). **Avant toute sauvegarde ou
-restauration**, vérifier que le Compose nu depuis ce dossier ne liste bien
-que la démo :
+restauration**, les contrôles de `scripts/demo-controles.sh` (dont « le
+Compose de ce dossier ne vise que la démo ») puis la présence effective des
+conteneurs — une liste vide (`.env` cassé, pile jamais démarrée) ne doit pas
+arriver jusqu'à `backup.sh` :
 
 ```bash
-conteneurs=$(docker compose ps --all --format '{{.Name}}')
-printf '%s\n' "$conteneurs"
-printf '%s\n' "$conteneurs" | grep -q '^pdlm-demo-' \
-  || { echo 'STOP — aucun conteneur pdlm-demo-* : le .env ne vise pas la démo' >&2; exit 1; }
-if hors_demo=$(printf '%s\n' "$conteneurs" | grep -v '^pdlm-demo-'); then
-  echo "STOP — des conteneurs hors démo seraient visés : $hors_demo" >&2; exit 1
-fi
-./scripts/backup.sh    # base + bucket cohérents, dans backups/AAAAMMJJ-HHMMSS
+./scripts/demo-controles.sh <CONTENEUR_CADDY> \
+  && docker compose ps --all --format '{{.Name}}' | grep -q '^pdlm-demo-' \
+  && ./scripts/backup.sh    # base + bucket cohérents, dans backups/AAAAMMJJ-HHMMSS
 ```
 
-Même contrôle avant `./scripts/restore.sh <dossier>`.
+Même chaîne avant `./scripts/restore.sh <dossier>`.
 
 Les migrations ne sont pas réversibles :
 
@@ -325,9 +320,11 @@ Dans l'ordre (les gestes Caddy sont détaillés au § 7) :
    supprimée, rien n'en dépend :
 
    ```bash
-   test -f <DOSSIER>/docker-compose.demo.yml \
-     || { echo '<DOSSIER> ne contient pas la démo — STOP avant rm -rf' >&2; exit 1; }
-   rm -rf <DOSSIER>
+   if [ -f <DOSSIER>/docker-compose.demo.yml ]; then
+     rm -rf <DOSSIER>
+   else
+     echo '<DOSSIER> ne contient pas la démo — rm -rf non exécuté' >&2
+   fi
    ```
 
 7. au besoin, retirer les images construites de la démo :

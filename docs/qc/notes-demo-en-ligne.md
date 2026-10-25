@@ -22,6 +22,7 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `58e640c` | Retouche F | Cron de re-seed optionnel, verrou `flock` partagé avec la mise à jour |
 | (ce commit) | Retouche G | Garde-fous du seed : DEMO_DOMAIN ≥ 3 étiquettes, = PLATFORM_DOMAIN, base et domaines vérifiés |
 | (ce commit) | Retouche H | Réseau dédié `pdlm-demo-edge` : plus de `vps-network`, Caddy connecté hors Compose |
+| (ce commit) | Retouche I | `scripts/demo-controles.sh` rejouable, chaîné par la procédure — plus d'`exit` en session |
 
 ## Cadre de travail
 
@@ -650,3 +651,41 @@ docker-compose.demo.yml config`, valeurs jetables) — `app` porte
 Les preuves d'exécution (leurre `postgres` invisible depuis l'app, Caddy
 simulé joint à `pdlm-demo:3000`, idempotence de la connexion, démontage) :
 section « Essai local des retouches H-M ».
+
+### Retouche I — contrôles préalables dans un script rejouable, sans `exit` dans la session
+
+**Changé** (`scripts/demo-controles.sh` créé, `docs/deploiement-demo.md`) :
+
+- `scripts/demo-controles.sh` (`set -euo pipefail`, non interactif, ne
+  modifie rien) sort non nul avec un message clair si :
+  `docker-compose.demo.yml` absent ; conteneur Caddy (nom en argument)
+  introuvable ; port 3110 tenu **par autre chose que la démo elle-même**
+  (Docker d'abord — docker-proxy écoute le port quand la pile tourne — puis
+  ss/lsof sur l'hôte) ; `docker compose ps` (piloté par le `.env` du dossier)
+  liste un conteneur hors `pdlm-demo-*` — une liste vide passe, c'est le
+  premier démarrage ;
+- la procédure l'appelle en chaîne : `./scripts/demo-controles.sh
+  <CONTENEUR_CADDY> && …` au § 5 (avant le `up`) et au § 10 (avant
+  `backup.sh`/`restore.sh`, avec en plus le `grep -q '^pdlm-demo-'` qui
+  couvre la liste vide) ;
+- plus aucun `exit` dans les blocs de la procédure : le `umask 077` du § 3
+  passe dans un sous-shell (rien ne fuit dans la session), le garde-fou
+  `rm -rf` du § 11 devient un `if … then rm … else message`.
+
+Preuves.
+
+`bash -n scripts/demo-controles.sh` : rien (syntaxe OK). `shellcheck` :
+non installé sur la machine d'essai (dit ici faute de pouvoir l'exécuter).
+
+Cas d'échec sans état Docker (sortie non nulle, message, rien d'exécuté
+après dans la chaîne) :
+
+     $ ./scripts/demo-controles.sh
+     contrôles démo : usage : ./scripts/demo-controles.sh <CONTENEUR_CADDY>  (rc=1)
+     $ …/scripts/demo-controles.sh caddy-quelconque   # dossier sans surcouche
+     contrôles démo : docker-compose.demo.yml absent — l'archive déployée ne contient pas la démo ; STOP  (rc=1)
+     $ ./scripts/demo-controles.sh ce-conteneur-nexiste-pas
+     contrôles démo : conteneur Caddy « ce-conteneur-nexiste-pas » introuvable (docker inspect) — STOP  (rc=1)
+
+Cas avec état Docker (port pris par un tiers, Compose visant une autre
+pile, cas passant complet) : section « Essai local des retouches H-M ».
