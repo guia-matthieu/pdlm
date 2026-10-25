@@ -88,6 +88,14 @@ docker network ls | grep -q ' vps-network$' || docker network create vps-network
 
 ## 5. Build et démarrage
 
+La référence déployée est `main`, fusionné avant déploiement : l'archive doit
+contenir la surcouche de démo. Contrôle avant tout `up` :
+
+```bash
+test -f docker-compose.demo.yml \
+  || { echo 'docker-compose.demo.yml absent — l’archive déployée ne contient pas la démo ; STOP' >&2; exit 1; }
+```
+
 ```bash
 docker compose -p pdlm-demo --env-file .env \
   -f docker-compose.yml -f docker-compose.demo.yml up -d --build

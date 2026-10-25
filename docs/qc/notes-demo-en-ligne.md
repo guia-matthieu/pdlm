@@ -15,7 +15,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `832c005` | C | Essai Docker complet local (`pdlm-demo-essai`), preuves ci-dessous |
 | `1127e0f` | D | `docs/deploiement-demo.md` pour le hub |
 | `f277aaa` | Retouche A | Alias `pdlm-demo-postgres`/`pdlm-demo-minio`, URIs redirigées, essai avec leurre |
-| (ce commit) | Retouche B | `COMPOSE_PROJECT_NAME`/`COMPOSE_FILE` dans le `.env` serveur + garde avant sauvegarde |
+| `e8d2253` | Retouche B | `COMPOSE_PROJECT_NAME`/`COMPOSE_FILE` dans le `.env` serveur + garde avant sauvegarde |
+| (ce commit) | Retouche C | Contrôle `docker-compose.demo.yml` présent avant le `up` |
 
 ## Cadre de travail
 
@@ -448,3 +449,15 @@ son `.env` — le `docker compose` nu lancé depuis le dossier de l'essai) :
 
 La pile dev `pdlm-*` pourtant active sur la machine n'apparaît pas : le
 projet est bien figé par le `.env`.
+
+### Retouche C — contrôle de la référence déployée
+
+**Changé** (`docs/deploiement-demo.md` § 5) : `git archive main` conservé ;
+avant tout `up`, `test -f docker-compose.demo.yml` arrête si la surcouche
+absente (une archive d'un `main` sans la démo ne doit pas démarrer une pile
+à moitié configurée).
+
+Preuve :
+
+     archive complète (dossier du dépôt) : docker-compose.demo.yml présent → passe
+     archive incomplète (dossier simulé vide) : docker-compose.demo.yml absent → STOP
