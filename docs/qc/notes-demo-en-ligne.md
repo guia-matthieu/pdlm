@@ -16,7 +16,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `1127e0f` | D | `docs/deploiement-demo.md` pour le hub |
 | `f277aaa` | Retouche A | Alias `pdlm-demo-postgres`/`pdlm-demo-minio`, URIs redirigées, essai avec leurre |
 | `e8d2253` | Retouche B | `COMPOSE_PROJECT_NAME`/`COMPOSE_FILE` dans le `.env` serveur + garde avant sauvegarde |
-| (ce commit) | Retouche C | Contrôle `docker-compose.demo.yml` présent avant le `up` |
+| `2d784c2` | Retouche C | Contrôle `docker-compose.demo.yml` présent avant le `up` |
+| (ce commit) | Retouche D | Gestes sûrs serveur mutualisé : réseau, port, noms, Caddy, secrets, désinstallation |
 
 ## Cadre de travail
 
@@ -461,3 +462,52 @@ Preuve :
 
      archive complète (dossier du dépôt) : docker-compose.demo.yml présent → passe
      archive incomplète (dossier simulé vide) : docker-compose.demo.yml absent → STOP
+
+### Retouche D — gestes sûrs pour un serveur mutualisé
+
+**Changé** (`docs/deploiement-demo.md` § 4, 5, 6, 7, 11) :
+
+1. § 4 : `vps-network` doit **exister déjà** sur le serveur — s'il manque,
+   arrêt net ; jamais de création à la place (elle n'a servi qu'à l'essai
+   local, cf. partie C).
+2. § 5 : avant tout `up`, le port 3110 doit être libre (`ss -ltn`).
+3. § 5 : avant tout `up`, aucun conteneur de `vps-network` ne doit porter le
+   nom **ou l'alias** `app`, `pdlm-demo`, `pdlm-demo-postgres`,
+   `pdlm-demo-minio` — ces quatre noms sont réservés à la démo (`app` est le
+   nom de service Compose, alias réseau automatique).
+4. § 6 : le chargement du `.env` vit dans un sous-shell — aucun secret
+   exporté dans la session après la commande.
+5. § 7 : Caddyfile partagé — copie horodatée avant édition, `caddy validate`
+   avant `caddy reload`, retour arrière écrit, **jamais `caddy restart`**
+   (couperait les autres sites).
+6. § 11 : désinstallation — retrait du cron optionnel, contrôle
+   `test -f <DOSSIER>/docker-compose.demo.yml` avant le `rm -rf`,
+   `vps-network` jamais supprimé, `docker rmi` limité aux deux images de la
+   démo, **aucun `docker image prune`**.
+
+Preuves (essai local ; `ss` et `flock` n'existent pas sur macOS — le doc
+garde `ss` pour le serveur Linux, l'équivalent local est `lsof`) :
+
+     garde réseau, présent :  docker network ls --format '{{.Name}}' | grep -qx vps-network → passe
+     garde réseau, absent simulé (réseau retiré) : STOP — « vps-network absent du serveur »
+
+     garde port, pile démarrée (équivalent lsof de ss -ltn | grep ':3110 ') :
+     TCP 127.0.0.1:3110 (LISTEN)
+     TCP [::1]:3110 (LISTEN)
+
+     garde noms/alias (commande du § 5, telle quelle), pile de démo démarrée :
+     STOP — nom ou alias déjà pris sur vps-network : app pdlm-demo
+     (le nom de service Compose « app » est lui-même un alias réseau — la garde
+     le voit, un second déploiement s'arrêterait avant d'approcher la pile)
+
+     garde noms/alias, leurre isolé portant l'alias pdlm-demo (vps-network
+     recréé pour l'occasion, conteneur jeté ensuite) :
+     STOP — nom ou alias déjà pris sur vps-network : pdlm-demo
+     sans le leurre : rien de pris — la pile peut démarrer
+
+     sous-shell du § 6 : après la commande, DEMO_MDP_ADMIN absent de la session
+     (echo ${DEMO_MDP_ADMIN:+PRESENT} → ligne vide)
+
+     caddy validate, copie locale du Caddyfile de démo :
+     bloc d'origine   → exit=0, « Valid configuration »
+     syntaxe cassée   → exit=1, « Error: adapting config using caddyfile: … syntax error »

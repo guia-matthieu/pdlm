@@ -80,10 +80,14 @@ dossier.
 
 ## 4. Réseau Docker partagé
 
-La pile s'attache au réseau externe `vps-network` (celui du Caddy partagé) :
+La pile s'attache au réseau externe `vps-network` (celui du Caddy partagé).
+Sur le serveur mutualisé il **existe déjà** — les autres sites l'utilisent.
+S'il manque, quelque chose ne va pas : **arrêt, jamais de création à la
+place** (la création n'a servi qu'à l'essai local, cf. notes) :
 
 ```bash
-docker network ls | grep -q ' vps-network$' || docker network create vps-network
+docker network ls --format '{{.Name}}' | grep -qx vps-network \
+  || { echo 'vps-network absent du serveur — à éclaircir avec l’exploitant, ne pas le créer' >&2; exit 1; }
 ```
 
 ## 5. Build et démarrage
@@ -94,7 +98,22 @@ contenir la surcouche de démo. Contrôle avant tout `up` :
 ```bash
 test -f docker-compose.demo.yml \
   || { echo 'docker-compose.demo.yml absent — l’archive déployée ne contient pas la démo ; STOP' >&2; exit 1; }
+# port de contrôle libre
+ss -ltn | grep -q ':3110 ' \
+  && { echo 'port 3110 déjà écouté — STOP' >&2; exit 1; } || true
+# aucun nom ou alias réservé déjà pris sur le réseau partagé
+pris=$( { docker network inspect vps-network --format '{{range .Containers}}{{.Name}} {{end}}'
+  for c in $(docker network inspect vps-network --format '{{range .Containers}}{{.Name}} {{end}}'); do
+    docker inspect "$c" --format '{{range $net, $cfg := .NetworkSettings.Networks}}{{if eq $net "vps-network"}}{{range $cfg.Aliases}}{{.}} {{end}}{{end}}{{end}}'
+  done
+} | tr ' ' '\n' | sort -u | grep -xE 'app|pdlm-demo|pdlm-demo-postgres|pdlm-demo-minio' || true)
+[ -z "$pris" ] || { echo "nom ou alias déjà pris sur vps-network : $(echo $pris)" >&2; exit 1; }
 ```
+
+Les noms `app` (nom de service Compose, alias réseau automatique),
+`pdlm-demo`, `pdlm-demo-postgres` et `pdlm-demo-minio` sont réservés à la
+démo sur `vps-network` : la pile ne démarre pas sur un serveur où un autre
+conteneur les porte déjà.
 
 ```bash
 docker compose -p pdlm-demo --env-file .env \
@@ -110,13 +129,15 @@ même serveur.
 
 ## 6. Seed de la démo
 
-Les `DEMO_MDP_*` sont passés au conteneur, pas écrits dans la commande :
+Les `DEMO_MDP_*` sont passés au conteneur, pas écrits dans la commande. Le
+chargement du `.env` vit dans un **sous-shell** : aucun secret n'est exporté
+dans la session après la commande :
 
 ```bash
-set -a; . ./.env; set +a
-docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml \
-  run --rm -e DEMO_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR \
-  migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts
+( set -a; . ./.env; set +a
+  docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml \
+    run --rm -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR \
+    migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts )
 ```
 
 Succès attendu : « Démo en ligne prête — saint-ex (Village) et port-lavanne
@@ -147,10 +168,26 @@ demo.pdlm.guia.fr, saint-ex.demo.pdlm.guia.fr, port-lavanne.demo.pdlm.guia.fr {
 ```
 
 `X-Robots-Tag` interdit l'indexation : une démo avec données fictives ne doit
-pas se retrouver dans les moteurs de recherche. Recharger ensuite :
+pas se retrouver dans les moteurs de recherche.
+
+Ce Caddyfile sert **d'autres sites** : copie horodatée avant édition (retour
+arrière), validation avant rechargement, et **jamais `caddy restart`** — un
+`reload` remplace la configuration à chaud, un `restart` couperait tous les
+autres sites le temps du redémarrage :
 
 ```bash
-docker exec <CONTENEUR_CADDY> caddy reload --config <CHEMIN_CADDYFILE>
+SAUVE=<CHEMIN_CADDYFILE>.$(date +%Y%m%d-%H%M%S)
+docker exec <CONTENEUR_CADDY> cp <CHEMIN_CADDYFILE> "$SAUVE"    # copie horodatée
+# … éditer <CHEMIN_CADDYFILE> pour ajouter le bloc ci-dessus …
+docker exec <CONTENEUR_CADDY> caddy validate --config <CHEMIN_CADDYFILE> \
+  && docker exec <CONTENEUR_CADDY> caddy reload --config <CHEMIN_CADDYFILE>
+```
+
+Retour arrière écrit (si l'édition ou le `reload` pose problème) :
+
+```bash
+docker exec <CONTENEUR_CADDY> caddy validate --config "$SAUVE" \
+  && docker exec <CONTENEUR_CADDY> caddy reload --config "$SAUVE"
 ```
 
 (nom du conteneur Caddy et chemin de sa configuration : connus de
@@ -237,11 +274,22 @@ docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-comp
 
 Puis, dans l'ordre :
 
-1. retirer le bloc `demo.pdlm.guia.fr …` du Caddyfile partagé et recharger
-   le Caddy (`docker exec <CONTENEUR_CADDY> caddy reload …`) ;
-2. retirer les enregistrements DNS (§ 1) ;
-3. `rm -rf <DOSSIER>` — le `.env` disparaît avec, donc les mots de passe des
-   comptes de démo : la pile est déjà supprimée, rien n'en dépend ;
-4. **ne pas** supprimer `vps-network` : les autres sites du serveur l'utilisent ;
-5. au besoin, retirer les images construites : `docker rmi pdlm-demo-app
-   pdlm-demo-migrate` (ou `docker image prune`).
+1. retirer le bloc `demo.pdlm.guia.fr …` du Caddyfile partagé (copie
+   horodatée, `caddy validate` puis `reload`, comme au § 7) ;
+2. si le cron optionnel du § 7 a été posé : le retirer (`crontab -e`) ;
+3. retirer les trois enregistrements DNS (§ 1) ;
+4. contrôle anti-mauvais-dossier, puis suppression — le `.env` disparaît
+   avec, donc les mots de passe des comptes de démo : la pile est déjà
+   supprimée, rien n'en dépend :
+
+   ```bash
+   test -f <DOSSIER>/docker-compose.demo.yml \
+     || { echo '<DOSSIER> ne contient pas la démo — STOP avant rm -rf' >&2; exit 1; }
+   rm -rf <DOSSIER>
+   ```
+
+5. **ne pas** supprimer `vps-network` : les autres sites du serveur l'utilisent ;
+6. au besoin, retirer les images construites de la démo :
+   `docker rmi pdlm-demo-app pdlm-demo-migrate` — et rien d'autre : jamais
+   `docker image prune` sur un serveur mutualisé, il emporterait les images
+   des autres sites.
