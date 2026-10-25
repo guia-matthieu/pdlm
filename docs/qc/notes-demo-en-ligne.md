@@ -19,7 +19,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `2d784c2` | Retouche C | Contrôle `docker-compose.demo.yml` présent avant le `up` |
 | `7801656` | Retouche D | Gestes sûrs serveur mutualisé : réseau, port, noms, Caddy, secrets, désinstallation |
 | `ef30c74` | Retouche E | DNS : trois enregistrements explicites, plus de générique |
-| (ce commit) | Retouche F | Cron de re-seed optionnel, verrou `flock` partagé avec la mise à jour |
+| `58e640c` | Retouche F | Cron de re-seed optionnel, verrou `flock` partagé avec la mise à jour |
+| (ce commit) | Retouche G | Garde-fous du seed : DEMO_DOMAIN ≥ 3 étiquettes, = PLATFORM_DOMAIN, base et domaines vérifiés |
 
 ## Cadre de travail
 
@@ -551,3 +552,45 @@ localement, il le sera sur le serveur Linux (util-linux). Le corps du cron
 hors `flock` est la commande du § 6, elle, éprouvée deux fois dans l'essai
 de la partie C et à nouveau lors de la retouche A (idempotence : 2 communes,
 2 domaines, 3 comptes, 8 pages après double passage).
+
+### Retouche G — garde-fous du seed renforcés
+
+**Changé** (`src/seed/garde-fous-demo.ts`, `src/seed/demo-en-ligne.ts`,
+`tests/unit/garde-fous-demo.spec.ts`) :
+
+- `DEMO_DOMAIN` doit avoir **au moins trois étiquettes** (`guia.fr`,
+  `com.fr`, `demo.localhost` refusés ; `demo.pdlm.localhost` passe — trois
+  étiquettes est le plancher d'un sous-domaine de démo, pas un domaine
+  réel possible) ;
+- si `PLATFORM_DOMAIN` est définie, elle doit **égaler** `DEMO_DOMAIN`
+  (sinon refus, les deux noms cités, aucune valeur) ;
+- le seed refuse toute base contenant une commune hors
+  `saint-ex`/`port-lavanne`, **avant toute écriture** ;
+- le seed refuse un hostname `<slug>.<DEMO_DOMAIN>` déjà rattaché à une
+  autre commune (changer `DEMO_DOMAIN`, ou retirer le domaine).
+
+Preuves.
+
+Unitaires (`npx vitest run tests/unit/garde-fous-demo.spec.ts`) :
+
+     Test Files  1 passed (1)
+           Tests  10 passed (10)
+
+À l'exécution, dans l'essai Docker de la retouche A (base de démo montée) :
+
+     commune étrangère créée par REST (valvert), puis seed :
+     EXIT=1 — « la base contient 1 commune(s) hors démo (valvert) — le seed
+     de démo refuse toute base qui n'est pas la sienne. »
+     après suppression de valvert : EXIT=0 (seed passe)
+
+     DEMO_DOMAIN=demo.localhost (deux étiquettes) :
+     EXIT=1 — « DEMO_DOMAIN : domaine nu attendu (sans schéma, port ni
+     slash), avec au moins trois étiquettes — ex. demo.pdlm.guia.fr, pas
+     guia.fr »
+
+     PLATFORM_DOMAIN=autre.chose.example ≠ DEMO_DOMAIN :
+     EXIT=1 — « DEMO_DOMAIN et PLATFORM_DOMAIN divergent — le seed exige
+     qu'ils soient égaux. » (0 occurrence des deux valeurs dans le journal)
+
+Les messages ne citent jamais les valeurs testées (test dédié : aucune
+erreur ne contient la valeur du domaine ni du mot de passe).

@@ -3,7 +3,13 @@ import type { Commune, Domaine, User } from '../payload-types'
 import { FRANCAIS } from '../lib/langues'
 import { getPayloadClient } from '../lib/payload'
 import { seedContenuDemo } from './contenu-demo'
-import { erreursEnvironnementDemo, estHostnameDemo, type EnvDemo } from './garde-fous-demo'
+import {
+  domainesMalRattaches,
+  erreursEnvironnementDemo,
+  estHostnameDemo,
+  slugsEtrangers,
+  type EnvDemo,
+} from './garde-fous-demo'
 
 type Payload = Awaited<ReturnType<typeof getPayloadClient>>
 
@@ -110,13 +116,12 @@ async function upsertUser(
   return payload.create({ collection: 'users', data, overrideAccess: true })
 }
 
-/** Commune, domaine canonique <slug>.<DEMO_DOMAIN>, activation (I6). */
-async function assurerCommune(
+/** Domaine canonique <slug>.<DEMO_DOMAIN> puis activation (I6). */
+async function activerAvecDomaine(
   payload: Payload,
-  commune: CommuneDemo,
+  commune: Commune,
   domaine: string,
-): Promise<Commune> {
-  const existante = await upsertCommune(payload, commune)
+): Promise<void> {
   const hostname = `${commune.slug}.${domaine}`
   // Garde-fou (brief, partie A) : tout hostname hors .<DEMO_DOMAIN> est refusé.
   if (!estHostnameDemo(hostname, domaine)) {
@@ -124,19 +129,18 @@ async function assurerCommune(
   }
   await upsertDomaine(payload, {
     hostname,
-    commune: existante.id,
+    commune: commune.id,
     canonique: true,
   })
   // Activation seulement si nécessaire : une relance ne crée pas de version de fiche.
-  if (!existante.actif) {
+  if (!commune.actif) {
     await payload.update({
       collection: 'communes',
-      id: existante.id,
+      id: commune.id,
       data: { actif: true },
       overrideAccess: true,
     })
   }
-  return existante
 }
 
 /**
@@ -170,6 +174,7 @@ async function redaterEvenements(payload: Payload, tenant: number) {
 async function seed() {
   const env: EnvDemo = {
     DEMO_DOMAIN: process.env.DEMO_DOMAIN,
+    PLATFORM_DOMAIN: process.env.PLATFORM_DOMAIN,
     DEMO_MDP_OPERATEUR: process.env.DEMO_MDP_OPERATEUR,
     DEMO_MDP_ADMIN: process.env.DEMO_MDP_ADMIN,
     DEMO_MDP_REDACTEUR: process.env.DEMO_MDP_REDACTEUR,
@@ -179,14 +184,62 @@ async function seed() {
     console.error(`Seed de démo en ligne interrompu :\n${erreurs.join('\n')}`)
     process.exit(1)
   }
-  // Garanti complet par erreursEnvironnementDemo ci-dessus.
+  // Les quatre variables ci-dessous sont garanties présentes ; PLATFORM_DOMAIN,
+  // facultative, n'est plus utile après la comparaison de erreursEnvironnementDemo.
   const { DEMO_DOMAIN, DEMO_MDP_OPERATEUR, DEMO_MDP_ADMIN, DEMO_MDP_REDACTEUR } =
     env as Required<EnvDemo>
 
   const payload = await getPayloadClient()
 
-  const saintEx = await assurerCommune(payload, COMMUNES_DEMO[0], DEMO_DOMAIN)
-  const portLavanne = await assurerCommune(payload, COMMUNES_DEMO[1], DEMO_DOMAIN)
+  // Garde-fou (retouche G) : une base qui contient une commune hors démo n'est
+  // pas une base de démonstration — refus AVANT toute écriture.
+  const toutesCommunes = await payload.find({
+    collection: 'communes',
+    limit: 0,
+    overrideAccess: true,
+  })
+  const etrangeres = slugsEtrangers(
+    toutesCommunes.docs.map((commune) => commune.slug),
+    COMMUNES_DEMO.map((commune) => commune.slug),
+  )
+  if (etrangeres.length > 0) {
+    console.error(
+      `Seed de démo interrompu : la base contient ${etrangeres.length} commune(s) hors démo ` +
+        `(${etrangeres.join(', ')}) — le seed de démo refuse toute base qui n'est pas la sienne.`,
+    )
+    process.exit(1)
+  }
+
+  const saintEx = await upsertCommune(payload, COMMUNES_DEMO[0])
+  const portLavanne = await upsertCommune(payload, COMMUNES_DEMO[1])
+
+  // Garde-fou (retouche G) : un hostname de démo déjà rattaché à une autre
+  // commune — DEMO_DOMAIN recouvrirait un site existant.
+  const attendus = [saintEx, portLavanne].map((commune) => ({
+    hostname: `${commune.slug}.${DEMO_DOMAIN}`,
+    commune: commune.id,
+  }))
+  const domaines = await payload.find({
+    collection: 'domaines',
+    where: { hostname: { in: attendus.map((attendu) => attendu.hostname) } },
+    overrideAccess: true,
+  })
+  const malRattaches = domainesMalRattaches(
+    domaines.docs.map((domaine) => ({
+      hostname: domaine.hostname,
+      commune: typeof domaine.commune === 'number' ? domaine.commune : domaine.commune.id,
+    })),
+    attendus,
+  )
+  if (malRattaches.length > 0) {
+    console.error(
+      `Seed de démo interrompu : ${malRattaches.join(', ')} est déjà rattaché à une autre commune — changer DEMO_DOMAIN, ou retirer le domaine.`,
+    )
+    process.exit(1)
+  }
+
+  await activerAvecDomaine(payload, saintEx, DEMO_DOMAIN)
+  await activerAvecDomaine(payload, portLavanne, DEMO_DOMAIN)
 
   // Courriels en .invalid (RFC 2606) : jamais livrables, acceptés par la
   // validation Payload. Les mots de passe viennent de l'environnement, ne sont
