@@ -10,6 +10,7 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | Commit | Partie | Contenu |
 | --- | --- | --- |
 | (ci-dessous) | A | Seed `demo-en-ligne.ts` + garde-fous + tests + script npm |
+| (ci-dessous) | B | `docker-compose.demo.yml` (caddy désactivé, app sur 3110 boucle locale) |
 
 ## Cadre de travail
 
@@ -107,3 +108,46 @@ Fichiers : `src/seed/demo-en-ligne.ts` (script), `src/seed/garde-fous-demo.ts`
 - `figerPrivileges` (hook `beforeChange` de Users) s'applique aussi en
   `overrideAccess` (les hooks tournent toujours) mais laisse passer les appels
   sans `req.user` — les créations du seed passent telles quelles.
+
+## Partie B — surcouche Compose de démo
+
+Fichier : `docker-compose.demo.yml`, à utiliser
+`docker compose -f docker-compose.yml -f docker-compose.demo.yml …`
+(`docker-compose.yml` inchangé).
+
+- `app` reçoit `ports: 127.0.0.1:3110:3000` et `[::1]:3110:3000` — boucle
+  locale IPv4 ET IPv6, rien d'autre (le service de base n'a aucun port, la
+  fusion n'entre donc pas en conflit avec lui).
+- `caddy` reçoit `profiles: [desactive]` : profil jamais activé, Compose
+  ignore le service et 80/443 restent au Caddy partagé de l'hôte.
+
+### Preuves (sorties réelles)
+
+    $ PAYLOAD_SECRET=x docker compose -f docker-compose.yml -f docker-compose.demo.yml config --services
+    minio
+    postgres
+    createbuckets
+    migrate
+    app
+    (caddy absent)
+
+    $ docker compose … config --format json | extraction services.app.ports
+    [
+     {
+      "host_ip": "127.0.0.1",
+      "target": 3000,
+      "published": "3110",
+      "protocol": "tcp"
+     },
+     {
+      "host_ip": "::1",
+      "target": 3000,
+      "published": "3110",
+      "protocol": "tcp"
+     }
+    ]
+    caddy: False
+
+(`PAYLOAD_SECRET=x` : valeur jetable, uniquement pour l'interpolation `:?`
+de la config en mode dry-run — aucune pile lancée.) La partie C prouve la
+surcouche en conditions réelles (build, up, curl).

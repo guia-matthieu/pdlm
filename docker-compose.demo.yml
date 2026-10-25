@@ -1,0 +1,22 @@
+# pdlm — surcouche de l'instance de démonstration en ligne
+#
+# Usage : docker compose -f docker-compose.yml -f docker-compose.demo.yml …
+# Le serveur cible a déjà un Caddy partagé sur 80/443 : la pile de démo ne
+# lance PAS le sien et publie l'application sur la boucle locale uniquement,
+# en IPv4 et IPv6 — le Caddy partagé proxifie https:// vers ce port.
+# Procédure complète : docs/deploiement-demo.md.
+
+services:
+  app:
+    # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
+    # tout passe par le Caddy partagé du serveur (reverse_proxy localhost:3110).
+    ports:
+      - '127.0.0.1:3110:3000'
+      - '[::1]:3110:3000'
+
+  caddy:
+    # Profil jamais activé : Compose ignore ce service tant que
+    # COMPOSE_PROFILES ne vaut pas `desactive` — 80/443 restent au Caddy
+    # partagé de l'hôte.
+    profiles:
+      - desactive
