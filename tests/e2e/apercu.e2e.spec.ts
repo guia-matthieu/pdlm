@@ -97,6 +97,66 @@ async function ouvrirApparence(page: Page, communeId: string) {
   await page.waitForLoadState('networkidle')
 }
 
+/*
+ * Ce fichier lit l’état du seed : saint-ex au gabarit « Village », attendu au
+ * select de la fiche et dans la feuille servie par l’aperçu. La base de dev
+ * est partagée entre worktrees — une session interrompue avant sa remise en
+ * état peut y laisser un autre gabarit et faire échouer quatre tests sur
+ * l’état de départ, pas sur l’aperçu (docs/qc/bloque-integration.md). Le
+ * fichier pose donc lui-même son état attendu avant les tests, et remet le
+ * gabarit trouvé à la fin.
+ */
+let gabaritInitial: string | null | undefined
+
+/*
+ * PATCH du gabarit puis relecture, en opérateur : le gabarit lui est réservé
+ * (Décision 15) — PATCHé par l’admin de la commune, le champ serait retiré en
+ * silence et l’update répondrait quand même 200. Le corps relu, pas le code,
+ * prouve donc la valeur réellement posée.
+ */
+async function poserGabarit(page: Page, communeId: string, gabarit: string | null) {
+  const pose = await apiCommunes(page, `/api/communes/${communeId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apparence: { gabarit } }),
+  })
+  expect(pose.ok, pose.corps).toBe(true)
+  const relecture = await apiCommunes(page, `/api/communes/${communeId}?depth=0`)
+  expect(relecture.ok, relecture.corps).toBe(true)
+  expect(JSON.parse(relecture.corps).apparence?.gabarit ?? null).toBe(gabarit)
+  await libererVerrou(page, communeId)
+}
+
+test.beforeAll(async ({ browser }) => {
+  const contexte = await browser.newContext()
+  const page = await contexte.newPage()
+  try {
+    await connecterAdmin(page, OPERATEUR)
+    const communeId = await idSaintEx(page)
+    const lecture = await apiCommunes(page, `/api/communes/${communeId}?depth=0`)
+    expect(lecture.ok, lecture.corps).toBe(true)
+    gabaritInitial = JSON.parse(lecture.corps).apparence?.gabarit ?? null
+
+    await poserGabarit(page, communeId, 'village')
+  } finally {
+    await contexte.close()
+  }
+})
+
+test.afterAll(async ({ browser }) => {
+  // beforeAll tombé avant la lecture : rien n’a été posé, rien à remettre.
+  if (gabaritInitial === undefined) return
+  const contexte = await browser.newContext()
+  const page = await contexte.newPage()
+  try {
+    await connecterAdmin(page, OPERATEUR)
+    const communeId = await idSaintEx(page)
+    await poserGabarit(page, communeId, gabaritInitial)
+  } finally {
+    await contexte.close()
+  }
+})
+
 test.describe('Aperçu d’apparence — accès et en-têtes', () => {
   test('anonyme : 404, même pour une commune qui existe (I28)', async ({ page }) => {
     await connecterAdmin(page, ADMIN_COMMUNE)

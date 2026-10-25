@@ -340,11 +340,19 @@ for (const g of GABARITS) {
       ).docs
 
       // Toutes les photos de la maquette utiles ici : héros, actualités, tuiles.
+      // Absentes (hors dépôt, worktree neuf) : rien à téléverser — les tests
+      // « avec photos » sautent par leur garde, les sans-photo continuent.
       photo = {}
-      for (const nom of [
-        ...new Set([g.photoAccueil, ...g.actus, ...g.tuiles.filter((t): t is string => t !== null)]),
-      ]) {
-        photo[nom] = await televerser(page, idCommune, g.images, `${nom}.jpg`)
+      if (avecPhotos) {
+        for (const nom of [
+          ...new Set([
+            g.photoAccueil,
+            ...g.actus,
+            ...g.tuiles.filter((t): t is string => t !== null),
+          ]),
+        ]) {
+          photo[nom] = await televerser(page, idCommune, g.images, `${nom}.jpg`)
+        }
       }
 
       await patchCommune({

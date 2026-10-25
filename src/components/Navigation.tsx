@@ -2,6 +2,20 @@ import { cheminLangue } from '@/lib/adresses'
 import type { ElementMenu, TexteEnLangue } from '@/lib/contenu'
 import type { ContexteLangue } from '@/lib/langue-courante'
 
+/** Liens que Navigation affiche toujours, quel que soit le menu de la commune. */
+const LIENS_FIXES = new Set(['/', '/actualites', '/agenda', '/documents'])
+
+/**
+ * Retire du menu de la commune les entrées simples qui pointent vers un lien
+ * fixe : un éditeur qui ajoute « Documents » à son menu le verrait sinon deux
+ * fois. Une entrée à sous-menu est gardée — c'est un déroulant, pas un doublon.
+ */
+export function sansLiensFixes(elements: ElementMenu[]): ElementMenu[] {
+  return elements.filter(
+    (e) => e.enfants.length > 0 || !LIENS_FIXES.has(e.href.replace(/(.)\/+$/, '$1')),
+  )
+}
+
 /**
  * Navigation publique depuis le menu de la commune, dans la langue affichée.
  * Les items « page » sont résolus uniquement si la page est publiée et
@@ -22,7 +36,7 @@ export function Navigation({ elements, ctx }: { elements: ElementMenu[]; ctx: Co
         <li>
           <a href={lien('/')}>{ctx.t.accueil.lien}</a>
         </li>
-        {elements.map((entete) => (
+        {sansLiensFixes(elements).map((entete) => (
           <li key={entete.href + entete.label.texte}>
             {entete.enfants.length > 0 ? (
               <details className="nav-deroulant">
