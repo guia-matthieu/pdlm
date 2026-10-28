@@ -20,13 +20,13 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | `7801656` | Retouche D | Gestes sûrs serveur mutualisé : réseau, port, noms, Caddy, secrets, désinstallation |
 | `ef30c74` | Retouche E | DNS : trois enregistrements explicites, plus de générique |
 | `58e640c` | Retouche F | Cron de re-seed optionnel, verrou `flock` partagé avec la mise à jour |
-| (ce commit) | Retouche G | Garde-fous du seed : DEMO_DOMAIN ≥ 3 étiquettes, = PLATFORM_DOMAIN, base et domaines vérifiés |
-| (ce commit) | Retouche H | Réseau dédié `pdlm-demo-edge` : plus de `vps-network`, Caddy connecté hors Compose |
-| (ce commit) | Retouche I | `scripts/demo-controles.sh` rejouable, chaîné par la procédure — plus d'`exit` en session |
-| (ce commit) | Retouche J | Caddy : édition/copie côté hôte, chaîne `validate && grep -c && reload`, retour arrière écrit |
-| (ce commit) | Retouche K | `-T` sur les `run` (seed, cron) ; mise à jour `--no-deps` : la base ne redémarre pas |
-| (ce commit) | Retouche L | `estHostnameDemo` supprimé (garde tautologique) ; `POSTGRES_PASSWORD` sans défaut dans la surcouche |
-| (ce commit) | Retouche M | § Vérifications : `/admin` 200 ou redirection, `X-Robots-Tag` obligatoire |
+| `d5408f7` | Retouche G | Garde-fous du seed : DEMO_DOMAIN ≥ 3 étiquettes, = PLATFORM_DOMAIN, base et domaines vérifiés |
+| `451a134` | Retouche H | Réseau dédié `pdlm-demo-edge` : plus de `vps-network`, Caddy connecté hors Compose |
+| `20836cc` | Retouche I | `scripts/demo-controles.sh` rejouable, chaîné par la procédure — plus d'`exit` en session |
+| `53a1a98` | Retouche J | Caddy : édition/copie côté hôte, chaîne `validate && grep -c && reload`, retour arrière écrit |
+| `ecc4568` | Retouche K | `-T` sur les `run` (seed, cron) ; mise à jour `--no-deps` : la base ne redémarre pas |
+| `31d1a11` | Retouche L | `estHostnameDemo` supprimé (garde tautologique) ; `POSTGRES_PASSWORD` sans défaut dans la surcouche |
+| `83f97e0` | Retouche M | § Vérifications : `/admin` 200 ou redirection, `X-Robots-Tag` obligatoire |
 
 ## Cadre de travail
 
@@ -790,3 +790,175 @@ aucune pile lancée) :
   le bloc Caddy (§ 7) avant de considérer la démo déployée. L'en-tête vient
   du bloc Caddy lui-même (`header X-Robots-Tag "noindex, nofollow"`, § 7) ;
   l'essai le prouve servi par le Caddy d'essai.
+
+## Essai local des retouches H-M
+
+Nuit du 28 au 29 octobre 2026, worktree `glm.demo`, branche `demo-en-ligne`
+(retouches H-M commitées). Cette section était citée par les textes de H, I,
+K et M sans exister : elle porte désormais les sorties brutes de chaque
+preuve. **Aucune mesure ne contredit ces textes** — pas de commit correctif.
+
+Montage de l'essai :
+
+- `DEMO_DOMAIN=demo.pdlm.localhost` — trois étiquettes, le plancher de la
+  retouche G (l'ancienne partie C utilisait `demo.localhost`, désormais
+  refusé) ; `PLATFORM_DOMAIN` identique, mots de passe `openssl rand -hex
+  32`, jamais affichés ;
+- dossier temporaire `/tmp/pdlm-demo-essai` (supprimé à la fin) : `.env`
+  umask 077 avec `COMPOSE_PROJECT_NAME=pdlm-demo-essai`, copies des deux
+  fichiers Compose et du script — le script y voit « sa » pile, comme sur
+  le serveur ;
+- `vps-network` local, leurre `postgres` (postgres:17-alpine, mot de passe
+  jetable) et `caddy-essai` (caddy:2-alpine) portant le bloc du § 7 en
+  `http://` sur les hôtes `.localhost`, publié sur 127.0.0.1:3111 ;
+- pile montée depuis le worktree (`up -d --build`, rc=0) : elle démarre et
+  tourne avec l'interpolation stricte `${POSTGRES_PASSWORD:?…}` de la
+  retouche L. Seed du § 6 rejoué avec `-T` :
+
+     [23:13:24] INFO: Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral)
+     sur *.demo.pdlm.localhost, comptes operateur@pdlm.invalid, admin@pdlm.invalid,
+     redacteur@pdlm.invalid.
+     rc=0
+
+### H — réseau dédié, connexion hors Compose
+
+Symptôme documenté au § 4, mesuré AVANT la connexion (Caddy d'essai et pile
+tournent, mais `caddy-essai` n'est pas sur `pdlm-demo-edge`) :
+
+     $ curl -sSI -H 'Host: saint-ex.demo.pdlm.localhost' http://127.0.0.1:3111/ | head -1
+     HTTP/1.1 502 Bad Gateway
+
+Commande de connexion idempotente du § 4, premier passage :
+
+     $ docker network inspect pdlm-demo-edge --format '{{range .Containers}}{{.Name}} {{end}}' \
+       | grep -qw caddy-essai || docker network connect pdlm-demo-edge caddy-essai
+     rc=0
+     $ docker network inspect pdlm-demo-edge --format '{{range .Containers}}{{.Name}} {{end}}'
+     caddy-essai pdlm-demo-essai-app-1
+
+(1) `caddy-essai` joint l'app par son alias (et bout en bout à travers le
+Caddy d'essai : `HTTP/1.1 200 OK`) :
+
+     $ docker exec caddy-essai wget -qO- --header 'Host: saint-ex.demo.pdlm.localhost' \
+       http://pdlm-demo:3000/ | grep -c 'Saint-Exupéry-les-Bains'
+     1
+     rc=0
+
+(2) l'app ne joint plus le leurre — `postgres` résout vers le conteneur de
+la pile, et le TCP vers l'IP du leurre (autre réseau bridge) dépasse :
+
+     $ docker exec pdlm-demo-essai-app-1 getent hosts postgres
+     172.28.0.2        postgres  postgres
+     $ docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' postgres
+     172.27.0.2            ← leurre, sur vps-network
+     $ docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+       pdlm-demo-essai-postgres-1
+     172.28.0.2            ← postgres de la pile = ce que voit l'app
+     TCP depuis l'app (node, timeout 3 s) : leurre 172.27.0.2:5432 → DÉPASSÉ (timeout 3 s)
+                                         pile   172.28.0.2:5432 → CONNECTÉ
+
+(3) second passage de la commande de connexion : `rc=0`, membres du réseau
+identiques avant et après (`caddy-essai pdlm-demo-essai-app-1`) — un
+`docker network connect` exécuté pour de bon aurait échoué (« already
+exists in network »).
+
+Bonus, au rejeu de K ci-dessous : après `--force-recreate` de `app`, la pile
+répond toujours 200 via `caddy-essai` — la connexion manuelle attache
+`caddy-essai` au réseau, pas l'app : recréer l'app ne la casse pas.
+
+### I — scripts/demo-controles.sh, quatre sorties brutes
+
+     Sur la pile d'essai, depuis /tmp/pdlm-demo-essai :
+     contrôles démo : OK — surcouche présente ; Caddy « caddy-essai » trouvé ;
+     port 3110 déjà publié par la démo ; Compose du dossier : 5 conteneur(s), tous pdlm-demo-*
+     rc=0
+
+     Port 3110 tenu par un tiers (conteneur « leurre-3110 », AVANT le montage de la pile) :
+     contrôles démo : port 3110 déjà publié par « leurre-3110 » — STOP
+     rc=1
+
+     Conteneur Caddy inexistant :
+     contrôles démo : conteneur Caddy « conteneur-caddy-inexistant » introuvable (docker inspect) — STOP
+     rc=1
+
+     Pile étrangère (COMPOSE_PROJECT_NAME=pdlm passé dans l'environnement — conteneurs de dev) :
+     contrôles démo : le Compose de ce dossier vise des conteneurs hors démo : pdlm-createbuckets-1
+     pdlm-init-umami-1 pdlm-minio-1 pdlm-postgres-1 pdlm-umami-1 — .env d'une autre pile ? STOP
+     rc=1
+
+### K — mise à jour rejouée, ordre mesuré
+
+Rejouée depuis le worktree : sur le serveur le § 9 fait `cd <DOSSIER>`, une
+extraction `git archive` complète (Dockerfile compris) ; le dossier d'essai
+minimal, lui, ne porte que les Compose — y lancer le `--build` échoue sur
+« failed to read dockerfile » (mesuré, sans conséquence : le build échoue
+avant toute recréation, Id de `postgres` vérifié inchangé). `flock` absent
+de macOS : rejeu sans verrou, comme à la retouche F.
+
+     $ docker compose -p pdlm-demo-essai --env-file .env -f docker-compose.yml \
+       -f docker-compose.demo.yml up -d --build --no-deps --force-recreate migrate app
+      Container pdlm-demo-essai-migrate-1  Starting
+      Container pdlm-demo-essai-migrate-1  Started
+      Container pdlm-demo-essai-migrate-1  Waiting
+      Container pdlm-demo-essai-migrate-1  Exited
+      Container pdlm-demo-essai-app-1  Starting
+      Container pdlm-demo-essai-app-1  Started
+     rc=0
+
+Horodatages `docker inspect` :
+
+     migrate  StartedAt 2026-10-28T23:15:19.039510297Z / FinishedAt 2026-10-28T23:15:20.930541381Z
+     app      StartedAt 2026-10-28T23:15:21.154991631Z / —
+
+`app` démarre 224 ms après la fin de `migrate` : l'affirmation du § 9
+« mesuré à l'essai : `migrate` fini avant le démarrage de `app` » est
+exacte, et l'ordre se lit déjà dans la sortie Compose elle-même (migrate
+`Exited` avant app `Starting`). Journal de la migration relancée
+(`logs migrate | tail`) : « Reading migration files … Done. ». Conteneurs
+de données — Id AVANT puis Id APRÈS, identiques (aucune recréation) :
+
+     postgres        238c7dd64a21972e2e6d00ac31cfd29bc44d34fb733adc53900e3b079c0960ae
+     minio           f895723ce7f8063e7944a33a9de64acaec10ff0e15e02e098c34c40c006970dc
+     createbuckets   2564aaa1597bec6e7b5a61eda40bb4094d967f3ee7850700e38423f4fb7b2409
+
+     postgres        238c7dd64a21972e2e6d00ac31cfd29bc44d34fb733adc53900e3b079c0960ae
+     minio           f895723ce7f8063e7944a33a9de64acaec10ff0e15e02e098c34c40c006970dc
+     createbuckets   2564aaa1597bec6e7b5a61eda40bb4094d967f3ee7850700e38423f4fb7b2409
+
+App `healthy` après la mise à jour, page servie : HTTP 200.
+
+### M — mesures à travers le Caddy d'essai
+
+     $ curl -sSI -H 'Host: demo.pdlm.localhost' http://127.0.0.1:3111/admin | head -1
+     HTTP/1.1 200 OK                              ← mesuré à l'essai : 200 direct
+
+     $ curl -sSI -H "Host: $h" http://127.0.0.1:3111/ | grep -i x-robots-tag
+     demo.pdlm.localhost                rc=0  X-Robots-Tag: noindex, nofollow
+     saint-ex.demo.pdlm.localhost       rc=0  X-Robots-Tag: noindex, nofollow
+     port-lavanne.demo.pdlm.localhost   rc=0  X-Robots-Tag: noindex, nofollow
+
+### Démontage (ordre du § 11)
+
+Déconnexion AVANT le `down -v` — la sortie du `down` montre le réseau
+supprimé, possible seulement parce que le point d'accès hors pile est
+parti (l'avertissement du § 11 est démontré au passage) :
+
+     $ docker network disconnect pdlm-demo-edge caddy-essai && echo déconnecté
+     déconnecté
+     $ docker compose -p pdlm-demo-essai --env-file .env -f docker-compose.yml \
+       -f docker-compose.demo.yml down -v
+      Network pdlm-demo-edge  Removing
+      Volume pdlm-demo-essai_pgdata  Removed
+      Volume pdlm-demo-essai_minio_data  Removed
+      Network pdlm-demo-edge  Removed
+      Network pdlm-demo-essai_default  Removed
+     rc=0
+
+Puis conteneurs `caddy-essai` et `postgres` (leurre) retirés,
+`vps-network` retiré, images construites `pdlm-demo-essai-app` et
+`pdlm-demo-essai-migrate` retirées (et rien d'autre), dossier temporaire
+supprimé derrière la garde anti-mauvais-dossier du § 11. Vérification
+finale : `docker ps -a` sans `pdlm-demo-essai`, `caddy-essai` ni
+`postgres` ; plus aucun réseau d'essai ; les piles préexistantes (`pdlm`,
+`pdlm-prod`) et leurs images (`postgres:17-alpine`, `caddy:2-alpine`)
+sont intactes.
