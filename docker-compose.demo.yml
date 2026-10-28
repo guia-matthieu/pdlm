@@ -30,8 +30,10 @@ services:
 
   migrate:
     environment:
-      # Mêmes variables que docker-compose.yml, seul l'hôte change.
-      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
+      # Mêmes variables que docker-compose.yml, seul l'hôte change. Le mot de
+      # passe n'a PAS de défaut ici (retouche L) : un serveur mutualisé ne doit
+      # jamais voir tourner un postgres « postgres » par omission du .env.
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
 
   app:
     # `default` explicite : poser `networks` sur un service le retire sinon du
@@ -44,7 +46,7 @@ services:
         aliases:
           - pdlm-demo
     environment:
-      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
       S3_ENDPOINT: http://pdlm-demo-minio:9000
     # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
     # tout passe par le Caddy partagé du serveur.

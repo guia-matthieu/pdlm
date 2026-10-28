@@ -4,7 +4,6 @@ import {
   domainesMalRattaches,
   domaineDemoValide,
   erreursEnvironnementDemo,
-  estHostnameDemo,
   motsDePasseTropCourts,
   nbEtiquettes,
   slugsEtrangers,
@@ -63,14 +62,6 @@ describe('Seed de démo en ligne — garde-fous de l’environnement', () => {
     })
     expect(erreurs.join('\n').includes('SECRET')).toBe(false)
     expect(erreurs.join('\n').includes('DOMAINE')).toBe(false)
-  })
-
-  it('un hostname de démo vit sous DEMO_DOMAIN', () => {
-    expect(estHostnameDemo('saint-ex.demo.pdlm.guia.fr', 'demo.pdlm.guia.fr')).toBe(true)
-    expect(estHostnameDemo('port-lavanne.demo.pdlm.localhost', 'demo.pdlm.localhost')).toBe(true)
-    expect(estHostnameDemo('saint-ex.autre.example.fr', 'demo.pdlm.guia.fr')).toBe(false)
-    expect(estHostnameDemo('evil.demo.pdlm.guia.fr.example.org', 'demo.pdlm.guia.fr')).toBe(false)
-    expect(estHostnameDemo('demo.pdlm.guia.fr', 'demo.pdlm.guia.fr')).toBe(false)
   })
 
   it('DEMO_DOMAIN est un domaine nu avec au moins trois étiquettes', () => {

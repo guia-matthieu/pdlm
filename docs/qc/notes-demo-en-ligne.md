@@ -25,6 +25,8 @@ consigne ce qui est fait, les sorties réelles des commandes et les pièges.
 | (ce commit) | Retouche I | `scripts/demo-controles.sh` rejouable, chaîné par la procédure — plus d'`exit` en session |
 | (ce commit) | Retouche J | Caddy : édition/copie côté hôte, chaîne `validate && grep -c && reload`, retour arrière écrit |
 | (ce commit) | Retouche K | `-T` sur les `run` (seed, cron) ; mise à jour `--no-deps` : la base ne redémarre pas |
+| (ce commit) | Retouche L | `estHostnameDemo` supprimé (garde tautologique) ; `POSTGRES_PASSWORD` sans défaut dans la surcouche |
+| (ce commit) | Retouche M | § Vérifications : `/admin` 200 ou redirection, `X-Robots-Tag` obligatoire |
 
 ## Cadre de travail
 
@@ -739,3 +741,38 @@ minio, createbuckets), Compose attend toujours la fin de `migrate` avant de
 démarrer `app`. La procédure le garantit ainsi : ne jamais retirer `migrate`
 de cette commande ni de celle du premier `up` (§ 5). Mesure à l'essai :
 section « Essai local des retouches H-M ».
+
+### Retouche L — garde-fous du seed, mot de passe sans défaut
+
+**Changé** (`src/seed/garde-fous-demo.ts`, `src/seed/demo-en-ligne.ts`,
+`tests/unit/garde-fous-demo.spec.ts`, `docker-compose.demo.yml`) :
+
+- `estHostnameDemo` (partie A) supprimé avec son test : le hostname qu'il
+  vérifiait est construit par le code lui-même (`${commune.slug}.${domaine}`)
+  à partir du seul `domaine` déjà validé par `erreursEnvironnementDemo`
+  (retouche G) — le garde ne pouvait jamais échouer. Les garde-fous réels
+  restent ceux de G : base sans commune étrangère, domaines mal rattachés ;
+- dans la surcouche, `POSTGRES_PASSWORD` passe en `${POSTGRES_PASSWORD:?…}`
+  aux deux endroits où il est repris (`DATABASE_URI` de `migrate` et d'`app`) :
+  un mot de passe par défaut n'a rien à faire sur un serveur mutualisé. Le
+  `.env` du § 3 de la procédure le génère déjà (openssl) — rien à changer
+  côté procédure.
+
+Preuves.
+
+Unitaires (`npx vitest run tests/unit/garde-fous-demo.spec.ts` — le test
+« un hostname de démo vit sous DEMO_DOMAIN » disparaît avec sa raison d'être,
+les 9 autres passent) :
+
+     Test Files  1 passed (1)
+           Tests  9 passed (9)
+
+Lint, typecheck, unitaires complets : 0 erreur, 36 fichiers / 341 tests
+passés. Interpolation stricte — `docker compose config` sans
+`POSTGRES_PASSWORD` (valeur jetable pour le seul `:?` de PAYLOAD_SECRET,
+aucune pile lancée) :
+
+     $ PAYLOAD_SECRET=x docker compose -f docker-compose.yml -f docker-compose.demo.yml config -q
+     error while interpolating services.migrate.environment.DATABASE_URI:
+     required variable POSTGRES_PASSWORD is missing a value: POSTGRES_PASSWORD requis dans .env
+     rc=1

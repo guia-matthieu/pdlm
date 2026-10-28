@@ -80,11 +80,6 @@ export function erreursEnvironnementDemo(env: EnvDemo): string[] {
   return erreurs
 }
 
-/** Un hostname de démo vit sous DEMO_DOMAIN : `<sous-domaine>.<DEMO_DOMAIN>`. */
-export function estHostnameDemo(hostname: string, domaine: string): boolean {
-  return hostname.endsWith(`.${domaine}`) && hostname.length > domaine.length + 1
-}
-
 /** Commune lue en base : seul son slug compte pour le garde-fou (retouche G). */
 export interface CommuneLue {
   slug: string

@@ -6,7 +6,6 @@ import { seedContenuDemo } from './contenu-demo'
 import {
   domainesMalRattaches,
   erreursEnvironnementDemo,
-  estHostnameDemo,
   slugsEtrangers,
   type EnvDemo,
 } from './garde-fous-demo'
@@ -116,17 +115,18 @@ async function upsertUser(
   return payload.create({ collection: 'users', data, overrideAccess: true })
 }
 
-/** Domaine canonique <slug>.<DEMO_DOMAIN> puis activation (I6). */
+/**
+ * Domaine canonique <slug>.<DEMO_DOMAIN> puis activation (I6). Le hostname est
+ * construit ici à partir du seul `domaine` validé par erreursEnvironnementDemo
+ * — les garde-fous réels sont ceux de G (base et domaines), pas une vérification
+ * tautologique du hostname par lui-même (retouche L).
+ */
 async function activerAvecDomaine(
   payload: Payload,
   commune: Commune,
   domaine: string,
 ): Promise<void> {
   const hostname = `${commune.slug}.${domaine}`
-  // Garde-fou (brief, partie A) : tout hostname hors .<DEMO_DOMAIN> est refusé.
-  if (!estHostnameDemo(hostname, domaine)) {
-    throw new Error(`Hostname de démonstration hors du domaine « ${domaine} » : refusé.`)
-  }
   await upsertDomaine(payload, {
     hostname,
     commune: commune.id,
