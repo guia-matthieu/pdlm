@@ -776,3 +776,17 @@ aucune pile lancée) :
      error while interpolating services.migrate.environment.DATABASE_URI:
      required variable POSTGRES_PASSWORD is missing a value: POSTGRES_PASSWORD requis dans .env
      rc=1
+
+### Retouche M — vérifications de fin de procédure
+
+**Changé** (`docs/deploiement-demo.md` § 8, part « depuis l'extérieur ») :
+
+- `curl -I /admin` : 200 **ou** une redirection vers `/admin/login` — les
+  deux prouvent que l'admin est servie par le bloc Caddy ; la valeur mesurée
+  à l'essai est consignée dans la section « Essai local des retouches H-M » ;
+- `X-Robots-Tag` vérifié sur les **trois** hôtes (`demo`, `saint-ex.demo`,
+  `port-lavanne.demo`), via le grep des en-têtes servis — OBLIGATOIRE : un
+  grep vide (exit ≠ 0) est un hôte indexable, la procédure dit de corriger
+  le bloc Caddy (§ 7) avant de considérer la démo déployée. L'en-tête vient
+  du bloc Caddy lui-même (`header X-Robots-Tag "noindex, nofollow"`, § 7) ;
+  l'essai le prouve servi par le Caddy d'essai.

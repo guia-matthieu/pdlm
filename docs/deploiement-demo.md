@@ -256,8 +256,16 @@ curl -sS -o /dev/null -w '%{http_code}\n' -H 'Host: inconnu.demo.pdlm.guia.fr' h
 Depuis l'extérieur, après le bloc Caddy :
 
 ```bash
-curl -sSI https://demo.pdlm.guia.fr/admin | head -1                          # 200
-curl -sSI https://saint-ex.demo.pdlm.guia.fr/ | grep -i x-robots-tag         # noindex, nofollow
+curl -sSI https://demo.pdlm.guia.fr/admin | head -1
+# 200 — ou une redirection vers /admin/login : les deux prouvent que l'admin
+# est servie par le bloc Caddy (mesuré à l'essai local, cf.
+# docs/qc/notes-demo-en-ligne.md « Essai local des retouches H-M »).
+curl -sSI https://demo.pdlm.guia.fr/ | grep -i x-robots-tag
+curl -sSI https://saint-ex.demo.pdlm.guia.fr/ | grep -i x-robots-tag
+curl -sSI https://port-lavanne.demo.pdlm.guia.fr/ | grep -i x-robots-tag
+# « X-Robots-Tag: noindex, nofollow » attendu sur les TROIS — vérification
+# OBLIGATOIRE : un grep qui ne rend rien (exit ≠ 0) = un hôte indexable,
+# corriger le bloc Caddy (§ 7) avant de considérer la démo déployée.
 ```
 
 Connexion admin : `https://demo.pdlm.guia.fr/admin`, `admin@pdlm.invalid` et
