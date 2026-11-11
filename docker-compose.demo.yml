@@ -23,10 +23,22 @@ services:
           - pdlm-demo-postgres
 
   minio:
+    environment:
+      # Retouche P : le compose de base garde des défauts de développement
+      # (« minioadmin ») ; sur le serveur mutualisé, la pile ne démarre pas
+      # sans les vraies valeurs — aucune donnée démo derrière un mot de passe
+      # connu du monde entier.
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis dans .env}
     networks:
       default:
         aliases:
           - pdlm-demo-minio
+
+  createbuckets:
+    environment:
+      # Mêmes variables que docker-compose.yml, sans leurs défauts (retouche P).
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis dans .env}
+      S3_APP_PASSWORD: ${S3_APP_PASSWORD:?S3_APP_PASSWORD requis dans .env}
 
   migrate:
     environment:
@@ -48,6 +60,9 @@ services:
     environment:
       DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
       S3_ENDPOINT: http://pdlm-demo-minio:9000
+      # La clé d'accès S3 de l'app est S3_APP_PASSWORD : sans défaut ici
+      # non plus (retouche P).
+      S3_SECRET_ACCESS_KEY: ${S3_APP_PASSWORD:?S3_APP_PASSWORD requis dans .env}
     # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
     # tout passe par le Caddy partagé du serveur.
     ports:
