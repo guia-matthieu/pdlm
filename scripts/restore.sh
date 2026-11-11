@@ -87,14 +87,17 @@ echec_apres_bascule() { # $1=étape en échec
 }
 
 echo "1/6 — Chargement du dump dans ${POSTGRES_DB}_restauration (la base en service n'est pas touchée)…"
+# NB : dans un bloc « if ! ( … ) », set -e est IGNORÉ dans le sous-shell
+# (bash n'y applique errexit que au dernier ordre) — chaque commande est
+# donc enchaînée par && pour que la moindre défaillance sorte du bloc.
 if ! (
   # Une base _restauration laissée par un essai précédent est jetée d'abord.
   docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres \
     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${POSTGRES_DB}_restauration' AND pid <> pg_backend_pid();" \
     -c "DROP DATABASE IF EXISTS ${POSTGRES_DB}_restauration;" \
-    -c "CREATE DATABASE ${POSTGRES_DB}_restauration;" >/dev/null
-  gunzip -c "$DOSSIER_ABS/postgres.sql.gz" \
-    | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB}_restauration"
+    -c "CREATE DATABASE ${POSTGRES_DB}_restauration;" >/dev/null \
+    && gunzip -c "$DOSSIER_ABS/postgres.sql.gz" \
+      | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB}_restauration"
 ); then
   # Seule écriture de ce chemin d'échec : la base neuve, jetée aussitôt.
   docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres \
@@ -105,8 +108,8 @@ fi
 
 echo "2/6 — Bascule : arrêt de l'application, ${POSTGRES_DB} devient ${POSTGRES_DB}_precedente…"
 if ! (
-  docker compose stop app >/dev/null
-  docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+  docker compose stop app >/dev/null \
+    && docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$POSTGRES_DB' AND pid <> pg_backend_pid();" \
     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${POSTGRES_DB}_precedente' AND pid <> pg_backend_pid();" \
     -c "DROP DATABASE IF EXISTS ${POSTGRES_DB}_precedente;" \
@@ -120,22 +123,21 @@ fi
 
 if [ -f "$DOSSIER_ABS/umami.sql.gz" ]; then
   echo "3/6 — Restauration de la mesure d'audience (base umami)…"
-  # Umami et la purge tiennent des connexions : arrêtés le temps de la restauration.
+  # Umami et la purge tiennent des connexions : arrêtés le temps de la
+  # restauration. Même motif que 1/6 : && partout, set -e ne s'applique pas
+  # dans le if. La purge (I21) des données de plus de 25 mois suit le
+  # chargement — une sauvegarde ancienne contient des visites trop vieilles.
   if ! (
-    if [ -n "${MESURE_ACTIFS:-}" ]; then docker compose --profile mesure stop $MESURE_ACTIFS >/dev/null; fi
-    docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres \
+    { [ -z "${MESURE_ACTIFS:-}" ] || docker compose --profile mesure stop $MESURE_ACTIFS >/dev/null; } \
+      && docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
       -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='umami' AND pid <> pg_backend_pid();" \
       -c "DROP DATABASE IF EXISTS umami;" \
-      -c "CREATE DATABASE umami OWNER umami;"
-    gunzip -c "$DOSSIER_ABS/umami.sql.gz" \
-      | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami
-    # I21 : une sauvegarde ancienne contient des visites devenues trop vieilles.
-    # Purge immédiate, avant toute remise en service.
-    echo "     purge des données de plus de 25 mois…"
-    docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami -f - \
-      <scripts/purge-mesure.sql >/dev/null
-    # --wait : attend la santé (Umami) ou le démarrage (purge) ; échoue sinon.
-    if [ -n "${MESURE_ACTIFS:-}" ]; then docker compose --profile mesure up -d --wait $MESURE_ACTIFS; fi
+      -c "CREATE DATABASE umami OWNER umami;" \
+      && gunzip -c "$DOSSIER_ABS/umami.sql.gz" \
+      | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami \
+      && docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d umami -f - \
+      <scripts/purge-mesure.sql >/dev/null \
+      && { [ -z "${MESURE_ACTIFS:-}" ] || docker compose --profile mesure up -d --wait $MESURE_ACTIFS; }
   ); then
     echec_apres_bascule "umami"
   fi
