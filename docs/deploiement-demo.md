@@ -35,7 +35,7 @@ Trois enregistrements explicites, aucun générique :
 Un `*.demo.pdlm.guia.fr` publierait **n'importe quel** sous-domaine résolu
 par la pile ; la démo n'en a que trois. Ajouter une commune à la démo
 devient : un enregistrement DNS de plus ici, une ligne de plus au bloc
-Caddy du § 7 — et rien d'ouvert par avance.
+Caddy du § 6 — et rien d'ouvert par avance.
 
 ## 2. Copie du code (sans dépôt distant)
 
@@ -75,7 +75,7 @@ cd <DOSSIER>
 
 Les deux dernières lignes figent le projet Compose pour tout `docker compose`
 lancé **depuis ce dossier sans `-p` ni `-f`** : `scripts/backup.sh` et
-`scripts/restore.sh` (cf. § 10) sont dans ce cas — ils visent ainsi la démo et
+`scripts/restore.sh` (cf. § 9) sont dans ce cas — ils visent ainsi la démo et
 rien d'autre. Ne pas lancer de commande Compose d'une autre pile depuis ce
 dossier.
 
@@ -85,12 +85,40 @@ dossier.
   Compose (réseau interne), `S3_BUCKET`, `S3_REGION`… ont des défauts corrects.
 - `NEXT_PUBLIC_S3_PUBLIC_URL` reste par défaut : MinIO n'est pas publié, les
   médias passent par Payload.
-- **Conserver ce `.env`** : le cron de rafraîchissement (§ 7) relit les
+- **Conserver ce `.env`** : le cron de rafraîchissement (§ 6) relit les
   `DEMO_MDP_*`. Ils ne sont lus qu'à la **création** des comptes — changer
   `DEMO_MDP_ADMIN` dans le `.env` après coup ne change pas le mot de passe du
   compte existant (à faire depuis l'admin).
 
-## 4. Réseau dédié `pdlm-demo-edge`
+## 4. Build et démarrage
+
+La référence déployée est `main`, fusionné avant déploiement : l'archive doit
+contenir la surcouche de démo. Les contrôles préalables (surcouche présente,
+conteneur Caddy existant — le seul contrôle réseau préalable, cf. la
+connexion du Caddy partagé ci-dessous —, port 3110 libre ou tenu par la démo
+elle-même, Compose du dossier ne visant que la démo) vivent dans
+`scripts/demo-controles.sh` : rejouables, sans état, ils ne quittent pas la
+session — la commande suivante n'est exécutée que s'ils passent :
+
+```bash
+./scripts/demo-controles.sh <CONTENEUR_CADDY> \
+  && docker compose -p pdlm-demo --env-file .env \
+     -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+docker compose -p pdlm-demo --env-file .env \
+  -f docker-compose.yml -f docker-compose.demo.yml logs migrate
+# doit se terminer par « Done. »
+```
+
+`-p pdlm-demo` est obligatoire : le `docker-compose.yml` de base pose
+`name: pdlm-prod`, sans `-p` la démo écraserait toute pile de production du
+même serveur.
+
+Si le `up` échoue sur la publication `[::1]:3110` (hôte sans IPv6), retirer
+la ligne `- '[::1]:3110:3000'` de l'app dans `docker-compose.demo.yml` et
+rejouer le `up` — les contrôles depuis l'hôte restent possibles par
+`127.0.0.1:3110`.
+
+### Connexion du Caddy partagé au réseau `pdlm-demo-edge` (après le `up`)
 
 La pile crée son propre réseau `pdlm-demo-edge` (nom fixe, posé par la
 surcouche) : l'app y porte l'alias `pdlm-demo`, et c'est le seul chemin par
@@ -99,8 +127,8 @@ rejoint **pas** `vps-network`, le réseau des autres sites du serveur : aucun
 conteneur de la démo n'y figure, aucun conteneur de la démo ne peut voir le
 `postgres` ou le site d'un autre hébergé.
 
-Après le `up` (§ 5), connecter **le seul conteneur Caddy** du serveur à ce
-réseau — commande idempotente, à rejouer telle quelle :
+Connecter **le seul conteneur Caddy** du serveur à ce réseau — commande
+idempotente, à rejouer telle quelle :
 
 ```bash
 docker network inspect pdlm-demo-edge --format '{{range .Containers}}{{.Name}} {{end}}' \
@@ -119,30 +147,7 @@ docker network inspect pdlm-demo-edge --format '{{range .Containers}}{{.Name}} {
   tous les sites du serveur tomberaient. La connexion vit hors Compose,
   c'est voulu.
 
-## 5. Build et démarrage
-
-La référence déployée est `main`, fusionné avant déploiement : l'archive doit
-contenir la surcouche de démo. Les contrôles préalables (surcouche présente,
-conteneur Caddy existant — le seul contrôle réseau préalable, cf. § 4 —,
-port 3110 libre ou tenu par la démo elle-même, Compose du dossier ne visant
-que la démo) vivent dans `scripts/demo-controles.sh` : rejouables, sans
-état, ils ne quittent pas la session — la commande suivante n'est exécutée
-que s'ils passent :
-
-```bash
-./scripts/demo-controles.sh <CONTENEUR_CADDY> \
-  && docker compose -p pdlm-demo --env-file .env \
-     -f docker-compose.yml -f docker-compose.demo.yml up -d --build
-docker compose -p pdlm-demo --env-file .env \
-  -f docker-compose.yml -f docker-compose.demo.yml logs migrate
-# doit se terminer par « Done. »
-```
-
-`-p pdlm-demo` est obligatoire : le `docker-compose.yml` de base pose
-`name: pdlm-prod`, sans `-p` la démo écraserait toute pile de production du
-même serveur. Puis connecter le Caddy partagé au réseau de la pile : § 4.
-
-## 6. Seed de la démo
+## 5. Seed de la démo
 
 Les `DEMO_MDP_*` sont passés au conteneur, pas écrits dans la commande. Le
 chargement du `.env` vit dans un **sous-shell** : aucun secret n'est exporté
@@ -156,7 +161,7 @@ dans la session après la commande :
 ```
 
 `-T` : pas de pseudo-terminal alloué — la commande est scriptable (cron du
-§ 7) et son journal reste lisible, sans séquences de contrôle.
+§ 6) et son journal reste lisible, sans séquences de contrôle.
 
 Succès attendu : « Démo en ligne prête — saint-ex (Village) et port-lavanne
 (Littoral) sur *.demo.pdlm.guia.fr, comptes operateur@pdlm.invalid,
@@ -173,7 +178,7 @@ Comptes créés (courriels `.invalid`, RFC 2606) :
 | `admin@pdlm.invalid`    | admin de saint-ex                        | `DEMO_MDP_ADMIN`   |
 | `redacteur@pdlm.invalid` | rédacteur de saint-ex                    | `DEMO_MDP_REDACTEUR` |
 
-## 7. Caddy partagé et rafraîchissement périodique
+## 6. Caddy partagé et rafraîchissement périodique
 
 Le Caddyfile est **monté** dans le conteneur Caddy : édition et copie se
 font côté **hôte**, sur le fichier monté. `<CADDYFILE_HOTE>` désigne son
@@ -228,20 +233,20 @@ l'exploitant).
 Agenda vivant — **optionnel** : relancer le seed chaque semaine (`crontab -e`)
 remet la démo dans son état de référence — l'agenda est re-daté, un contenu
 supprimé par un visiteur est recréé ; les modifications faites dans l'admin
-survivent (upserts, cf. § 6). C'est voulu pour une démo :
+survivent (upserts, cf. § 5). C'est voulu pour une démo :
 
 ```
 17 4 * * 1 flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1'
 ```
 
 Le verrou `<DOSSIER>/.verrou` est **le même que celui de la mise à jour**
-(§ 9) : le cron s'écarte (`flock -n`) si une mise à jour est en cours, une
+(§ 8) : le cron s'écarte (`flock -n`) si une mise à jour est en cours, une
 mise à jour attend son tour si le cron tourne. `flock` ne connaît pas les
 secrets — le `.env` reste lisible par son seul propriétaire (§ 3).
 
-Retrait du cron à la désinstallation : § 11, point 2.
+Retrait du cron à la désinstallation : § 10, point 2.
 
-## 8. Vérifications
+## 7. Vérifications
 
 Depuis le serveur (contrôle direct, hors Caddy) :
 
@@ -265,13 +270,13 @@ curl -sSI https://saint-ex.demo.pdlm.guia.fr/ | grep -i x-robots-tag
 curl -sSI https://port-lavanne.demo.pdlm.guia.fr/ | grep -i x-robots-tag
 # « X-Robots-Tag: noindex, nofollow » attendu sur les TROIS — vérification
 # OBLIGATOIRE : un grep qui ne rend rien (exit ≠ 0) = un hôte indexable,
-# corriger le bloc Caddy (§ 7) avant de considérer la démo déployée.
+# corriger le bloc Caddy (§ 6) avant de considérer la démo déployée.
 ```
 
 Connexion admin : `https://demo.pdlm.guia.fr/admin`, `admin@pdlm.invalid` et
 le `DEMO_MDP_ADMIN` du `.env`.
 
-## 9. Mettre à jour
+## 8. Mettre à jour
 
 ```bash
 git -C <chemin-du-dépôt> archive main | ssh <HOTE> 'tar -x -C <DOSSIER>'   # ou un SHA précis
@@ -284,7 +289,7 @@ docker compose -p pdlm-demo --env-file .env \
   -f docker-compose.yml -f docker-compose.demo.yml logs migrate | tail
 ```
 
-Le `flock` porte le même verrou que le cron optionnel du § 7 : la mise à
+Le `flock` porte le même verrou que le cron optionnel du § 6 : la mise à
 jour attend que le cron en cours finisse, le cron s'écarte tant qu'une
 mise à jour tient le verrou.
 
@@ -298,10 +303,10 @@ fini avant le démarrage de `app`, cf. notes).
 
 `--force-recreate migrate` est indispensable (cf. README) : sans lui, un
 ancien conteneur `migrate` déjà terminé avec succès peut démarrer l'app sans
-jouer la nouvelle migration. Le seed (§ 6) n'est à relancer que si la mise à
+jouer la nouvelle migration. Le seed (§ 5) n'est à relancer que si la mise à
 jour ajoute des communes ou du contenu de démo.
 
-## 10. Sauvegarde et retour arrière
+## 9. Sauvegarde et retour arrière
 
 Avant chaque mise à jour, une sauvegarde (cf. README, « Sauvegarde et
 restauration »). Les scripts n'ont ni `-p` ni `-f` : le `.env` du § 3 les
@@ -322,16 +327,16 @@ Même chaîne avant `./scripts/restore.sh <dossier>`.
 Les migrations ne sont pas réversibles :
 
 - **retour code seul** (pas de nouvelle migration passée) : re-déployer
-  l'ancien SHA (`git archive <SHA> | ssh … tar -x`) puis la commande `up` du § 9 ;
+  l'ancien SHA (`git archive <SHA> | ssh … tar -x`) puis la commande `up` du § 8 ;
 - **migration passée** : restaurer la sauvegarde puis re-déployer l'ancien
   SHA — `./scripts/restore.sh <dossier>` (écrase la base et le bucket).
 
-## 11. Désinstallation
+## 10. Désinstallation
 
-Dans l'ordre (les gestes Caddy sont détaillés au § 7) :
+Dans l'ordre (les gestes Caddy sont détaillés au § 6) :
 
 1. retirer le bloc `demo.pdlm.guia.fr …` du Caddyfile partagé (copie
-   horodatée, `caddy validate` puis `reload`, comme au § 7) ;
+   horodatée, `caddy validate` puis `reload`, comme au § 6) ;
 2. déconnecter le Caddy partagé du réseau de la pile — **avant** le `down`
    qui suit, sinon le réseau ne peut pas être supprimé (un point d'accès
    hors pile l'y retient) :
@@ -346,7 +351,7 @@ Dans l'ordre (les gestes Caddy sont détaillés au § 7) :
    docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml down -v
    ```
 
-4. si le cron optionnel du § 7 a été posé : le retirer (`crontab -e`) ;
+4. si le cron optionnel du § 6 a été posé : le retirer (`crontab -e`) ;
 5. retirer les trois enregistrements DNS (§ 1) ;
 6. contrôle anti-mauvais-dossier, puis suppression — le `.env` disparaît
    avec, donc les mots de passe des comptes de démo : la pile est déjà

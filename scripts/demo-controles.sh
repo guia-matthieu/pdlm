@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # pdlm — contrôles préalables au déploiement de la démo en ligne
-# (docs/deploiement-demo.md, appelé aux § 5 et § 10).
+# (docs/deploiement-demo.md, appelé aux § 4 et § 9).
 #
 # Usage : ./scripts/demo-controles.sh <CONTENEUR_CADDY>
 #
