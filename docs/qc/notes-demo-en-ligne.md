@@ -962,3 +962,253 @@ finale : `docker ps -a` sans `pdlm-demo-essai`, `caddy-essai` ni
 `postgres` ; plus aucun réseau d'essai ; les piles préexistantes (`pdlm`,
 `pdlm-prod`) et leurs images (`postgres:17-alpine`, `caddy:2-alpine`)
 sont intactes.
+
+## Essai local des retouches N-S
+
+11 novembre 2026 (13 h 07 → 13 h 31), worktree `glm.demo`, branche `demo-en-ligne`
+(retouches N-S commitées, HEAD `cf012fc`). Comme la section H-M ci-dessus, celle-ci
+porte les sorties brutes des preuves que citent les textes de N, O, P et R, et rejoue
+le cycle complet de la retouche S : sauvegarde de référence, écritures « du jour » par
+le compte relais, cron nocturne, retour mesuré à l'état de référence. **Aucune mesure
+ne contredit ces textes — pas de commit correctif.**
+
+Montage de l'essai :
+
+- `DEMO_DOMAIN=demo.pdlm.localhost` (trois étiquettes, plancher de la retouche G),
+  `PLATFORM_DOMAIN` identique, mots de passe `openssl rand -hex 32`, jamais affichés ;
+- dossier temporaire `/tmp/pdlm-demo-essai` (supprimé à la fin) : `git archive cf012fc`
+  décompressé, `.env` umask 077 — cette fois avec `COMPOSE_PROJECT_NAME=pdlm-demo` : la
+  pile tourne sous le nom réel de la procédure (conteneurs `pdlm-demo-*`, ce que
+  vérifie `demo-controles.sh`), plus proche du serveur que l'essai H-M ;
+- `caddy-essai` (caddy:2-alpine) publié sur 127.0.0.1:3111 comme en H-M, joint à
+  `pdlm-demo-edge` ; l'application de la pile publie le port 3110 ;
+- deux horloges coexistent ci-dessous : les lignes `[12:xx]` viennent du logger Payload
+  dans le conteneur (UTC), les `=== 13:xx` de l'hôte (UTC+1) — même essai.
+
+### P — la surcouche refuse de valider sans ses mots de passe
+
+`docker compose config` sur un `.env` amputé (validation pure, rien n'est lancé) —
+les deux variables protégées par `${VAR:?…}` à la retouche P :
+
+     $ sed '/^MINIO_ROOT_PASSWORD=/d' .env > /tmp/env-sans-minio.env
+     $ docker compose -p pdlm-demo --env-file /tmp/env-sans-minio.env \
+       -f docker-compose.yml -f docker-compose.demo.yml config >/dev/null
+     error while interpolating services.createbuckets.environment.MINIO_ROOT_PASSWORD: required variable MINIO_ROOT_PASSWORD is missing a value: MINIO_ROOT_PASSWORD requis dans .env
+     error while interpolating services.minio.environment.MINIO_ROOT_PASSWORD: required variable MINIO_ROOT_PASSWORD is missing a value: MINIO_ROOT_PASSWORD requis dans .env
+     rc=1
+
+     $ sed '/^S3_APP_PASSWORD=/d' .env > /tmp/env-sans-s3.env
+     $ docker compose -p pdlm-demo --env-file /tmp/env-sans-s3.env \
+       -f docker-compose.yml -f docker-compose.demo.yml config >/dev/null
+     error while interpolating services.app.environment.S3_SECRET_ACCESS_KEY: required variable S3_APP_PASSWORD is missing a value: S3_APP_PASSWORD requis dans .env
+     error while interpolating services.createbuckets.environment.S3_APP_PASSWORD: required variable S3_APP_PASSWORD is missing a value: S3_APP_PASSWORD requis dans .env
+     rc=1
+
+     $ docker compose -p pdlm-demo --env-file .env -f docker-compose.yml \
+       -f docker-compose.demo.yml config >/dev/null
+     rc=0                                       ← .env complet
+
+### Montée de la pile
+
+     $ docker compose -p pdlm-demo --env-file .env -f docker-compose.yml \
+       -f docker-compose.demo.yml up -d --build
+      Network pdlm-demo_edge Created
+      Network pdlm-demo_default Created
+      Volume pdlm-demo_pgdata Created
+      Volume pdlm-demo_minio_data Created
+      Container pdlm-demo-postgres-1 Healthy
+      Container pdlm-demo-minio-1 Healthy
+      Container pdlm-demo-migrate-1 Exited      ← exit 0, sinon l'app ne démarre pas
+      Container pdlm-demo-createbuckets-1 Exited
+      Container pdlm-demo-app-1 Started
+     up rc=0
+
+### N et O — le seed contrôle avant d'écrire, et refuse les comptes étrangers
+
+Premier seed (base vide) — les lectures de contrôle de N passent, le message de
+succès cite les quatre comptes (retouche R) :
+
+     [12:12:50] WARN: No email adapter provided. Email will be written to console. More info at https://payloadcms.com/docs/email/overview.
+     [12:12:51] INFO: Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral)
+     sur *.demo.pdlm.localhost, comptes operateur@pdlm.invalid, admin@pdlm.invalid,
+     redacteur@pdlm.invalid, relais@pdlm.invalid.
+     rc=0
+
+Puis un compte étranger est injecté en SQL brut (id 9999,
+`marie.durand@mairie-quimper.fr`, hash bidon — connexion impossible), et le seed
+relancé à l'identique :
+
+     $ psql-demo "insert into users (id, email, name, hash, salt, created_at, updated_at)
+       values (9999, 'marie.durand@mairie-quimper.fr', 'Marie Durand', 'x', 'y', now(), now())"
+     INSERT 0 1
+     $ … seed relancé (même commande, § 5) …
+     Seed de démo interrompu : la base contient 1 utilisateur(s) hors comptes de démo —
+     le seed de démo refuse toute base qui n'est pas la sienne.
+     rc=1
+     $ psql-demo "select count(*) from communes"
+     avant le refus : 2        après le refus : 2
+
+Le refus ne cite aucun courriel lu en base (retouche O) et n'écrit rien (retouche N) :
+les deux communes sont intactes. Le compte étranger est retiré ensuite (`DELETE 1`).
+
+### R — ce que relais@pdlm.invalid peut faire (mesures (a) à (e))
+
+Jeton obtenu par `POST /api/users/login`, requêtes curl sur le port 3110 (en-tête
+`Host`, `Authorization: JWT …`, `-g` pour les crochets des `where[…]`). Aucun mot de
+passe ni jeton n'est reproduit ci-dessous.
+
+(a) pages hors saint-ex — GET direct 404 (la page publiée reste lisible sans jeton,
+le plugin multi-tenant la cache aux comptes d'un autre tenant), PATCH 403 ; témoin
+saint-ex : PATCH 200 :
+
+     — (a1) GET direct page port-lavanne n°6, authentifié relais —
+     404  "Pas trouvé"
+     — (a1-anonyme) même page sans token —
+     200  slug: accueil | _status: published
+     — (a2) PATCH page port-lavanne n°6 par relais —
+     403  "Vous n'êtes pas autorisé à effectuer cette action."
+     — (a3) témoin : PATCH page saint-ex n°5, valeur inchangée —
+     titre actuel : "Accessibilité"
+     200  -
+
+(b) comptes — création refusée, modification d'un autre compte refusée ; l'inventaire
+visible se limite aux comptes de saint-ex et au sien :
+
+     POST   /api/users                     403  "Vous n'êtes pas autorisé à effectuer cette action."
+     PATCH  /api/users/2 (admin@)          403  "Vous n'êtes pas autorisé à effectuer cette action."
+     GET    /api/users                     200  totalDocs: 3 — relais@ (4), redacteur@ (3),
+                                                   admin@ (2) ; operateur@pdlm.invalid (id 1)
+                                                   absent de la réponse
+
+(c) domaines — lus (200, les deux domaines de démo attendus) mais inviolables :
+
+     GET    /api/domaines                  200  (2 docs)
+     PATCH  /api/domaines/2                403  "Vous n'êtes pas autorisé à effectuer cette action."
+
+(d) propre compte — le mot de passe se change (c'est son compte), la connexion suit
+avec le nouveau, puis rétablissement :
+
+     PATCH  /api/users/4 {password}        200  "Mis à jour avec succès."
+     POST   /api/users/login (nouveau mdp) 200
+     PATCH  /api/users/4 (rétabli)         200
+
+(e) médias — téléversement accepté vers saint-ex, refusé vers port-lavanne. Le tenant
+passe par `_payload` en JSON (la valeur doit être un nombre : un champ de formulaire
+l'enverrait en chaîne et le contrôle d'accès ne reconnaîtrait pas l'id) :
+
+     — (e1) POST media _payload tenant=1 (saint-ex) —
+     201  id: 1 | filename: probe-image.png
+     — (e2) POST media _payload tenant=2 (port-lavanne) —
+     403  "Vous n'êtes pas autorisé à effectuer cette action."
+     — témoin : DELETE de son propre média saint-ex —
+     200  (count(*) media → 0)
+
+Verdict : aucune des mesures (a) à (e) ne donne au relais un pouvoir hors saint-ex ou
+hors son propre compte — pas de fichier de blocage, la retouche R tient.
+
+### S — cycle nocturne : référence, écritures du jour, cron, retour
+
+Sauvegarde de référence juste après le seed (§ 5, média d'essai déjà retiré) :
+
+     $ ./scripts/backup.sh backups/reference
+     contrôles démo : OK — surcouche présente ; Caddy « caddy-essai » trouvé ; port 3110
+     déjà publié par la démo ; Compose du dossier : 5 conteneur(s), tous pdlm-demo-*
+     1/4 — Arrêt de l'application (fenêtre de maintenance)…
+     4/4 — Redémarrage de l'application…
+
+     Sauvegarde terminée : backups/reference ( 24K)
+       base    : 7709 lignes de SQL
+       fichiers: 0
+
+Écritures « du jour » par le relais — trois collections touchées :
+
+     — jour 1/3 : page saint-ex modifiée —
+     200     page 5 → « Accessibilité (modifiée par le relais) »
+     — jour 2/3 : actualité créée —
+     201     actualité id 3, slug essai-relais, publiée
+     — jour 3/3 : image téléversée —
+     201     média id 2, probe-image.png
+
+L'événement « Marché de printemps » (id 1) est vieilli en SQL (2026-11-01, passé) —
+le cron doit le re-dater au futur :
+
+     UPDATE 1
+     1|2026-11-01
+     2|2026-11-23
+
+Bac S3 avant le cron — l'image du jour y est :
+
+     [2026-11-11 12:24:44 UTC]    69B STANDARD pdlm/media/probe-image.png
+
+Cron : la ligne du § 6 (Restauration nocturne) est extraite de
+`docs/deploiement-demo.md` telle quelle (`\%` → `%`, `<DOSSIER>` →
+`/tmp/pdlm-demo-essai`, `<CONTENEUR_CADDY>` → `caddy-essai`). Réserve honnête : macOS
+n'a pas `flock` (`command not found`, rc=127) — le préfixe `flock -n …/.verrou` (qui,
+sur le serveur Linux, partage le verrou de la mise à jour du § 8) a été retiré pour
+l'essai et le reste de la chaîne `sh -c` exécuté au mot près :
+
+     $ bash /tmp/essai-t-cron.sh
+     cron rc=0
+
+`restauration.log` (extrait — les 54 `setval` de psql sont tronqués) :
+
+     === 2026-11-11 13:26:11 contrôles
+     contrôles démo : OK — surcouche présente ; Caddy « caddy-essai » trouvé ; port 3110
+     déjà publié par la démo ; Compose du dossier : 5 conteneur(s), tous pdlm-demo-*
+       contrôles : rc=0
+       pile présente : rc=0
+     === 2026-11-11 13:26:12 restauration
+     1/5 — Arrêt de l'application (fenêtre de maintenance)…
+     2/5 — Restauration PostgreSQL (la base actuelle est écrasée)…
+     DROP DATABASE
+     CREATE DATABASE
+     … (39 setval)
+     3/5 — Restauration du bucket S3…
+     Bucket created successfully `local/pdlm`.
+     `` -> `local/pdlm/media/probe-image.png`          ← l'image du jour est retirée
+     4/5 — Redémarrage de l'application…
+     5/5 — État des services :
+     pdlm-demo-app-1        Up Less than a second (health: starting)
+     pdlm-demo-minio-1      Up 15 minutes (healthy)
+     pdlm-demo-postgres-1   Up 13 minutes (healthy)
+
+     Restauration terminée depuis : backups/reference
+       restauration : rc=0
+     === 2026-11-11 13:26:17 seed
+     [12:26:20] INFO: Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral)
+     sur *.demo.pdlm.localhost, comptes operateur@pdlm.invalid, admin@pdlm.invalid,
+     redacteur@pdlm.invalid, relais@pdlm.invalid.
+       seed : rc=0
+
+État après le cron — tout est revenu à la référence, l'agenda seul a bougé :
+
+     — page 5 (attendu : Accessibilité, sans la mention relais) —
+     Accessibilité
+     — actualité essai-relais (attendu : 0) —
+     0
+     — média du jour (attendu : 0) —
+     0
+     — agenda saint-ex (attendu : marché re-daté au futur) —
+     1|Marché de printemps|2026-11-16
+     2|Conseil municipal (séance publique)|2026-11-23
+     — bac S3 (attendu : vide) —
+     mc rc=0                                     (aucune ligne listée)
+
+### Démontage
+
+Déconnexion de `caddy-essai` avant le `down -v` (§ 10), puis :
+
+     $ docker compose -p pdlm-demo --env-file .env -f docker-compose.yml \
+       -f docker-compose.demo.yml down -v --remove-orphans
+      Volume pdlm-demo_pgdata Removed
+      Volume pdlm-demo_minio_data Removed
+      Network pdlm-demo_default Removed
+      Network pdlm-demo-edge Removed
+     rc=0
+     $ docker rm -f caddy-essai
+     caddy-essai
+
+Vérifications finales : `docker ps -a`, réseaux et volumes filtrés sur l'essai →
+(vide) ; `lsof` sur les ports 3000, 3110 et 3111 → rc=1 (rien n'écoute) ; dossier
+`/tmp/pdlm-demo-essai` supprimé — il contenait le `.env` et ses secrets. Les piles
+préexistantes (`pdlm`, `pdlm-prod`) et leurs images sont intactes.
