@@ -191,8 +191,11 @@ Même chaîne de contrôles qu'au § 9 avant d'appeler le script :
   && ./scripts/backup.sh backups/reference
 ```
 
-À refaire après toute mise à jour qui change le contenu de démo (§ 8) — la
-nuit suivante restaurerait sinon un état périmé.
+À refaire après toute mise à jour qui change le contenu de démo — la nuit
+suivante restaurerait sinon un état périmé. Cette **première** référence se
+prend ci-dessus ; la **refonte** après mise à jour est une seule commande
+(§ 8), qui restaure d'abord la référence actuelle : elle ne capture jamais
+ce que les visiteurs ont écrit dans la journée.
 
 ## 6. Caddy partagé et rafraîchissement périodique
 
@@ -346,10 +349,22 @@ fini avant le démarrage de `app`, cf. notes).
 
 `--force-recreate migrate` est indispensable (cf. README) : sans lui, un
 ancien conteneur `migrate` déjà terminé avec succès peut démarrer l'app sans
-jouer la nouvelle migration. Le seed (§ 5) n'est à relancer que si la mise à
-jour ajoute des communes ou du contenu de démo ; dans ce cas, **refaire
-aussi la sauvegarde de référence (§ 5)** — sans elle, la restauration
-nocturne (§ 6) rendrait chaque nuit un contenu périmé.
+jouer la nouvelle migration.
+
+La mise à jour n'ajoute pas de contenu de démo ? Le `up` ci-dessus suffit.
+Elle en ajoute (communes, seed) ? **Une seule commande** fait alors les
+quatre pas — ne lance pas le `up` à part :
+
+```bash
+./scripts/demo-refaire-reference.sh <CONTENEUR_CADDY>
+```
+
+Le script porte lui-même le verrou (le même que la nuit du § 6 et que le
+`up` du haut, `flock` bloquant : il attend son tour) et enchaîne dans
+l'ordre : restauration de la référence actuelle → mise à jour (le `up`
+ci-dessus) → seed (§ 5) → sauvegarde vers `backups/reference`. Sans la
+refonte, la nuit rendrait un contenu périmé ; en repartant de la référence,
+la nouvelle référence ne capture jamais la journée des visiteurs.
 
 ## 9. Sauvegarde et retour arrière
 
