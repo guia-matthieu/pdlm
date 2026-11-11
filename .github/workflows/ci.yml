@@ -31,7 +31,7 @@ jobs:
     name: Lint et types
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -79,7 +79,7 @@ jobs:
       # src/payload-types.ts du fichier versionné.
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -100,7 +100,7 @@ jobs:
     name: Audit des dépendances
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -121,7 +121,7 @@ jobs:
     name: Trivy — failles, secrets, mauvaises configurations
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Couverture réelle : package-lock.json (failles) et Dockerfile
       # (mauvaises configurations). docker-compose.yml et les Caddyfile ne sont
@@ -143,7 +143,7 @@ jobs:
     name: Trivy — images déployées (app, migrate)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Bloquant sur les DEUX images que ce dépôt construit lui-même — donc
       # sur lesquelles un correctif est toujours possible (contrairement aux
@@ -196,7 +196,7 @@ jobs:
     # trivy-rescan.yml, hebdomadaire) pour décider d'un bump de version.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: postgres:17-alpine
         if: always()
@@ -285,7 +285,7 @@ jobs:
       DEFAULT_COMMUNE_SLUG: saint-ex
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
