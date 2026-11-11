@@ -1364,3 +1364,842 @@ Paragraphe ajouté en tête du § 6 de la procédure : publique, ouverte en
 écriture aux relais, tout ce qui y est publié est visible de tous jusqu'à la
 restauration de la nuit, plafonnée — 21 MiB/requête (Caddy), 20 Mo/fichier
 (app), 2 Gio (bucket), et les plafonds CPU/mémoire/processus ci-dessus.
+
+## Essai local des retouches U-Y
+
+11 novembre 2026 (17 h 32 → 18 h 03 dans les journaux, UTC ; 18 h 32 → 19 h 03
+heure locale de l'hôte), worktree `glm.demo`, branche `demo-en-ligne` (retouches
+U-Y commitées, HEAD `ee7d216`). Cette section porte les sorties brutes de
+l'essai Z du brief : répétition Linux de la nuit jouée par cron lui-même,
+pannes simulées une à une, refaire-la-référence puis une sauvegarde en échec
+(V), droits du dossier de sauvegarde et du journal (W), verrous du compte
+partagé (X), plafonds, refus 413 et quota (Y), puis une journée d'écriture par
+le compte relais suivie d'une nuit complète réussie, dont les contrôles de
+l'essai N-S ci-dessus sont rejugés après coup. Aucun mot de passe ni jeton
+n'est reproduit ci-dessous (les empreintes sha256 le sont). **Aucune mesure ne
+contredit ces textes U-Y — pas de commit correctif.**
+
+Montage de l'essai :
+
+- même dossier temporaire `/tmp/pdlm-demo-essai` (supprimé à la fin) : recréé
+  par `git archive HEAD` (= `ee7d216`), `.env` d'essai conservé, umask 077,
+  pile réelle sous `-p pdlm-demo` comme en N-S ;
+- `caddy-essai` (caddy:2-alpine) sur 127.0.0.1:3111, joint à `pdlm-demo-edge`,
+  avec le bloc Caddy du § 6 de la procédure (`max_size 21MiB` compris) ;
+  l'application de la pile publie le port 3110 ;
+- conteneur `pdlm-essai-debian` (debian:stable-slim) avec le socket Docker de
+  l'hôte et le worktree monté **au même chemin absolu** — c'est lui qui joue
+  cron pour la répétition Linux (Z.1) ;
+- deux horloges coexistent : journal de la nuit, cron et conteneur Debian en
+  UTC (17 h 39 → 18 h 01), l'hôte macOS affiche UTC+1 (`18:34` pour 17 h 34).
+
+### Montée de la pile, plafonds et référence initiale
+
+     $ git archive HEAD | tar -x -C /tmp/pdlm-demo-essai && echo "archive ok" \
+       && cd /tmp/pdlm-demo-essai && docker compose -p pdlm-demo --env-file .env \
+       -f docker-compose.yml -f docker-compose.demo.yml down -v --remove-orphans
+     archive ok
+      Volume pdlm-demo_pgdata Removed
+      Volume pdlm-demo_minio_data Removed
+      Network pdlm-demo-edge Removed
+      Network pdlm-demo_default Removed
+     $ docker compose … up -d --build | tail -8
+      Container pdlm-demo-postgres-1 Healthy
+      Container pdlm-demo-migrate-1 Started
+      Container pdlm-demo-migrate-1 Waiting
+      Container pdlm-demo-createbuckets-1 Exited
+      Container pdlm-demo-migrate-1 Exited
+      Container pdlm-demo-app-1 Started
+     up rc=0
+
+Plafonds de la retouche Y lus dans le démon, pas dans le fichier — et le quota
+posé par `createbuckets` :
+
+     $ for c in app postgres minio; do docker inspect pdlm-demo-$c-1 \
+       --format "$c: mem={{.HostConfig.Memory}} nanoCpus={{.HostConfig.NanoCpus}} \
+       pids={{.HostConfig.PidsLimit}}"; done
+     app: mem=805306368 nanoCpus=1500000000 pids=128
+     postgres: mem=536870912 nanoCpus=1000000000 pids=128
+     minio: mem=805306368 nanoCpus=1000000000 pids=128
+     $ docker logs pdlm-demo-createbuckets-1 2>&1 | grep -i quota
+     Successfully set bucket quota of 2.0 GiB on `pdlm`
+     $ … mc quota info local/pdlm (conteneur minio, comme en Y.3) …
+     Bucket `pdlm` has hard quota of 2.0 GiB
+
+Seed sur base vide, Caddy d'essai avec le bloc du § 6, puis contrôles et
+première sauvegarde de référence (§ 5 de la procédure) :
+
+     $ docker compose … run --rm -T -e DEMO_DOMAIN … migrate node \
+       node_modules/payload/bin.js run src/seed/demo-en-ligne.ts | tail -6
+     [17:33:59] WARN: No email adapter provided. Email will be written to console. More info: https://payloadcms.com/docs/email/overview.
+     [17:34:00] INFO: Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral) sur *.demo.pdlm.localhost, comptes operateur@pdlm.invalid, admin@pdlm.invalid, redacteur@pdlm.invalid, relais@pdlm.invalid.
+     seed rc=0
+     $ … caddy-essai créé, joint à pdlm-demo-edge, Host: demo.pdlm.localhost …
+     HTTP/1.1 200 OK
+     $ ./scripts/demo-controles.sh caddy-essai && docker compose ps --all \
+       --format '{{.Name}}' | grep -q '^pdlm-demo-' && echo "pile OK" \
+       && ./scripts/backup.sh backups/reference | tail -8
+     contrôles démo : OK — surcouche présente ; Caddy « caddy-essai » trouvé ; port 3110 déjà publié par la démo ; Compose du dossier : 5 conteneur(s), tous pdlm-demo-*
+     pile OK
+     Sauvegarde terminée : backups/reference ( 24K)
+       base    : 7694 lignes de SQL
+       fichiers: 0 (autant dans le bucket)
+     backup rc=0
+     $ … POST /api/users/login relais@ puis operateur@pdlm.invalid …
+     login relais: token OK
+     login operateur: token OK
+
+### Z.1 — répétition Linux : la nuit jouée par cron lui-même
+
+Conteneur `debian:stable-slim` avec le socket Docker de l'hôte et le worktree
+**au même chemin absolu** (`/tmp/pdlm-demo-essai` des deux côtés, sinon les
+`-v` des scripts visent des chemins qui n'existent pas) :
+
+     $ docker run -d --name pdlm-essai-debian \
+       -v /var/run/docker.sock:/var/run/docker.sock \
+       -v /tmp/pdlm-demo-essai:/tmp/pdlm-demo-essai \
+       -v /Users/matthieucredou/Projects/glm.demo:/Users/matthieucredou/Projects/glm.demo \
+       debian:stable-slim sleep infinity | tail -1
+     Digest: sha256:fbfb4059d2127120aa05b6e6064523d2102552f0cf0026ddf0701c12f1f8f3e0
+     $ … apt-get install docker-ce-cli docker-compose-plugin cron util-linux …
+     Docker version 29.9.3, build 5457199
+     Docker Compose version v5.7.1
+     flock from util-linux 2.41.5
+     cron: invalid option -- '-'                ← busybox-style : pas de --version,
+                                                  l'option n'existe pas ; cron tourne (ci-dessous)
+     $ docker exec pdlm-essai-debian sh -c 'date && docker ps --format "{{.Names}}" | sort'
+     Wed Nov 11 17:37:28 UTC 2026
+     caddy-essai
+     pdlm-demo-app-1
+     pdlm-demo-minio-1
+     pdlm-demo-postgres-1
+     pdlm-essai-debian
+
+La ligne de crontab documentée (§ 6 de la procédure), installée telle quelle à
+une heure deux minutes plus tard — ici `39 17` :
+
+     $ grep -A1 'PATH=' docs/deploiement-demo.md          ← ligne de la doc
+     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+     17 3 * * * <DOSSIER>/scripts/demo-restauration-nuit.sh <CONTENEUR_CADDY>
+     $ … printf "PATH=…\n%s %s * * * /tmp/pdlm-demo-essai/scripts/demo-restauration-nuit.sh \
+       caddy-essai\n" | crontab - … 17:37:45 avant installation …
+     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+     39 17 * * * /tmp/pdlm-demo-essai/scripts/demo-restauration-nuit.sh caddy-essai
+     $ … cron démarré ; pgrep pour vérifier …
+     sh: 1: pgrep: not found                              ← stable-slim n'a pas procps ; exit 127
+     $ PID=$(cat /var/run/crond.pid); kill -0 $PID && echo "cron vivant"
+     crond.pid=4481
+     cron vivant
+
+À 17 h 39, cron a lancé la nuit tout seul. Journal complet (les 55 blocs
+`setval (1 row)` du chargement pg_restore sont élidés — il y en a 55, tous
+identiques dans leur forme, de `2` à `9`) :
+
+     === restauration.log ===
+     contrôles démo : OK — surcouche présente ; Caddy « caddy-essai » trouvé ; port 3110 déjà publié par la démo ; Compose du dossier : 5 conteneur(s), tous pdlm-demo-*
+     2026-11-11 17:39:01 contrôles rc=0
+     2026-11-11 17:39:02 pile rc=0
+     1/6 — Chargement du dump dans pdlm_restauration (la base en service n'est pas touchée)…
+     NOTICE:  database "pdlm_restauration" does not exist, skipping
+     … 55 blocs « setval / (n rows) » élidés …
+     2/6 — Bascule : arrêt de l'application, pdlm devient pdlm_precedente…
+      Container pdlm-demo-app-1 Stopping
+      Container pdlm-demo-app-1 Stopped
+     DROP DATABASE
+     ALTER DATABASE
+     ALTER DATABASE
+     3/6 — Pas de sauvegarde umami dans backups/reference, étape sautée.
+     4/6 — Restauration du bucket S3…
+     Bucket created successfully `local/pdlm`.
+     5/6 — Suppression de pdlm_precedente (base et bucket sont restaurés)…
+     DROP DATABASE
+     6/6 — Redémarrage de l'application…
+      Container pdlm-demo-app-1 Started
+     Restauration terminée depuis : backups/reference
+     2026-11-11 17:39:06 restauration rc=0
+     [17:39:08] WARN: No email adapter provided. Email will be written to console. More info at https://payloadcms.com/docs/email/overview.
+     [17:39:08] INFO: Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral) sur *.demo.pdlm.localhost, comptes operateur@pdlm.invalid, admin@pdlm.invalid, redacteur@pdlm.invalid, relais@pdlm.invalid.
+     2026-11-11 17:39:08 seed rc=0
+     2026-11-11 17:39:08 nuit terminée rc=0
+
+La ligne `[exited with code 0]` qui suit ce journal dans la sortie brute est
+celle du lanceur de tâche de fond de la session d'essai, pas du script :
+`grep -rn 'exited with code' scripts/` ne rend rien. Le verrou de la nuit est
+bien le même que celui de la mise à jour — `flock` n'existe pas sur l'hôte
+macOS, la preuve du verrou vient donc du conteneur Debian :
+
+     $ grep -l flock scripts/*.sh
+     scripts/demo-restauration-nuit.sh
+     scripts/demo-refaire-reference.sh
+     $ which flock || echo "flock absent de l'hôte macOS"
+     flock not found
+     flock absent de l'hôte macOS
+
+Avant les pannes, une copie vierge du dump de référence est mise à l'abri (elle
+sert aux pannes d et e, puis à les défaire) :
+
+     $ cp -p backups/reference/postgres.sql.gz /tmp/reference-postgres.sql.gz.pristine \
+       && shasum -a 256 /tmp/reference-postgres.sql.gz.pristine
+     5ec9b1065e45b5f4215262f4911fbb91b9a8cb880164ca0b1649554513b3633a  /tmp/reference-postgres.sql.gz.pristine
+
+### Z.2 — pannes simulées, une à une
+
+**(a) contrôles en échec** — le conteneur Caddy est renommé le temps de la
+nuit ; rien n'est touché, l'app tourne :
+
+     $ docker rename caddy-essai caddy-essai-cache \
+       && docker exec pdlm-essai-debian …/demo-restauration-nuit.sh caddy-essai
+     rc=1
+     — journal (fin) :
+     contrôles démo : conteneur Caddy « caddy-essai » introuvable (docker inspect) — STOP
+     2026-11-11 17:44:44 contrôles rc=1
+     2026-11-11 17:44:44 ÉCHEC contrôles rc=1
+     — état app :
+     pdlm-demo-app-1 Up 5 minutes (healthy)
+
+**(b) pile absente** — `docker compose down`, puis la nuit ; le réseau
+`pdlm-demo-edge` reste marqué « in use » (caddy-essai, hors pile, y tient une
+interface : attendu) :
+
+     $ docker compose down | tail -3 && docker exec pdlm-essai-debian …/demo-restauration-nuit.sh caddy-essai
+      Network pdlm-demo-edge Removing
+      Network pdlm-demo-edge Resource is still in use
+      Network pdlm-demo_default Removed
+     --- nuit :
+     rc=1
+     --- journal (fin) :
+     2026-11-11 17:44:56 contrôles rc=0
+     2026-11-11 17:44:56 pile rc=1
+     2026-11-11 17:44:56 ÉCHEC pile rc=1
+
+**(c) verrou déjà pris** — un `flock … -c 'sleep 45'` tient `.verrou` pendant
+l'appel :
+
+     $ docker exec -d pdlm-essai-debian flock /tmp/pdlm-demo-essai/.verrou -c 'sleep 45' \
+       && docker exec pdlm-essai-debian …/demo-restauration-nuit.sh caddy-essai
+     rc=75
+     --- journal (fin) :
+     2026-11-11 17:45:24 nuit sautée, verrou pris
+
+Aléa de l'essai à signaler : le `sleep 45` de la panne c tenait encore le
+verrou lors des deux premiers essais de la panne d, qui ont donc rendu rc=75
+« nuit sautée, verrou pris » (17:45:36 et 17:45:49) sans jamais toucher au
+dump — deux sorties parasites dans le journal, pas des preuves de la panne d.
+La preuve de d ci-dessous est celle jouée après attente explicite du verrou
+libre. (Le `sleep 40` nu de la première tentative avait été bloqué par la
+session elle-même ; remplacé par une boucle `until flock -n … -c true`.)
+
+**(d) dump de référence tronqué** — marqueur absent (`: > postgres.sql.gz`),
+verrou attendu libre, puis la nuit :
+
+     $ until docker exec pdlm-essai-debian flock -n /tmp/pdlm-demo-essai/.verrou -c true; do sleep 3; done
+     verrou libre
+     $ : > backups/reference/postgres.sql.gz && docker exec pdlm-essai-debian …/demo-restauration-nuit.sh caddy-essai
+     rc=1
+     — journal (fin) :
+     2026-11-11 17:46:13 contrôles rc=0
+     2026-11-11 17:46:13 pile rc=0
+     ÉCHEC : le dump backups/reference/postgres.sql.gz est illisible — opération annulée.
+     2026-11-11 17:46:13 restauration rc=1
+     2026-11-11 17:46:13 ÉCHEC restauration rc=1
+     — app :
+     pdlm-demo-app-1 Up 58 seconds (healthy)
+     — après :
+     users=4
+     actualites=2
+     pdlm
+
+Rien n'est touché : l'app n'a jamais été arrêtée, la base en service est la
+seule `pdlm` (pas de `pdlm_restauration` ni `pdlm_precedente` laissées), et
+les comptages avant/après sont identiques (`users=4`, `actualites=2`).
+
+**(e) chargement SQL fautif** — copie du dump vierge avec
+`INSERT INTO table_inexistante_panne_e VALUES (1);` ajoutée APRÈS le marqueur
+de fin (gzip valide, marqueur présent : la panne est bien dans le chargement,
+pas dans les contrôles avant écriture de U) :
+
+     $ gunzip -c …pristine > /tmp/dump-fautif.sql && printf 'INSERT INTO table_inexistante_panne_e VALUES (1);\n' >> /tmp/dump-fautif.sql \
+       && gzip -c /tmp/dump-fautif.sql > backups/reference/postgres.sql.gz
+     gzip OK ; marqueur dans le dernier Kio :
+     1
+     $ docker exec pdlm-essai-debian …/demo-restauration-nuit.sh caddy-essai
+     rc=1
+     — journal (fin) :
+     ERROR:  relation "table_inexistante_panne_e" does not exist
+     LINE 1: INSERT INTO table_inexistante_panne_e VALUES (1);
+                         ^
+     ÉCHEC (chargement) : le dump ne se charge pas en entier dans pdlm_restauration — la base en service et le bucket n'ont pas été touchés.
+     2026-11-11 17:46:34 restauration rc=1
+     2026-11-11 17:46:34 ÉCHEC restauration rc=1
+     — app :
+     pdlm-demo-app-1 Up About a minute (healthy)
+     $ … comptages et bases, puis dump vierge remis en place …
+     users=4
+     actualites=2
+     — bases :
+     pdlm
+     5ec9b1065e45b5f4215262f4911fbb91b9a8cb880164ca0b1649554513b3633a  backups/reference/postgres.sql.gz
+
+**(f) bucket injoignable après la bascule** — MinIO est arrêté juste avant la
+nuit ; la bascule a déjà eu lieu quand le `mc mirror` échoue (U.3 : l'app
+reste arrêtée, retour arrière imprimé) :
+
+     $ docker compose stop minio && docker exec pdlm-essai-debian …/demo-restauration-nuit.sh caddy-essai
+      Container pdlm-demo-minio-1 Stopping
+      Container pdlm-demo-minio-1 Stopped
+     rc=1
+     — journal (fin) :
+     DROP DATABASE
+     NOTICE:  database "pdlm_precedente" does not exist, skipping
+     ALTER DATABASE
+     ALTER DATABASE
+     3/6 — Pas de sauvegarde umami dans backups/reference, étape sautée.
+     4/6 — Restauration du bucket S3…
+     mc: <ERROR> Unable to initialize new alias from the provided credentials. Get "http://minio:9000/probe-bsign-ae212u9ne3z0uxv1cupbrwo4lwgizt/?location=": dial tcp: lookup minio on 127.0.0.11:53: no such host.
+
+     ÉCHEC (bucket) : l'application reste arrêtée.
+     La base d'avant-restauration pdlm_precedente existe encore — retour arrière :
+       docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U 'postgres' -d postgres \
+         -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='pdlm' AND pid <> pg_backend_pid();" \
+         -c "ALTER DATABASE pdlm RENAME TO pdlm_apres_echec;" \
+         -c "ALTER DATABASE pdlm_precedente RENAME TO pdlm;"
+       puis : docker compose start app
+       (pdlm_apres_echec, la restauration inachevée, à supprimer après regard : DROP DATABASE pdlm_apres_echec;)
+     2026-11-11 17:47:20 restauration rc=1
+     2026-11-11 17:47:20 ÉCHEC restauration rc=1
+     $ docker ps -a --filter name=pdlm-demo --format '{{.Names}}\t{{.Status}}'
+     pdlm-demo-app-1	Exited (143) 5 seconds ago      ← l'app RESTE ARRÊTÉE, comme écrit
+     pdlm-demo-postgres-1	Up 2 minutes (healthy)
+     pdlm-demo-minio-1	Exited (0) 6 seconds ago
+     — bases :
+     pdlm
+     pdlm_precedente                     ← la base d'avant-panne existe encore
+
+Puis le retour arrière imprimé ci-dessus est joué tel quel, plus le redémarrage
+de MinIO et le `DROP DATABASE pdlm_apres_echec;` de la ligne finale :
+
+     $ docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U 'postgres' -d postgres \
+       -c "…pg_terminate_backend…" -c "ALTER DATABASE pdlm RENAME TO pdlm_apres_echec;" \
+       -c "ALTER DATABASE pdlm_precedente RENAME TO pdlm;" \
+       && docker compose start app && … DROP DATABASE pdlm_apres_echec; … && docker compose start minio
+     ALTER DATABASE
+     ALTER DATABASE
+     DROP DATABASE
+     pdlm                                 ← il ne reste que la base de service
+     $ docker ps --filter name=pdlm-demo --format '{{.Names}}\t{{.Status}}' \
+       && curl -s -o /dev/null -w 'front saint-ex : %{http_code}\n' -H 'Host: saint-ex.demo.pdlm.localhost' http://127.0.0.1:3110/
+     pdlm-demo-app-1	Up 19 seconds (healthy)
+     pdlm-demo-postgres-1	Up 2 minutes (healthy)
+     pdlm-demo-minio-1	Up 25 seconds (healthy)
+     front saint-ex : 200
+
+**(g) seed en échec** — `DEMO_MDP_RELAIS` commenté dans le `.env` (le fichier
+est mis à l'abri puis restitué, aucun mot de passe affiché) ; la restauration,
+elle, a réussi — l'échec vient après :
+
+     $ sed -i '' 's/^DEMO_MDP_RELAIS=/# panne g : DEMO_MDP_RELAIS=/' .env && docker exec … nuit …
+     rc=1
+     — journal (fin) :
+     Restauration terminée depuis : backups/reference
+     2026-11-11 17:48:16 restauration rc=0
+     Seed de démo en ligne interrompu :
+     Variable(s) manquante(s) ou vide(s) : DEMO_MDP_RELAIS
+
+     2026-11-11 17:48:18 seed rc=1
+     2026-11-11 17:48:18 ÉCHEC seed rc=1
+     — app :
+     pdlm-demo-app-1 Up 2 seconds (health: starting)   ← redémarrée par la restauration
+     $ … .env restitué …
+     .env restitué
+
+### Z.3 — V : refaire la référence alors qu'elle existe, puis sauvegarde en échec
+
+La commande unique de la retouche V, jouée depuis le conteneur Debian (donc
+avec `flock`), pendant que `backups/reference` existe déjà — contrôles,
+restauration de la référence actuelle, build + migrations, seed, sauvegarde
+dans `backups/reference.nouvelle` puis bascule. Le BuildKit est élidé (190
+lignes de cache et d'export de couches) ; deux lignes en sont conservées :
+
+     $ docker exec pdlm-essai-debian …/scripts/demo-refaire-reference.sh caddy-essai
+     === 2026-11-11 17:48:30 refonte de la référence — contrôles
+     contrôles démo : OK — surcouche présente ; Caddy « caddy-essai » trouvé ; port 3110 déjà publié par la démo ; Compose du dossier : 5 conteneur(s), tous pdlm-demo-*
+     === 2026-11-11 17:48:30 restauration de la référence actuelle
+     1/6 — Chargement du dump dans pdlm_restauration (la base en service n'est pas touchée)…
+     … 55 blocs setval élidés, comme en Z.1 …
+     2/6 — Bascule : arrêt de l'application, pdlm devient pdlm_precedente…
+     3/6 — Pas de sauvegarde umami dans backups/reference, étape sautée.
+     4/6 — Restauration du bucket S3…
+     Bucket created successfully `local/pdlm`.
+     5/6 — Suppression de pdlm_precedente (base et bucket sont restaurés)…
+     DROP DATABASE
+     6/6 — Redémarrage de l'application…
+     Restauration terminée depuis : backups/reference
+     === 2026-11-11 17:48:34 mise à jour (build, migrations)
+      Image pdlm-demo-migrate Building
+      Image pdlm-demo-app Building
+     … BuildKit élidé — deux lignes conservées : …
+     #22 0.928   · proxyClientMaxBodySize: "21mb"
+     #22 22.53 ✓ Compiled successfully in 21.4s
+      Image pdlm-demo-app Built
+      Image pdlm-demo-migrate Built
+      Container pdlm-demo-migrate-1 Recreated
+      Container pdlm-demo-app-1 Recreated
+     === 2026-11-11 17:49:20 seed
+     [17:49:22] WARN: No email adapter provided. Email will be written to console. More info at https://payloadcms.com/docs/email/overview.
+     [17:49:22] INFO: Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral) sur *.demo.pdlm.localhost, comptes operateur@pdlm.invalid, admin@pdlm.invalid, redacteur@pdlm.invalid, relais@pdlm.invalid.
+     === 2026-11-11 17:49:22 sauvegarde vers backups/reference
+     La destination backups/reference existe déjà — la sauvegarde s'écrit dans backups/reference.nouvelle (bascule après contrôle complet).
+     1/4 — Arrêt de l'application (fenêtre de maintenance)…
+      Container pdlm-demo-app-1 Stopping
+      Container pdlm-demo-app-1 Stopped
+     2/4 — Dump PostgreSQL → backups/reference.nouvelle/postgres.sql.gz
+     3/4 — Copie du bucket S3 → backups/reference.nouvelle/s3
+     4/4 — Redémarrage de l'application…
+     Redémarrage de l'application…
+     Bascule : backups/reference ← backups/reference.nouvelle (l'ancienne devient backups/reference.precedente)…
+
+     Sauvegarde terminée : backups/reference (24K)
+       base    : 7694 lignes de SQL
+       fichiers: 0 (autant dans le bucket)
+     Vérifier la restauration avec : ./scripts/restore.sh backups/reference
+     Référence refaite — la nuit prochaine restaurera l'état du jour.
+     rc=0
+     — contenu backups/ :
+     drwx------   4 matthieucredou  wheel   128 11 nov.  18:49 reference
+     drwx------@  4 matthieucredou  wheel   128 11 nov.  18:34 reference.precedente
+
+La sauvegarde ne capture jamais ce que les visiteurs ont écrit : le seed
+précède, la sauvegarde suit, sous le même verrou. Puis la même sauvegarde avec
+MinIO arrêté (échec à l'étape 3/4) — sha256 du dump avant et après :
+
+     $ shasum -a 256 backups/reference/postgres.sql.gz && docker compose stop minio \
+       && ./scripts/backup.sh backups/reference
+     830f7ef264c83d5a9d50afd65eed456cb5f323f004d48d7680bebab02c68fdaf  backups/reference/postgres.sql.gz
+     La destination backups/reference existe déjà — la sauvegarde s'écrit dans backups/reference.nouvelle (bascule après contrôle complet).
+     1/4 — Arrêt de l'application (fenêtre de maintenance)…
+      Container pdlm-demo-app-1 Stopping
+      Container pdlm-demo-app-1 Stopped
+     2/4 — Dump PostgreSQL → backups/reference.nouvelle/postgres.sql.gz
+     3/4 — Copie du bucket S3 → backups/reference.nouvelle/s3
+     mc: <ERROR> Unable to initialize new alias from the provided credentials. Get "http://minio:9000/probe-bsign-qpn50kaltvmzy6kgqbqwdybp5m45um/?location=": dial tcp: lookup minio on 127.0.0.11:53: no such host.
+
+     ÉCHEC : copie du bucket S3 impossible — sauvegarde annulée.
+     Redémarrage de l'application…
+     Supprimé : backups/reference.nouvelle — la sauvegarde a échoué, backups/reference est intacte.
+     rc=1
+     — sha après :
+     830f7ef264c83d5a9d50afd65eed456cb5f323f004d48d7680bebab02c68fdaf  backups/reference/postgres.sql.gz
+     — contenu backups/ :
+     reference
+     reference.precedente
+     pdlm-demo-minio-1 Up 6 seconds (healthy)      ← MinIO redémarré après la preuve
+
+`backups/reference` est intacte (sha identique), `.nouvelle` supprimée,
+`.precedente` toujours là, l'app relancée.
+
+### Z.4 — W : droits du dossier de sauvegarde et du journal
+
+     $ stat -f '%Sp %N' backups backups/reference backups/reference/postgres.sql.gz \
+       restauration.log .verrou .env
+     drwx------ backups
+     drwx------ backups/reference
+     -rw------- backups/reference/postgres.sql.gz
+     -rw------- restauration.log
+     -rw------- .verrou
+     -rw------- .env
+
+`700` partout, `600` sur chaque fichier — y compris `.verrou` et le `.env`
+copié par le cron (W.1).
+
+### Z.5 — X : le compte partagé ne change ni son mot de passe ni son courriel
+
+Première tentative, honnête : elle s'arrête avant la première requête. Le
+`/api/users/me` appelé avec le seul cookie, sans en-tête `Origin`, rend un
+compte « null » (variante du piège CSRF documenté plus haut) :
+
+     $ curl -sS -H "Cookie: payload-token=$TOKEN" http://127.0.0.1:3110/api/users/me \
+       | python3 -c 'import json,sys;print(json.load(sys.stdin)["user"]["id"])'
+     Traceback (most recent call last):
+       File "<string>", line 1, in <module>
+     TypeError: 'NoneType' object is not subscriptable
+
+     $ curl -sS -o /tmp/me.json -w 'HTTP %{http_code}\n' \
+       -H "Cookie: payload-token=$TOKEN" http://127.0.0.1:3110/api/users/me
+     HTTP 200
+     {"user":null,"message":"Compte"}
+     b0fc37fd3751563a        ← sha256 (16 premiers caractères) du mot de passe du
+                               .env — jamais affiché lui-même
+
+Même réponse pour l'opérateur (`message= Compte`, `user= None`) : c'est le
+cookie sans Origin qui n'est pas honoré, pas le compte relais. Diagnostic
+repassé avec les deux moyens qui marchent :
+
+     $ curl … -H "Authorization: JWT $TOKEN" http://127.0.0.1:3110/api/users/me
+     HTTP 200 {"user":{"id":1,"name":"Opérateur (démo)","role":"operateur",…
+     $ curl … -H 'Origin: http://demo.pdlm.localhost' \
+       -H "Cookie: payload-token=$TOKEN" http://127.0.0.1:3110/api/users/me
+     HTTP 200 {"user":{"id":1,"name":"Opérateur (démo)","role":"operateur",…
+
+La suite passe par cookie + Origin. Les sept requêtes de la suite X (relais
+connecté sur son propre compte, puis l'opérateur) :
+
+     relais id=4
+     — 1. relais change SON mot de passe :
+     HTTP 400 — The following field is invalid: password
+     — 2. relais change SON courriel :
+     HTTP 400 — The following field is invalid: email
+     — 3. relais change SON nom :
+     HTTP 200 — name = Mis à jour avec succès.
+     — 4. operateur change le mot de passe du relais :
+     HTTP 200 — changé = Mis à jour avec succès.
+     — 5. re-login relais avec le NOUVEAU mot de passe :
+     Traceback (most recent call last):
+       File "<string>", line 1, in <module>
+       …
+     json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+                        ← dernier appel de la chaîne `&&` : la sortie `-w` a
+                          pollué l'entrée du python ; voir le tableau ci-dessous,
+                          x5 authentifie bien
+
+Corps des refus (réponses complètes des étapes 1 et 2) :
+
+     === x1.json ===
+     {"errors":[{"name":"c","data":{"errors":[{"message":"Compte de démonstration partagé : mot de passe et courriel non modifiables","path":"password"}]},"message":"The following field is invalid: password"}]}
+     === x2.json ===
+     {"errors":[{"name":"c","data":{"errors":[{"message":"Compte de démonstration partagé : mot de passe et courriel non modifiables","path":"email"}]},"message":"The following field is invalid: email"}]}
+
+Tableau final tiré des réponses sauvegardées (aucun jeton n'est recopié) :
+
+     == /tmp/x1.json   message: The following field is invalid: password
+                       data.errors[0]: Compte de démonstration partagé : mot de passe et courriel non modifiables
+     == /tmp/x2.json   message: The following field is invalid: email
+                       data.errors[0]: Compte de démonstration partagé : mot de passe et courriel non modifiables
+     == /tmp/x3.json   message: Mis à jour avec succès.
+     == /tmp/x4.json   message: Mis à jour avec succès.
+     == /tmp/x5.json   message: Authentification réussie
+     == /tmp/x6.json   message: Mis à jour avec succès.
+     == /tmp/x7.json   message: Authentification réussie
+
+Remise en état par l'opérateur (étape 6), puis re-login du relais avec le
+mot de passe d'origine (étape 7) :
+
+     HTTP 200 — remis = relais@pdlm.invalid | sessions: 0
+     re-login relais avec le mot de passe du .env : HTTP 200 — Authentification réussie
+
+Lu dans `x3.json`/`x4.json` (corps tronqués) : le changement de nom laisse
+`"email":"relais@pdlm.invalid"` ; le changement de mot de passe par
+l'opérateur vide `sessions:[]` — les sessions ouvertes du relais sont
+révoquées. Le refus porte exactement le message posé par le hook
+`src/hooks/protegerComptePartage.ts`, sur les chemins `password` et `email`.
+
+### Z.6 — Y : plafonds appliqués, refus 413 et quota
+
+La mesure du pic mémoire qui a fixé les défauts est celle de la section Y
+ci-dessus (330,2 Mio au pic, `768m` retenu). Plafonds réellement appliqués
+par la pile d'essai, lus au conteneur :
+
+     $ for c in app postgres minio; do docker inspect --format \
+       "{{.Name}}: Memory={{.HostConfig.Memory}} NanoCpus={{.HostConfig.NanoCpus}} \
+       PidsLimit={{.HostConfig.PidsLimit}}" pdlm-demo-$c-1; done
+     /pdlm-demo-app-1: Memory=805306368 NanoCpus=1500000000 PidsLimit=128
+     /pdlm-demo-postgres-1: Memory=536870912 NanoCpus=1000000000 PidsLimit=128
+     /pdlm-demo-minio-1: Memory=805306368 NanoCpus=1000000000 PidsLimit=128
+     $ docker compose run --rm -T --entrypoint /bin/sh minio -c '… mc quota info local/pdlm'
+     Bucket `pdlm` has hard quota of 2.0 GiB
+
+(805306368 octets = 768 Mio, 1500000000 nanoCpus = 1,5 CPU.)
+
+Envoi au-dessus de `max_size` (22 Mio d'aléatoire), à travers le Caddy
+d'essai puis en direct — refusé des deux côtés :
+
+     $ head -c 23068672 /dev/urandom > /tmp/trop-gros.jpg
+     -rw-r--r--@ 1 matthieucredou  wheel  23068672 11 nov.  18:53 /tmp/trop-gros.jpg
+     via caddy-essai (3111) : HTTP 413
+                                        ← corps de réponse vide : c'est Caddy
+                                          qui coupe, l'app n'est pas jointe
+     direct app (3110), même fichier : HTTP 413
+
+Le quota, lui, est éprouvé en trois tentatives — les deux premières
+échouent pour des raisons qui ne sont pas le quota, elles font partie du
+récit. Image de 16 Mio fabriquée pour l'occasion :
+
+     $ sips … --resampleWidth 4000 \
+       "/System/Library/Desktop Pictures/Sonoma Horde.heic" …
+     ls: /tmp/quota.jpg: No such file or directory
+                                        ← pas de .heic sur cet hôte ; repli
+                                          sur /Library/Desktop Pictures/
+     $ sips … --resampleWidth 5000 "/Library/Desktop Pictures/Beach.jpg" …
+     -rw-r--r--@ 1 matthieucredou  wheel  16216560 11 nov.  18:53 /tmp/quota.jpg
+
+Tentative 1 — quota baissé à 1 Mio, mais sans le cookie `payload-tenant`
+(refus d'accès, rien à voir avec le quota) :
+
+     Successfully set bucket quota of 1.0 MiB on `pdlm`
+     Bucket `pdlm` has hard quota of 1.0 MiB
+     téléversement 16 Mio, quota 1 Mio : HTTP 403
+     {"errors":[{"message":"Vous n’êtes pas autorisé à effectuer cette action."}]}
+     — objets dans le bucket :
+     Successfully set bucket quota of 2.0 GiB on `pdlm`
+     Bucket `pdlm` has hard quota of 2.0 GiB
+                                        ← rien listé entre le marqueur et le
+                                          remis à 2 Gio : le bucket est
+                                          intact, l'upload n'a rien posé
+
+Rejouée quota relevé à 2 Gio : même 403 — c'est bien le cookie de commune
+qui manquait (garde `verifierCommuneCreation`, le journal porte
+`status: 403`), pas le quota.
+
+Tentative 2 — quota rebaissé à 1 Mio, cookie `payload-tenant=1` posé,
+mais le texte alternatif passe en champ de formulaire simple
+(`-F "alt=…"`) ; `alt` est un champ localisé exigé en français :
+
+     Successfully set bucket quota of 1.0 MiB on `pdlm`
+     Bucket `pdlm` has hard quota of 1.0 MiB
+     téléversement 16 Mio, quota 1 Mio : HTTP 400
+     {"errors":[{"name":"c","data":{"collection":"media","errors":[{"label":"Texte alternatif","message":"Ce champ est obligatoire en français.","path":"alt"}]},"message":"Le champ suivant n’est pas valide : Texte alternatif"}]}
+     …
+     [17:57:55] ERROR: Le champ suivant n’est pas valide : Texte alternatif
+
+La suite e2e (`tests/e2e/mosaique-390.e2e.spec.ts`) montre la forme
+attendue : `corps.append('_payload', JSON.stringify({ alt, tenant }))` —
+les champs localisés passent dans `_payload`, pas en champs simples.
+
+Tentative 3 — la bonne forme, quota 1 Mio :
+
+     téléversement 16 Mio, quota 1 Mio : HTTP 500
+     {"errors":[{"message":"Something went wrong."}]}
+     --- journal app ---
+     [17:56:30] ERROR: Vous n’êtes pas autorisé à effectuer cette action.
+           "status": 403,
+     [17:57:23] ERROR: Le champ suivant n’est pas valide : Texte alternatif
+           "status": 400,
+     [17:57:55] ERROR: Le champ suivant n’est pas valide : Texte alternatif
+           "status": 400,
+     [17:58:22] ERROR: There was an error while uploading files corresponding to the collection media with filename quota.jpg:
+     [17:58:22] ERROR: Bucket quota exceeded
+           "type": "S3ServiceException",
+           "message": "Bucket quota exceeded",
+               XMinioAdminBucketQuotaExceeded: Bucket quota exceeded
+                   at S3RestXmlProtocol.handleError (/app/node_modules/@aws-sdk/core/dist-cjs/submodules/protocols/index.js:2826:65)
+     --- objets bucket ---
+     [2026-11-11 17:58:22 UTC] 318KiB STANDARD media/quota-1600x1100.jpg
+     [2026-11-11 17:58:22 UTC] 256KiB STANDARD media/quota-1600x900.jpg
+     [2026-11-11 17:58:22 UTC] 300KiB STANDARD media/quota-2000x800.jpg
+     [2026-11-11 17:58:22 UTC]  19KiB STANDARD media/quota-400x300.jpg
+     [2026-11-11 17:58:22 UTC] 150KiB STANDARD media/quota-800x1000.jpg
+     fin-de-liste
+
+L'API répond un 500 générique ; la cause véritable est dans le journal
+(`Bucket quota exceeded`, exception S3 MinIO). Les cinq objets posés avant
+le refus sont les recadrages de Payload — le quota a coupé pendant
+l'écriture. Aucun document média n'existe en base :
+
+     Successfully set bucket quota of 2.0 GiB on `pdlm`
+     Bucket `pdlm` has hard quota of 2.0 GiB
+     médias quota.jpg en base : 0
+
+Quota remis à 2 Gio (valeur de la pile), bucket ces objets orphelins
+compris — la nuit suivante le vide et le restaure à la référence.
+
+### Z.7 — journée du relais, puis nuit complète
+
+Le scénario accepté par Matthieu : un relais publie ce qu'il veut, tout
+disparaît à la nuit. La journée est jouée à 17:59–18:01 UTC (18:59–19:01
+heure locale), la nuit finale juste après.
+
+Le relais se connecte (mot de passe du `.env`, jamais affiché), téléverse
+une image, crée une actualité datée du jour et la publie :
+
+     image du jour : 160729 octets
+     téléversement image du jour : HTTP 201
+     média : 2 jour-plage.jpg
+
+     création actualité par relais : HTTP 201
+     {"doc":{"id":3,"tenant":{"id":1,"nom":"Saint-Exupéry-les-Bains",
+     "slug":"saint-ex","actif":true,…}}}
+     actualité : 3 'essai-relais-avant-la-nuit' draft image= 2
+                                        ← créée brouillon, image 2 posée
+                                          d'emblée ; datePublication posée à
+                                          2026-11-11T18:00:00.000Z
+     publication actualité 3 : HTTP 200
+     actualité 3 : published
+     --- front saint-ex (accueil) ---
+     accueil : HTTP 200
+     occurrences du titre sur l’accueil : 0
+     actualités : HTTP 200
+     sed: 1: "s/^/références à l� ...": bad flag in substitute command: 'a'
+                                        ← ma commande sed était mal quoted
+                                          (l'apostrophe du libellé), sortie
+                                          en échec ; recompté proprement :
+     titre sur /actualites : 0
+     image sur /actualites : 0
+     href="/actualites/inscription-ecole-municipale"
+     href="/actualites/travaux-voirie-principale"
+
+L'actualité publiée n'apparaît pas — il est 17:59:59 UTC et elle est
+datée 18:00. Vérification en base, puis lecture du filtre du front :
+
+     heure UTC now : 2026-11-11 17:59:59
+     1|travaux-voirie-principale|published|2026-11-11 17:34:00.112+00
+     2|inscription-ecole-municipale|published|2026-11-08 17:34:00.13+00
+     3|essai-relais-avant-la-nuit|published|2026-11-11 18:00:00+00
+
+     src/lib/dates.ts:33:        or: [{ datePublication: { exists: false } }, { datePublication: { less_than_equal: iso } }],
+
+Une actualité datée dans le futur ne sort pas sur le front (filtre
+`less_than_equal: now` de la liste publique) — comportement attendu du
+CMS, pas un échec de l'essai. La lecture REST anonyme la voit bien,
+elle, dès la publication :
+
+     REST anonyme totalDocs = 1 [(3, 'published')]
+
+(Le premier essai de cette lecture a buté sur `curl: (3) bad range in URL
+position 44` — les crochets de la query, il fallait `curl -sg`. Ma faute
+de commande, corrigée juste après.)
+
+Une minute plus tard, après 18:00 UTC, tout est visible :
+
+     actualités : HTTP 200
+     titre sur la page : 1
+     references image sur la page : 0
+     href="/actualites/essai-relais-avant-la-nuit"
+     page de l’actualité : HTTP 200
+     contenu rendu : 1
+
+     image sur la page détail : 1
+     src="/api/media/file/jour-plage.jpg?prefix=media"
+     [2026-11-11 17:59:14 UTC]  19KiB STANDARD media/jour-plage-400x300.jpg
+     [2026-11-11 17:59:14 UTC] 111KiB STANDARD media/jour-plage-800x1000.jpg
+     [2026-11-11 17:59:14 UTC] 157KiB STANDARD media/jour-plage.jpg
+     … (les cinq objets quota-… de la sous-section précédente)
+
+État avant la nuit — l'actualité, le média et l'agenda existent :
+
+     avant nuit — actualités essai-relais : 1
+     avant nuit — médias jour-plage : 1
+     agenda avant nuit : HTTP 200
+
+La nuit complète, jouée depuis le conteneur Debian par le script W (le
+même que celui du cron de Z.1) :
+
+     $ docker exec pdlm-essai-debian \
+       /tmp/pdlm-demo-essai/scripts/demo-restauration-nuit.sh caddy-essai
+     rc de la nuit : 0
+     === cinq dernières lignes de restauration.log ===
+      Container pdlm-demo-migrate-run-8d1bcaac08ac Created 
+     [18:01:30] WARN: No email adapter provided. Email will be written to
+       console. More info: https://payloadcms.com/docs/email/overview.
+     [18:01:30] INFO: Démo en ligne prête — saint-ex (Village) et
+       port-lavanne (Littoral) sur *.demo.pdlm.localhost, comptes
+       operateur@pdlm.invalid, admin@pdlm.invalid, redacteur@pdlm.invalid,
+       relais@pdlm.invalid.
+     2026-11-11 18:01:31 seed rc=0
+     2026-11-11 18:01:31 nuit terminée rc=0
+
+Le journal garde la journée entière (17:39:01 → 18:01:31) ; les seules
+lignes `ÉCHEC` sont celles des pannes volontaires de Z.2, le dernier
+passage n'en porte aucune :
+
+     2026-11-11 18:01:24 contrôles rc=0
+     2026-11-11 18:01:24 pile rc=0
+     …
+     2026-11-11 18:01:31 seed rc=0
+     2026-11-11 18:01:31 nuit terminée rc=0
+
+Contrôles de l'essai précédent, rejoués après la nuit — la publication du
+relais a disparu (page 404, plus rien en base, bucket vide), les
+événements du seed sont redatés à venir, l'agenda vit :
+
+     accueil après nuit : HTTP 200
+     page de l’actualité supprimée : HTTP 404
+     après nuit — actualités essai-relais : 0
+     après nuit — médias jour-plage : 0
+     après nuit — événements à venir (date_debut >= now) : 2
+     agenda après nuit : HTTP 200
+     dates affichées sur l’agenda : 1
+     --- objets restants dans le bucket ---
+     fin-de-liste
+
+Le bucket vide referme la promesse de la sous-section précédente : les
+objets orphelins du quota ont été évacués par la restauration, la
+référence seule demeure.
+
+### Démontage
+
+Inventaire complet juste avant la descente — tout ce qui porte `pdlm-demo`,
+`essai` ou `caddy-essai` vient de l'essai ; les réseaux et volumes
+`pdlm-prod_*` (prod locale d'octobre) et `pdlm_*` (dev) préexistaient et
+ne sont pas touchés :
+
+     pdlm-demo-app-1	Up About a minute (healthy)
+     pdlm-demo-migrate-1	Exited (0) About a minute ago
+     pdlm-demo-createbuckets-1	Exited (0) About a minute ago
+     pdlm-demo-postgres-1	Up 17 minutes (healthy)
+     pdlm-demo-minio-1	Up 12 minutes (healthy)
+     pdlm-essai-debian	Up 25 minutes
+     caddy-essai	Up 28 minutes
+     --- réseaux ---
+     pdlm-demo-edge
+     pdlm-demo_default
+     pdlm-prod_default
+     pdlm_default
+     --- images ---
+     pdlm-demo-app:latest	403MB
+     pdlm-demo-migrate:latest	1.5GB
+     debian:stable-slim	142MB
+     --- volumes ---
+     pdlm-demo_minio_data
+     pdlm-demo_pgdata
+     pdlm-prod_caddy_config
+     pdlm-prod_caddy_data
+     pdlm-prod_minio_data
+     pdlm-prod_pgdata
+     pdlm_minio_dev
+     pdlm_pgdata_dev
+
+Le Caddy d'essai est d'abord déconnecté du réseau `pdlm-demo-edge` (il y
+avait été raccordé à la main), puis la pile descend avec ses volumes :
+
+     $ docker network disconnect pdlm-demo-edge caddy-essai \
+       && docker compose -p pdlm-demo … down -v --remove-orphans
+      Network pdlm-demo-edge Removing 
+      Volume pdlm-demo_pgdata Removing 
+      Volume pdlm-demo_minio_data Removing 
+      Network pdlm-demo_default Removing 
+      Volume pdlm-demo_pgdata Removed 
+      Volume pdlm-demo_minio_data Removed 
+      Network pdlm-demo_default Removed 
+      Network pdlm-demo-edge Removed
+
+Conteneurs d'essai, images tirées pour l'essai, fichiers temporaires du
+montage (`/tmp/pdlm-demo-essai`, images de test, réponses JSON, copies
+pristines) :
+
+     $ docker rm -f caddy-essai pdlm-essai-debian \
+       && docker rmi pdlm-demo-app:latest pdlm-demo-migrate:latest \
+          debian:stable-slim \
+       && rm -rf /tmp/pdlm-demo-essai /tmp/caddy-essai /tmp/trop-gros.jpg \
+          /tmp/quota.jpg /tmp/jour-plage.jpg /tmp/x?.json /tmp/jour-*.json \
+          /tmp/jour-*.html /tmp/apres-agenda.html /tmp/repquota*.json …
+     caddy-essai
+     pdlm-essai-debian
+     Untagged: pdlm-demo-migrate:latest
+     Deleted: sha256:b746dc80a7a918babd8674603246e7f547c108bf550a7d92bd6b0663e557bbb9
+     Untagged: debian:stable-slim
+     Deleted: sha256:fbfb4059d2127120aa05b6e6064523d2102552f0cf0026ddf0701c12f1f8f3e0
+     fichiers temporaires supprimés
+
+Preuve qu'il ne reste rien, le soir même (18:02:53 UTC) puis revérifié le
+lendemain 12 novembre avant commit :
+
+     === docker ps -a (filtre essai) ===
+     (vide)
+     === docker network ls (filtre essai) ===
+     (vide)
+     === docker images (filtre essai) ===
+     (vide)
+     === volumes (filtre essai) ===
+     (vide)
+     === /tmp ===
+     ls: /tmp/caddy-essai: No such file or directory
+     ls: /tmp/pdlm-demo-essai: No such file or directory
