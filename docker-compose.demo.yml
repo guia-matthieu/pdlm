@@ -17,12 +17,23 @@
 
 services:
   postgres:
+    # Retouche Y : VPS1 est mutualisé — chaque service de longue durée de la
+    # pile est plafonné (mémoire/CPU/processus), surchargeable par .env. Les
+    # défauts viennent de la mesure du 11/11 (notes-demo-en-ligne.md) : pics
+    # observés 33 Mo pour postgres au repos ; marge ≥ 2× partout.
+    # https://docs.docker.com/compose/compose-file/05-services/#mem_limit
+    mem_limit: ${DEMO_POSTGRES_MEM_LIMIT:-512m}
+    cpus: ${DEMO_POSTGRES_CPUS:-1}
+    pids_limit: ${DEMO_POSTGRES_PIDS_LIMIT:-128}
     networks:
       default:
         aliases:
           - pdlm-demo-postgres
 
   minio:
+    mem_limit: ${DEMO_MINIO_MEM_LIMIT:-768m}
+    cpus: ${DEMO_MINIO_CPUS:-1}
+    pids_limit: ${DEMO_MINIO_PIDS_LIMIT:-128}
     environment:
       # Retouche P : le compose de base garde des défauts de développement
       # (« minioadmin ») ; sur le serveur mutualisé, la pile ne démarre pas
@@ -39,6 +50,13 @@ services:
       # Mêmes variables que docker-compose.yml, sans leurs défauts (retouche P).
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis dans .env}
       S3_APP_PASSWORD: ${S3_APP_PASSWORD:?S3_APP_PASSWORD requis dans .env}
+      # Retouche Y : quota dur du bucket — le seul plafond DISQUE de la pile
+      # (mem_limit ne borne pas ce que les relais peuvent entreposer). La
+      # nuit ramène le bucket à la référence, le quota borne donc « une
+      # journée d'uploads » ; 2 Gio ≈ 110 images téléversées (chaque image
+      # stocke l'original + 5 tailles). Vérifié sur l'image MinIO épinglée
+      # (mc 9.6, RELEASE.2025-09-07) — sortie brute dans les notes.
+      S3_QUOTA: ${DEMO_S3_QUOTA:-2GiB}
 
   migrate:
     environment:
@@ -48,6 +66,11 @@ services:
       DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
 
   app:
+    # Retouche Y : mesuré 330 Mo de pic au téléversement de 5 × 15 Mo
+    # (11/11) → 768 Mo = marge 2,3×. 11 threads au repos → 128 pids.
+    mem_limit: ${DEMO_APP_MEM_LIMIT:-768m}
+    cpus: ${DEMO_APP_CPUS:-1.5}
+    pids_limit: ${DEMO_APP_PIDS_LIMIT:-128}
     # `default` explicite : poser `networks` sur un service le retire sinon du
     # réseau de la pile — il perdrait postgres et minio. `pdlm-demo-edge` porte
     # l'alias `pdlm-demo` : c'est là, et là seulement, que le Caddy partagé

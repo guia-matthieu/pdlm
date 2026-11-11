@@ -1242,3 +1242,125 @@ d'une collection `auth` sont : `/login`, `/logout`, `/me`, `/refresh-token`,
 
 Conclusion : aucun chemin atteignable par un relais ne change le mot de passe
 du compte partagé hors du hook.
+
+## Retouche Y — plafonds : la démo ne peut pas saturer VPS1
+
+### Ce qui est posé
+
+- `docker-compose.demo.yml` : `mem_limit`, `cpus`, `pids_limit` sur les trois
+  services de longue durée (app, postgres, minio), chacun surchargeable par
+  `.env` (`DEMO_APP_MEM_LIMIT`, `DEMO_APP_CPUS`, `DEMO_APP_PIDS_LIMIT`, idem
+  `_POSTGRES_`, `_MINIO_`).
+- `docker-compose.yml` (base) : `S3_QUOTA` vide par défaut, et l'étape
+  `mc quota set` dans createbuckets, exécutée seulement s'il est posé — la
+  production n'est pas concernée. La surcouche démo pose
+  `DEMO_S3_QUOTA:-2GiB`.
+- `docs/deploiement-demo.md` § 6 : `request_body { max_size 21MiB }` dans le
+  bloc Caddy, et le paragraphe « démo publique, ouverte en écriture aux
+  relais, visible de tous jusqu'à la nuit, plafonnée (valeurs) ».
+- `.env.example` : ligne commentée `#S3_QUOTA=2GiB`.
+
+### Mesure du pic mémoire (brief Y.1)
+
+Pile d'essai de /tmp/pdlm-demo-essai (conteneurs `pdlm-demo-*`), 5 images
+JPEG de 15,1 Mo générées pour la mesure, envoyées d'affilée au compte relais
+par l'API, `docker stats --no-stream` entre chaque envoi :
+
+     $ for i in 1 2 3 4 5; do curl … -F "file=@images/mesure-$i.jpg" \
+       -F "_payload={\"alt\":\"Mesure Y1 $i\",\"tenant\":1}" …/api/media; \
+       docker stats --no-stream --format '   stats: {{.MemUsage}} cpu {{.CPUPerc}}' pdlm-demo-app-1; done
+     envoi 1 : HTTP 201 en 0.847054s
+        stats: 134.1MiB / 7.748GiB cpu 0.35%
+     envoi 2 : HTTP 201 en 0.973884s
+        stats: 249.3MiB / 7.748GiB cpu 0.29%
+     envoi 3 : HTTP 201 en 0.736936s
+        stats: 283.6MiB / 7.748GiB cpu 0.26%
+     envoi 4 : HTTP 201 en 0.681600s
+        stats: 320.2MiB / 7.748GiB cpu 0.32%
+     envoi 5 : HTTP 201 en 0.728966s
+        stats: 330.2MiB / 7.748GiB cpu 0.32%
+
+**Pic mesuré : 330,2 Mio** (l'app ne rend pas la mémoire à l'OS sitôt après ;
+elle reste à 330,2 Mio en continu). Défauts retenus — marge ≥ 2× partout :
+
+| service | mesuré (au repos/après essai) | mem_limit | cpus | pids (comptés) → pids_limit |
+|---|---|---|---|---|
+| app | 67 Mio au départ, 330,2 Mio au pic | `768m` (2,3×) | `1.5` | 11 threads → `128` |
+| postgres | 33 Mio | `512m` (15×) | `1` | ~10 processus → `128` |
+| minio | 282,8 Mio | `768m` (2,7×) | `1` | 16 threads → `128` |
+
+     $ docker stats --no-stream --format '{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' | grep pdlm-demo
+     pdlm-demo-app-1	331MiB / 7.748GiB	0.00%
+     pdlm-demo-postgres-1	33MiB / 7.748GiB	0.00%
+     pdlm-demo-minio-1	282.8MiB / 7.748GiB	3.88%
+
+CPU jamais au-delà de 0,35 % d'un hôte à 8 CPU pendant les téléversements :
+`cpus: 1.5` pour l'app ne bride rien d'observable, il borne le pire cas.
+
+### Découverte en cours de mesure : le proxy Next coupait à 10 Mo
+
+Les premiers envois rendaient HTTP 500 — l'app ne recevait jamais la limite
+applicative (`limiterTaille(20)` = 20 Mo) :
+
+     Request body exceeded 10MB for /api/media. Only the first 10MB will be
+     available unless configured. See https://nextjs.org/docs/app/api-reference/
+     config/next-config-js/middlewareClientMaxBodySize for more details.
+     [17:04:13] ERROR: Unexpected end of form
+
+Tant que `src/proxy.ts` existe, Next 16 met chaque corps de requête en tampon
+pour la double lecture proxy + route, et n'en garde que les 10 premiers Mo par
+défaut : un envoi de 10 à 20 Mo arrivait TRONQUÉ à l'API. Corrigé dans
+`next.config.ts` par `experimental.proxyClientMaxBodySize: '21mb'` (juste
+au-dessus de `limiterTaille(20)`) — les 5 envois de 15,1 Mo ci-dessus (201)
+sont la preuve d'après. Correction d'application générale : sans elle, la
+limite de 20 Mo affichée à l'utilisateur ne fonctionnait en prod que de 0 à
+10 Mo.
+
+### Piège curl (compté pour la mesure, pas pour la démo)
+
+Tous les POST authentifiés par cookie sans en-tête `Origin` rendaient 403
+« Vous n'êtes pas autorisé à effectuer cette action. » — c'est la protection
+CSRF de Payload (cookie + Origin concordants), pas la logique de rôles. Les
+curl d'essai doivent poser `-H 'Origin: http://demo.pdlm.localhost'`.
+
+### Y.3 — quota du bucket : OUI sur l'image MinIO épinglée
+
+Essayé sur la pile d'essai avec le `mc` épinglé (9.6) — l'option n'est pas
+`--hard`, c'est `--size` :
+
+     $ mc quota set local/pdlm --hard 2GiB
+     mc: <ERROR> Invalid command usage, flag provided but not defined: -hard
+     SUPPORTED FLAGS:
+        --size value    set a hard quota, disallowing writes after quota is reached
+
+     $ mc quota set local/pdlm --size 2GiB && mc quota info local/pdlm
+     Successfully set bucket quota of 2.0 GiB on `pdlm`
+     Bucket `pdlm` has hard quota of 2.0 GiB
+     sortie: 0
+
+Le quota est DUR (« disallowing writes after quota is reached »). 2 Gio ≈
+110 images téléversées (l'app stocke l'original + 5 tailles par image) : une
+journée entière d'uploads de relais, bornée. C'est le seul plafond DISQUE de
+la pile — `mem_limit` ne borne pas le stockage.
+
+Autre piège rencontré : `mc` refusait TOUT (« Access Denied ») alors que le
+mot de passe était bon — le `.env` de l'essai n'avait pas de
+`MINIO_ROOT_USER`, et la variable vide ne déclenche aucun refus explicite.
+Le `.env` d'essai a été complété depuis l'environnement du conteneur (comparé
+par empreintes, valeur jamais affichée). Sur le serveur, le § 3 de la
+procédure pose les deux.
+
+### Y.2 — `max_size 21MiB` dans le bloc Caddy
+
+Limite lue dans la config, pas devinée : `limiterTaille(20)` sur Media et
+Documents = 20 Mo par fichier. `21MiB` = cette limite + le cadrage multipart,
+aligné sur `proxyClientMaxBodySize: '21mb'`. Au-delà de 21 MiB, Caddy
+répond 413 sans réveiller l'app (preuve au passage de l'essai Z) ; entre 20
+et 21 MiB, c'est l'app qui refuse avec son message.
+
+### Y.4 — la démo dite en clair
+
+Paragraphe ajouté en tête du § 6 de la procédure : publique, ouverte en
+écriture aux relais, tout ce qui y est publié est visible de tous jusqu'à la
+restauration de la nuit, plafonnée — 21 MiB/requête (Caddy), 20 Mo/fichier
+(app), 2 Gio (bucket), et les plafonds CPU/mémoire/processus ci-dessus.

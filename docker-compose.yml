@@ -61,6 +61,11 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_BUCKET: ${S3_BUCKET:-pdlm}
       S3_APP_PASSWORD: ${S3_APP_PASSWORD:-motdepasse-a-changer}
+      # Quota dur du bucket (retouche Y). Vide par défaut : la production
+      # n'a pas de raison de borner son stockage. La surcouche démo le pose
+      # (DEMO_S3_QUOTA) : un quota borné y limite le disque qu'un relais
+      # peut remplir avant la restauration nocturne. Idempotent.
+      S3_QUOTA: ${S3_QUOTA:-}
     # Idempotent : chaque étape tolère l'existant, et l'attachement de la
     # policy est INCONDITIONNEL. L'ancienne forme `policy create || policy
     # attach` ne rattachait jamais au premier démarrage (create réussissant,
@@ -78,6 +83,7 @@ services:
         mc admin policy create local pdlm-app /tmp/policy.json 2>/dev/null || echo "policy pdlm-app : déjà présente"
         mc admin user add local pdlm-app "$$S3_APP_PASSWORD" 2>/dev/null || echo "utilisateur pdlm-app : déjà présent"
         mc admin policy attach local pdlm-app --user pdlm-app 2>/dev/null || echo "policy pdlm-app : déjà attachée"
+        if [ -n "$$S3_QUOTA" ]; then mc quota set "local/$$S3_BUCKET" --size "$$S3_QUOTA"; fi
         echo "--- droits effectifs de pdlm-app ---"
         mc admin user info local pdlm-app
 

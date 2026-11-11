@@ -207,6 +207,16 @@ chmod 700 backups
 
 ## 6. Caddy partagé et rafraîchissement périodique
 
+Ce bloc publie une démo **publique** : ouverte en écriture à quiconque se
+connecte au compte relais partagé (mot de passe public), où **tout ce qui y
+est publié est visible de tous** jusqu'à la restauration de la nuit — et
+**plafonnée** pour ne pas pouvoir nuire au reste du serveur (retouche Y) :
+21 MiB par requête (`max_size` ci-dessous), 20 Mo par fichier (limite de
+l'app), 2 Gio de quota sur le bucket, et pour la pile 768 Mo / 1,5 CPU /
+128 processus pour l'app, 512 Mo / 1 CPU / 128 pour PostgreSQL, 768 Mo /
+1 CPU / 128 pour MinIO — surchargeables par `.env` (variables
+`DEMO_*_MEM_LIMIT`, `DEMO_*_CPUS`, `DEMO_*_PIDS_LIMIT`, `DEMO_S3_QUOTA`).
+
 Le Caddyfile est **monté** dans le conteneur Caddy : édition et copie se
 font côté **hôte**, sur le fichier monté. `<CADDYFILE_HOTE>` désigne son
 chemin côté hôte, `<CHEMIN_CADDYFILE>` le même fichier vu depuis le
@@ -216,9 +226,20 @@ Ajouter le bloc :
 ```
 demo.pdlm.guia.fr, saint-ex.demo.pdlm.guia.fr, port-lavanne.demo.pdlm.guia.fr {
 	header X-Robots-Tag "noindex, nofollow"
+	request_body {
+		max_size 21MiB
+	}
 	reverse_proxy pdlm-demo:3000
 }
 ```
+
+`max_size 21MiB` (retouche Y) : juste au-dessus de la limite de l'app —
+`limiterTaille(20)` sur Media et Documents, soit 20 Mo par fichier, lus dans
+la config — plus le cadrage multipart. Au-delà, Caddy refuse (413) AVANT que
+la requête n'atteigne l'app ; entre 20 et 21 MiB, c'est l'app qui refuse avec
+son message. Le tampon du proxy Next est aligné dessus
+(`proxyClientMaxBodySize: '21mb'` dans `next.config.ts`) : monter la limite
+applicative veut dire ajuster les DEUX et ce max_size.
 
 `X-Robots-Tag` interdit l'indexation : une démo avec données fictives ne doit
 pas se retrouver dans les moteurs de recherche.

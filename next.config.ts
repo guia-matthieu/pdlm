@@ -54,6 +54,18 @@ const enTetesSecurite = (frameAncestors: "'none'" | "'self'") => [
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Tant que `src/proxy.ts` existe, Next 16 met chaque corps de requête en
+  // tampon pour permettre sa double lecture (proxy + route) et ne garde par
+  // défaut que les 10 premiers Mo (proxyClientMaxBodySize) : un envoi de
+  // 10 à 20 Mo arrivait donc TRONQUÉ à l'API, qui échouait en 500
+  // (« Unexpected end of form ») sans jamais atteindre limiterTaille.
+  // 21 Mo = juste au-dessus de la limite de l'app (limiterTaille(20) sur
+  // Media et Documents) : le tampon passe tout ce que l'app accepte, et
+  // c'est bien le hook applicatif qui refuse au-delà, avec son message.
+  // Découvert en mesurant la retouche Y (téléversements d'essai de ~15 Mo).
+  experimental: {
+    proxyClientMaxBodySize: '21mb',
+  },
   // Ne pas annoncer le framework et sa version à un attaquant en reconnaissance.
   poweredByHeader: false,
   // Domaine propre de la démo multilingue (tâche 10, e2e) : sans ça, Next 16
