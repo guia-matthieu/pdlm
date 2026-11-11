@@ -297,7 +297,7 @@ jobs:
       # Cache du compilateur Next entre les runs (guide officiel « CI Build
       # Caching ») : le serveur de développement compile à la demande.
       - name: Cache Next.js
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.npm
