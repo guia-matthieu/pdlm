@@ -62,6 +62,7 @@ const COURRIELS_DEMO = [
   'operateur@pdlm.invalid',
   'admin@pdlm.invalid',
   'redacteur@pdlm.invalid',
+  'relais@pdlm.invalid',
 ]
 
 // Mêmes upserts idempotents que le seed de développement (src/seed/index.ts),
@@ -182,15 +183,16 @@ async function seed() {
     DEMO_MDP_OPERATEUR: process.env.DEMO_MDP_OPERATEUR,
     DEMO_MDP_ADMIN: process.env.DEMO_MDP_ADMIN,
     DEMO_MDP_REDACTEUR: process.env.DEMO_MDP_REDACTEUR,
+    DEMO_MDP_RELAIS: process.env.DEMO_MDP_RELAIS,
   }
   const erreurs = erreursEnvironnementDemo(env)
   if (erreurs.length > 0) {
     console.error(`Seed de démo en ligne interrompu :\n${erreurs.join('\n')}`)
     process.exit(1)
   }
-  // Les quatre variables ci-dessous sont garanties présentes ; PLATFORM_DOMAIN,
+  // Les cinq variables ci-dessous sont garanties présentes ; PLATFORM_DOMAIN,
   // facultative, n'est plus utile après la comparaison de erreursEnvironnementDemo.
-  const { DEMO_DOMAIN, DEMO_MDP_OPERATEUR, DEMO_MDP_ADMIN, DEMO_MDP_REDACTEUR } =
+  const { DEMO_DOMAIN, DEMO_MDP_OPERATEUR, DEMO_MDP_ADMIN, DEMO_MDP_REDACTEUR, DEMO_MDP_RELAIS } =
     env as Required<EnvDemo>
 
   const payload = await getPayloadClient()
@@ -307,6 +309,20 @@ async function seed() {
     },
     parCourriel.get('redacteur@pdlm.invalid'),
   )
+  // Retouche R : compte pour un partenaire externe (« relais ») — admin de la
+  // seule commune saint-ex, AUCUN rôle global : ni opérateur, ni lecture hors
+  // tenant. Les mesures réelles de ce qu'il peut faire sont consignées dans
+  // docs/qc/notes-demo-en-ligne.md (essai local des retouches N-S).
+  await upsertUser(
+    payload,
+    {
+      email: 'relais@pdlm.invalid',
+      name: 'Secrétaire de mairie (démo)',
+      password: DEMO_MDP_RELAIS,
+      tenants: [{ tenant: saintEx.id, roles: ['admin'] }],
+    },
+    parCourriel.get('relais@pdlm.invalid'),
+  )
 
   await seedContenuDemo(payload, saintEx.id, portLavanne.id, admin.id, {
     nomSecondaire: 'Port-Lavanne',
@@ -315,7 +331,7 @@ async function seed() {
   await redaterEvenements(payload, saintEx.id)
 
   payload.logger.info(
-    `Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral) sur *.${DEMO_DOMAIN}, comptes operateur@pdlm.invalid, admin@pdlm.invalid, redacteur@pdlm.invalid.`,
+    `Démo en ligne prête — saint-ex (Village) et port-lavanne (Littoral) sur *.${DEMO_DOMAIN}, comptes operateur@pdlm.invalid, admin@pdlm.invalid, redacteur@pdlm.invalid, relais@pdlm.invalid.`,
   )
   process.exit(0)
 }

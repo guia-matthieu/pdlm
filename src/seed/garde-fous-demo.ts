@@ -13,6 +13,7 @@ export interface EnvDemo {
   DEMO_MDP_OPERATEUR?: string | undefined
   DEMO_MDP_ADMIN?: string | undefined
   DEMO_MDP_REDACTEUR?: string | undefined
+  DEMO_MDP_RELAIS?: string | undefined
 }
 
 /** Longueur minimale des mots de passe de démonstration (brief, partie A). */
@@ -44,6 +45,7 @@ export function variablesManquantes(env: EnvDemo): string[] {
   if (!env.DEMO_MDP_OPERATEUR) manquantes.push('DEMO_MDP_OPERATEUR')
   if (!env.DEMO_MDP_ADMIN) manquantes.push('DEMO_MDP_ADMIN')
   if (!env.DEMO_MDP_REDACTEUR) manquantes.push('DEMO_MDP_REDACTEUR')
+  if (!env.DEMO_MDP_RELAIS) manquantes.push('DEMO_MDP_RELAIS')
   return manquantes
 }
 
@@ -56,6 +58,8 @@ export function motsDePasseTropCourts(env: EnvDemo): string[] {
     tropCourts.push('DEMO_MDP_ADMIN')
   if (env.DEMO_MDP_REDACTEUR && env.DEMO_MDP_REDACTEUR.length < TAILLE_MDP_MIN)
     tropCourts.push('DEMO_MDP_REDACTEUR')
+  if (env.DEMO_MDP_RELAIS && env.DEMO_MDP_RELAIS.length < TAILLE_MDP_MIN)
+    tropCourts.push('DEMO_MDP_RELAIS')
   return tropCourts
 }
 

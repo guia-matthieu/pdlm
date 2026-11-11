@@ -65,7 +65,7 @@ cd <DOSSIER>
   printf 'ADMIN_URL=%s\n'          https://demo.pdlm.guia.fr >> .env
   printf 'NEXT_PUBLIC_APP_URL=%s\n' https://demo.pdlm.guia.fr >> .env
   for v in POSTGRES_PASSWORD PAYLOAD_SECRET MINIO_ROOT_PASSWORD S3_APP_PASSWORD \
-           DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR; do
+           DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR DEMO_MDP_RELAIS; do
     printf '%s=%s\n' "$v" "$(openssl rand -hex 32)" >> .env
   done
   printf 'COMPOSE_PROJECT_NAME=%s\n'  pdlm-demo                                  >> .env
@@ -156,7 +156,7 @@ dans la session après la commande :
 ```bash
 ( set -a; . ./.env; set +a
   docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml \
-    run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR \
+    run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR -e DEMO_MDP_RELAIS \
     migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts )
 ```
 
@@ -165,7 +165,7 @@ dans la session après la commande :
 
 Succès attendu : « Démo en ligne prête — saint-ex (Village) et port-lavanne
 (Littoral) sur *.demo.pdlm.guia.fr, comptes operateur@pdlm.invalid,
-admin@pdlm.invalid, redacteur@pdlm.invalid. »
+admin@pdlm.invalid, redacteur@pdlm.invalid, relais@pdlm.invalid. »
 
 Idempotent : le relancer ne crée aucun doublon ; il **re-date** l'agenda de
 saint-ex (marché à J+5, conseil municipal à J+12) pour que la démo vive.
@@ -177,6 +177,7 @@ Comptes créés (courriels `.invalid`, RFC 2606) :
 | `operateur@pdlm.invalid` | opérateur (toutes communes)              | `DEMO_MDP_OPERATEUR` |
 | `admin@pdlm.invalid`    | admin de saint-ex                        | `DEMO_MDP_ADMIN`   |
 | `redacteur@pdlm.invalid` | rédacteur de saint-ex                    | `DEMO_MDP_REDACTEUR` |
+| `relais@pdlm.invalid`   | admin de saint-ex (compte partenaire externe, aucun rôle global) | `DEMO_MDP_RELAIS` |
 
 ## 6. Caddy partagé et rafraîchissement périodique
 
@@ -236,7 +237,7 @@ supprimé par un visiteur est recréé ; les modifications faites dans l'admin
 survivent (upserts, cf. § 5). C'est voulu pour une démo :
 
 ```
-17 4 * * 1 flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1'
+17 4 * * 1 flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR -e DEMO_MDP_RELAIS migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1'
 ```
 
 Le verrou `<DOSSIER>/.verrou` est **le même que celui de la mise à jour**

@@ -20,6 +20,7 @@ describe('Seed de démo en ligne — garde-fous de l’environnement', () => {
     DEMO_MDP_OPERATEUR: 'mot-de-passe-operateur',
     DEMO_MDP_ADMIN: 'mot-de-passe-admin',
     DEMO_MDP_REDACTEUR: 'mot-de-passe-redacteur',
+    DEMO_MDP_RELAIS: 'mot-de-passe-relais',
   }
 
   it('un environnement complet ne produit aucune erreur', () => {
@@ -32,9 +33,10 @@ describe('Seed de démo en ligne — garde-fous de l’environnement', () => {
       'DEMO_MDP_OPERATEUR',
       'DEMO_MDP_ADMIN',
       'DEMO_MDP_REDACTEUR',
+      'DEMO_MDP_RELAIS',
     ])
     expect(erreursEnvironnementDemo({})).toEqual([
-      'Variable(s) manquante(s) ou vide(s) : DEMO_DOMAIN, DEMO_MDP_OPERATEUR, DEMO_MDP_ADMIN, DEMO_MDP_REDACTEUR',
+      'Variable(s) manquante(s) ou vide(s) : DEMO_DOMAIN, DEMO_MDP_OPERATEUR, DEMO_MDP_ADMIN, DEMO_MDP_REDACTEUR, DEMO_MDP_RELAIS',
     ])
   })
 
@@ -47,6 +49,9 @@ describe('Seed de démo en ligne — garde-fous de l’environnement', () => {
     const juste = 'a'.repeat(16)
     expect(motsDePasseTropCourts({ ...ENV_COMPLET, DEMO_MDP_ADMIN: tropCourt })).toEqual([
       'DEMO_MDP_ADMIN',
+    ])
+    expect(motsDePasseTropCourts({ ...ENV_COMPLET, DEMO_MDP_RELAIS: tropCourt })).toEqual([
+      'DEMO_MDP_RELAIS',
     ])
     expect(motsDePasseTropCourts({ ...ENV_COMPLET, DEMO_MDP_ADMIN: juste })).toEqual([])
     expect(
