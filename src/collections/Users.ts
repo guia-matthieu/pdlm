@@ -4,6 +4,7 @@ import { communesAvecRole, isOperateur } from '../access/roles'
 import { figerPrivileges } from '../hooks/figerPrivileges'
 import { journaliser, journaliserSuppression } from '../hooks/journaliser'
 import { ajouterLignesMandat, retirerLignesMandat } from '../hooks/lignesMandat'
+import { protegerComptePartage } from '../hooks/protegerComptePartage'
 
 /**
  * Invariant I2 : en v0.1, seul l'opérateur crée/supprime des comptes et gère
@@ -42,7 +43,9 @@ export const Users: CollectionConfig = {
     delete: ({ req }) => isOperateur(req.user),
   },
   hooks: {
-    beforeChange: [figerPrivileges, retirerLignesMandat],
+    // protegerComptePartage AVANT figerPrivileges : figerPrivileges rétablit
+    // l'email en silence — le refus doit se voir avant (retouche X).
+    beforeChange: [protegerComptePartage, figerPrivileges, retirerLignesMandat],
     afterRead: [ajouterLignesMandat],
     afterChange: [journaliser('utilisateur')],
     beforeDelete: [

@@ -1212,3 +1212,33 @@ Vérifications finales : `docker ps -a`, réseaux et volumes filtrés sur l'essa
 (vide) ; `lsof` sur les ports 3000, 3110 et 3111 → rc=1 (rien n'écoute) ; dossier
 `/tmp/pdlm-demo-essai` supprimé — il contenait le `.env` et ses secrets. Les piles
 préexistantes (`pdlm`, `pdlm-prod`) et leurs images sont intactes.
+
+## Retouche X — les autres chemins qui changent un mot de passe
+
+Vérification demandée par le brief (X.3), code lu dans le payload installé
+(3.90.1, `node_modules/payload/dist/auth/endpoints/index.js` et
+`auth/operations/resetPassword.js`). Les points d'entrée d'authentification
+d'une collection `auth` sont : `/login`, `/logout`, `/me`, `/refresh-token`,
+`/forgot-password`, `/reset-password`, `/first-register`, `/unlock`,
+`/verify/:id`, `/access`.
+
+- `/reset-password` exige un `resetPasswordToken` posé sur le compte ET non
+  expiré (lu dans la requête en base : `resetPasswordToken equals` +
+  `resetPasswordExpiration greater_than now`) ; l'opération lève
+  « Token is either invalid or has expired » sinon. Ce token n'est produit
+  que par `/forgot-password`, qui l'envoie **par courriel** à l'adresse du
+  compte — `relais@pdlm.invalid` (domaine réservé RFC 2606) ne reçoit rien,
+  et la configuration ne pose aucun transport de courriel de toute façon.
+  Le hook ne couvre pas ce chemin, mais un relais ne peut pas l'atteindre :
+  pas de jeton sans boîte aux lettres.
+- `/first-register` ne crée un compte que si la collection est vide — la
+  démo est seedée, l'opération lève `Forbidden`.
+- `/unlock` suit le même schéma à jeton par courriel ; `auth.verify` n'est
+  pas posé, `/verify/:id` ne fait rien.
+- Restent l'interface admin (« Mon compte ») et l'API REST `PATCH
+  /api/users/<id>` : les deux passent par l'opération `update`, donc par le
+  hook `protegerComptePartage` (avant `figerPrivileges`, qui rétablit
+  l'e-mail en silence — voir le code pour l'ordre).
+
+Conclusion : aucun chemin atteignable par un relais ne change le mot de passe
+du compte partagé hors du hook.

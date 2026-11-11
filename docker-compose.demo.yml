@@ -63,6 +63,11 @@ services:
       # La clé d'accès S3 de l'app est S3_APP_PASSWORD : sans défaut ici
       # non plus (retouche P).
       S3_SECRET_ACCESS_KEY: ${S3_APP_PASSWORD:?S3_APP_PASSWORD requis dans .env}
+      # Retouche X : compte de démonstration partagé — son mot de passe est
+      # public, il ne doit pouvoir être changé par personne se connectant
+      # avec lui. En dur ici (pas dans le .env) : absent en production, le
+      # hook protegerComptePartage n'y refusera rien.
+      COMPTES_PARTAGES: relais@pdlm.invalid
     # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
     # tout passe par le Caddy partagé du serveur.
     ports:
