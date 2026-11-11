@@ -179,6 +179,21 @@ Comptes créés (courriels `.invalid`, RFC 2606) :
 | `redacteur@pdlm.invalid` | rédacteur de saint-ex                    | `DEMO_MDP_REDACTEUR` |
 | `relais@pdlm.invalid`   | admin de saint-ex (compte partenaire externe, aucun rôle global) | `DEMO_MDP_RELAIS` |
 
+### Sauvegarde de référence (juste après le seed)
+
+La restauration nocturne (§ 6) remet chaque nuit la démo dans un état figé :
+la sauvegarde de référence, prise maintenant — base et bucket cohérents.
+Même chaîne de contrôles qu'au § 9 avant d'appeler le script :
+
+```bash
+./scripts/demo-controles.sh <CONTENEUR_CADDY> \
+  && docker compose ps --all --format '{{.Name}}' | grep -q '^pdlm-demo-' \
+  && ./scripts/backup.sh backups/reference
+```
+
+À refaire après toute mise à jour qui change le contenu de démo (§ 8) — la
+nuit suivante restaurerait sinon un état périmé.
+
 ## 6. Caddy partagé et rafraîchissement périodique
 
 Le Caddyfile est **monté** dans le conteneur Caddy : édition et copie se
@@ -231,21 +246,47 @@ docker exec <CONTENEUR_CADDY> caddy validate --config <CHEMIN_CADDYFILE> --adapt
 (nom du conteneur Caddy et chemins de sa configuration : connus de
 l'exploitant).
 
-Agenda vivant — **optionnel** : relancer le seed chaque semaine (`crontab -e`)
-remet la démo dans son état de référence — l'agenda est re-daté, un contenu
-supprimé par un visiteur est recréé ; les modifications faites dans l'admin
-survivent (upserts, cf. § 5). C'est voulu pour une démo :
+### Restauration nocturne (`crontab -e`)
+
+Chaque nuit à 3 h 17, la démo revient à sa sauvegarde de référence (§ 5),
+puis le seed re-date l'agenda. À énoncer clairement aux visiteurs de la
+démo :
+
+- l'app est **coupée** pendant la restauration — quelques dizaines de
+  secondes vers 3 h 17, un visiteur de cette fenêtre voit une erreur
+  passagère ;
+- **tout ce qui a été écrit dans la journée disparaît** : pages modifiées,
+  actualités créées, médias déposés, essais faits dans l'admin — la base et
+  le bucket reviennent à l'état de référence ;
+- l'agenda seul reste vivant : le seed le re-date (marché à J+5, conseil
+  municipal à J+12).
+
+Une seule ligne de crontab — chaque étape enchaînée par `&&`, la date et le
+code de sortie de chacune au journal, un échec interrompant la suite :
 
 ```
-17 4 * * 1 flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && set -a && . ./.env && set +a && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR -e DEMO_MDP_RELAIS migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts >> cron-seed-demo.log 2>&1'
+17 3 * * * flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && exec >> restauration.log 2>&1 && set -a && . ./.env && set +a && echo "=== $(date "+\%Y-\%m-\%d \%H:\%M:\%S") contrôles" && ./scripts/demo-controles.sh <CONTENEUR_CADDY> && echo "  contrôles : rc=0" && docker compose ps --all --format "{{.Name}}" | grep -q "^pdlm-demo-" && echo "  pile présente : rc=0" && echo "=== $(date "+\%Y-\%m-\%d \%H:\%M:\%S") restauration" && ./scripts/restore.sh backups/reference && echo "  restauration : rc=0" && echo "=== $(date "+\%Y-\%m-\%d \%H:\%M:\%S") seed" && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR -e DEMO_MDP_RELAIS migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts && echo "  seed : rc=0" || echo "ÉCHEC rc=$?"'
 ```
+
+Détails qui comptent :
+
+- le journal va dans `<DOSSIER>/restauration.log` : horodatage et `rc=0`
+  par étape, `ÉCHEC rc=<n>` sur la première qui échoue — jamais une valeur
+  du `.env`, seuls des noms de variables figurent dans les sorties ;
+- les `%` du `date` sont protégés par `\%` : un `%` nu dans une ligne
+  crontab devient un saut de ligne, la commande serait tronquée ;
+- `scripts/restore.sh` ne demande **aucune confirmation** (aucune invite,
+  tout y est `-T`) : le cron l'appelle directement — jamais `yes | …` ;
+- l'étape finale (seed) re-date l'agenda et recrée au besoin les comptes et
+  communes manquants : la base restaurée reste celle de référence, seule
+  l'agenda vit.
 
 Le verrou `<DOSSIER>/.verrou` est **le même que celui de la mise à jour**
 (§ 8) : le cron s'écarte (`flock -n`) si une mise à jour est en cours, une
 mise à jour attend son tour si le cron tourne. `flock` ne connaît pas les
 secrets — le `.env` reste lisible par son seul propriétaire (§ 3).
 
-Retrait du cron à la désinstallation : § 10, point 2.
+Retrait du cron à la désinstallation : § 10, point 4.
 
 ## 7. Vérifications
 
@@ -290,7 +331,8 @@ docker compose -p pdlm-demo --env-file .env \
   -f docker-compose.yml -f docker-compose.demo.yml logs migrate | tail
 ```
 
-Le `flock` porte le même verrou que le cron optionnel du § 6 : la mise à
+Le `flock` porte le même verrou que le cron de restauration nocturne du
+§ 6 : la mise à
 jour attend que le cron en cours finisse, le cron s'écarte tant qu'une
 mise à jour tient le verrou.
 
@@ -305,7 +347,9 @@ fini avant le démarrage de `app`, cf. notes).
 `--force-recreate migrate` est indispensable (cf. README) : sans lui, un
 ancien conteneur `migrate` déjà terminé avec succès peut démarrer l'app sans
 jouer la nouvelle migration. Le seed (§ 5) n'est à relancer que si la mise à
-jour ajoute des communes ou du contenu de démo.
+jour ajoute des communes ou du contenu de démo ; dans ce cas, **refaire
+aussi la sauvegarde de référence (§ 5)** — sans elle, la restauration
+nocturne (§ 6) rendrait chaque nuit un contenu périmé.
 
 ## 9. Sauvegarde et retour arrière
 
@@ -352,7 +396,8 @@ Dans l'ordre (les gestes Caddy sont détaillés au § 6) :
    docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml down -v
    ```
 
-4. si le cron optionnel du § 6 a été posé : le retirer (`crontab -e`) ;
+4. retirer le cron de restauration nocturne (§ 6) s'il a été posé
+   (`crontab -e`) ;
 5. retirer les trois enregistrements DNS (§ 1) ;
 6. contrôle anti-mauvais-dossier, puis suppression — le `.env` disparaît
    avec, donc les mots de passe des comptes de démo : la pile est déjà
