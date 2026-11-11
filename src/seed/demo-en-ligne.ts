@@ -7,6 +7,7 @@ import {
   domainesMalRattaches,
   erreursEnvironnementDemo,
   slugsEtrangers,
+  type DomaineAttendu,
   type EnvDemo,
 } from './garde-fous-demo'
 
@@ -57,14 +58,14 @@ const EVENEMENTS_DEMO = [
 
 // Mêmes upserts idempotents que le seed de développement (src/seed/index.ts),
 // réécrits ici : ce dernier ne peut pas être importé, il refuse NODE_ENV=production.
-async function upsertCommune(payload: Payload, data: CommuneDemo): Promise<Commune> {
-  const existantes = await payload.find({
-    collection: 'communes',
-    where: { slug: { equals: data.slug } },
-    limit: 1,
-    overrideAccess: true,
-  })
-  if (existantes.docs.length > 0) return existantes.docs[0]
+// La lecture préalable vit dans seed() : TOUS les contrôles passent avant la
+// première écriture (retouche N), l'existante déjà lue est passée ici.
+async function upsertCommune(
+  payload: Payload,
+  data: CommuneDemo,
+  existante?: Commune,
+): Promise<Commune> {
+  if (existante) return existante
   return payload.create({
     collection: 'communes',
     data: { ...data, actif: false }, // activée après création du domaine canonique (I6)
@@ -191,15 +192,20 @@ async function seed() {
 
   const payload = await getPayloadClient()
 
+  // ——— Lectures de contrôle : TOUTES avant la première écriture (retouche N).
+  // Un garde-fou qui écrirait d'abord (« on crée, on contrôle ensuite »)
+  // laisserait une base partiellement seedée derrière un refus.
+
   // Garde-fou (retouche G) : une base qui contient une commune hors démo n'est
-  // pas une base de démonstration — refus AVANT toute écriture.
+  // pas une base de démonstration.
   const toutesCommunes = await payload.find({
     collection: 'communes',
     limit: 0,
     overrideAccess: true,
   })
+  const parSlug = new Map(toutesCommunes.docs.map((commune) => [commune.slug, commune]))
   const etrangeres = slugsEtrangers(
-    toutesCommunes.docs.map((commune) => commune.slug),
+    [...parSlug.keys()],
     COMMUNES_DEMO.map((commune) => commune.slug),
   )
   if (etrangeres.length > 0) {
@@ -210,14 +216,14 @@ async function seed() {
     process.exit(1)
   }
 
-  const saintEx = await upsertCommune(payload, COMMUNES_DEMO[0])
-  const portLavanne = await upsertCommune(payload, COMMUNES_DEMO[1])
-
   // Garde-fou (retouche G) : un hostname de démo déjà rattaché à une autre
-  // commune — DEMO_DOMAIN recouvrirait un site existant.
-  const attendus = [saintEx, portLavanne].map((commune) => ({
+  // commune — DEMO_DOMAIN recouvrirait un site existant. Recherche par
+  // hostname ATTENDU (retouche N) : les communes de démo n'ont pas besoin
+  // d'exister en base pour que le contrôle s'applique — à la première
+  // exécution, un hostname déjà pris est forcément mal rattaché.
+  const attendus: DomaineAttendu[] = COMMUNES_DEMO.map((commune) => ({
     hostname: `${commune.slug}.${DEMO_DOMAIN}`,
-    commune: commune.id,
+    commune: parSlug.get(commune.slug)?.id,
   }))
   const domaines = await payload.find({
     collection: 'domaines',
@@ -237,6 +243,10 @@ async function seed() {
     )
     process.exit(1)
   }
+
+  // ——— Écritures (aucun contrôle au-delà de cette ligne) ———
+  const saintEx = await upsertCommune(payload, COMMUNES_DEMO[0], parSlug.get('saint-ex'))
+  const portLavanne = await upsertCommune(payload, COMMUNES_DEMO[1], parSlug.get('port-lavanne'))
 
   await activerAvecDomaine(payload, saintEx, DEMO_DOMAIN)
   await activerAvecDomaine(payload, portLavanne, DEMO_DOMAIN)

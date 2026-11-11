@@ -8,6 +8,7 @@ import {
   nbEtiquettes,
   slugsEtrangers,
   variablesManquantes,
+  type DomaineAttendu,
   type EnvDemo,
 } from '@/seed/garde-fous-demo'
 
@@ -127,5 +128,19 @@ describe('Seed de démo en ligne — garde-fous de l’environnement', () => {
     expect(domainesMalRattaches([{ hostname: 'mairie-quimper.fr', commune: 7 }], attendus)).toEqual(
       [],
     )
+  })
+
+  it('un hostname de démo déjà pris alors que la commune n’existe pas encore est refusé (retouche N)', () => {
+    // Première exécution : commune attendue absente de la base (undefined).
+    const attendus: DomaineAttendu[] = [
+      { hostname: 'saint-ex.demo.pdlm.guia.fr', commune: undefined },
+    ]
+    // Hostname libre : rien à signaler, le seed créera commune puis domaine.
+    expect(domainesMalRattaches([], attendus)).toEqual([])
+    // Hostname déjà pris par une commune quelconque : refus — le seed de démo
+    // ne doit pas créer sa commune sur un hostname qui recouvrirait un site.
+    expect(
+      domainesMalRattaches([{ hostname: 'saint-ex.demo.pdlm.guia.fr', commune: 7 }], attendus),
+    ).toEqual(['saint-ex.demo.pdlm.guia.fr'])
   })
 })

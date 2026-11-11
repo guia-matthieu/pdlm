@@ -92,6 +92,16 @@ export interface DomaineLu {
 }
 
 /**
+ * Hostname de démo attendu en base, avec la commune qui DOIT le porter :
+ * son id si la commune de démo existe déjà, `undefined` à la première
+ * exécution (retouche N — le contrôle précède la création des communes).
+ */
+export interface DomaineAttendu {
+  hostname: string
+  commune: number | undefined
+}
+
+/**
  * Retouche G : slugs de communes présents en base mais hors du jeu de démo.
  * Le seed refuse de tourner sur une base qui contient autre chose que les
  * communes de la démo (une base réelle ne doit jamais être re-seedée).
@@ -103,11 +113,11 @@ export function slugsEtrangers(slugs: string[], slugsDemo: string[]): string[] {
 /**
  * Retouche G : hostnames de démo déjà pris par un domaine rattaché à une
  * AUTRE commune — DEMO_DOMAIN recouvrirait des sites existants.
+ * Retouche N : la commune attendue peut ne pas exister encore en base
+ * (`commune: undefined`, première exécution) — un hostname alors déjà pris
+ * par n'importe quelle commune est signalé.
  */
-export function domainesMalRattaches(
-  domaines: DomaineLu[],
-  attendus: Array<{ hostname: string; commune: number }>,
-): string[] {
+export function domainesMalRattaches(domaines: DomaineLu[], attendus: DomaineAttendu[]): string[] {
   return attendus
     .filter((attendu) => {
       const existant = domaines.find((d) => d.hostname === attendu.hostname)
