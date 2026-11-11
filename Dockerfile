@@ -4,7 +4,7 @@
 #   - runner (défaut)  : serveur Next standalone, utilisateur non-root
 #   - migrator         : CLI payload + config + migrations (docker compose --build target)
 
-FROM node:22.17.0-alpine AS base
+FROM node:26.13.0-alpine AS base
 # Correctifs de sécurité Alpine publiés après le pin de l'image de base
 # (libcrypto3/libssl3/musl/zlib) — sans ça, Trivy relève des CVE HIGH/CRITICAL
 # déjà corrigées en amont (I13). Le pin `22.17.0` reste fixe : seuls les
