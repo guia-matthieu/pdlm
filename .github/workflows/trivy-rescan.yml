@@ -26,7 +26,7 @@ jobs:
     # rebuild, ou exception documentée dans ci.yml.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Construire l'image app (runner)
         run: docker build --target runner -t pdlm-app:rescan .
