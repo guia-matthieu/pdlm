@@ -6,6 +6,7 @@ import { seedContenuDemo } from './contenu-demo'
 import {
   domainesMalRattaches,
   erreursEnvironnementDemo,
+  messageComptesEtrangers,
   slugsEtrangers,
   type DomaineAttendu,
   type EnvDemo,
@@ -54,6 +55,13 @@ const COMMUNES_DEMO: CommuneDemo[] = [
 const EVENEMENTS_DEMO = [
   { titre: 'Marché de printemps', dansJours: 5, dureeHeures: 6 },
   { titre: 'Conseil municipal (séance publique)', dansJours: 12, dureeHeures: 2 },
+]
+
+/** Courriels des comptes de démo (retouche O) : les seuls admis en base. */
+const COURRIELS_DEMO = [
+  'operateur@pdlm.invalid',
+  'admin@pdlm.invalid',
+  'redacteur@pdlm.invalid',
 ]
 
 // Mêmes upserts idempotents que le seed de développement (src/seed/index.ts),
@@ -105,14 +113,9 @@ async function upsertUser(
     role?: 'operateur'
     tenants?: Array<{ tenant: number; roles: ('admin' | 'redacteur')[] }>
   },
+  existant?: User, // déjà lu par le contrôle O (retouche N) : création seule ici
 ): Promise<User> {
-  const existants = await payload.find({
-    collection: 'users',
-    where: { email: { equals: data.email } },
-    limit: 1,
-    overrideAccess: true,
-  })
-  if (existants.docs.length > 0) return existants.docs[0]
+  if (existant) return existant
   return payload.create({ collection: 'users', data, overrideAccess: true })
 }
 
@@ -244,6 +247,23 @@ async function seed() {
     process.exit(1)
   }
 
+  // Garde-fou (retouche O) : un utilisateur hors comptes de démo — la base
+  // d'une production réelle ne doit jamais être re-seedée, ses comptes jamais
+  // touchés. Le message ne cite aucun courriel lu en base.
+  const tousUtilisateurs = await payload.find({
+    collection: 'users',
+    limit: 0,
+    overrideAccess: true,
+  })
+  const messageComptes = messageComptesEtrangers(
+    tousUtilisateurs.docs.map((utilisateur) => utilisateur.email),
+    COURRIELS_DEMO,
+  )
+  if (messageComptes !== null) {
+    console.error(messageComptes)
+    process.exit(1)
+  }
+
   // ——— Écritures (aucun contrôle au-delà de cette ligne) ———
   const saintEx = await upsertCommune(payload, COMMUNES_DEMO[0], parSlug.get('saint-ex'))
   const portLavanne = await upsertCommune(payload, COMMUNES_DEMO[1], parSlug.get('port-lavanne'))
@@ -254,24 +274,39 @@ async function seed() {
   // Courriels en .invalid (RFC 2606) : jamais livrables, acceptés par la
   // validation Payload. Les mots de passe viennent de l'environnement, ne sont
   // jamais journalisés, et un compte existant garde le sien (création seule).
-  await upsertUser(payload, {
-    email: 'operateur@pdlm.invalid',
-    name: 'Opérateur (démo)',
-    password: DEMO_MDP_OPERATEUR,
-    role: 'operateur',
-  })
-  const admin = await upsertUser(payload, {
-    email: 'admin@pdlm.invalid',
-    name: 'Admin Saint-Exupéry (démo)',
-    password: DEMO_MDP_ADMIN,
-    tenants: [{ tenant: saintEx.id, roles: ['admin'] }],
-  })
-  await upsertUser(payload, {
-    email: 'redacteur@pdlm.invalid',
-    name: 'Rédacteur Saint-Exupéry (démo)',
-    password: DEMO_MDP_REDACTEUR,
-    tenants: [{ tenant: saintEx.id, roles: ['redacteur'] }],
-  })
+  const parCourriel = new Map(
+    tousUtilisateurs.docs.map((utilisateur) => [utilisateur.email, utilisateur]),
+  )
+  await upsertUser(
+    payload,
+    {
+      email: 'operateur@pdlm.invalid',
+      name: 'Opérateur (démo)',
+      password: DEMO_MDP_OPERATEUR,
+      role: 'operateur',
+    },
+    parCourriel.get('operateur@pdlm.invalid'),
+  )
+  const admin = await upsertUser(
+    payload,
+    {
+      email: 'admin@pdlm.invalid',
+      name: 'Admin Saint-Exupéry (démo)',
+      password: DEMO_MDP_ADMIN,
+      tenants: [{ tenant: saintEx.id, roles: ['admin'] }],
+    },
+    parCourriel.get('admin@pdlm.invalid'),
+  )
+  await upsertUser(
+    payload,
+    {
+      email: 'redacteur@pdlm.invalid',
+      name: 'Rédacteur Saint-Exupéry (démo)',
+      password: DEMO_MDP_REDACTEUR,
+      tenants: [{ tenant: saintEx.id, roles: ['redacteur'] }],
+    },
+    parCourriel.get('redacteur@pdlm.invalid'),
+  )
 
   await seedContenuDemo(payload, saintEx.id, portLavanne.id, admin.id, {
     nomSecondaire: 'Port-Lavanne',

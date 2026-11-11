@@ -4,6 +4,7 @@ import {
   domainesMalRattaches,
   domaineDemoValide,
   erreursEnvironnementDemo,
+  messageComptesEtrangers,
   motsDePasseTropCourts,
   nbEtiquettes,
   slugsEtrangers,
@@ -142,5 +143,32 @@ describe('Seed de démo en ligne — garde-fous de l’environnement', () => {
     expect(
       domainesMalRattaches([{ hostname: 'saint-ex.demo.pdlm.guia.fr', commune: 7 }], attendus),
     ).toEqual(['saint-ex.demo.pdlm.guia.fr'])
+  })
+
+  it('le seed refuse une base qui contient un utilisateur hors comptes de démo (retouche O)', () => {
+    const courrielsDemo = [
+      'operateur@pdlm.invalid',
+      'admin@pdlm.invalid',
+      'redacteur@pdlm.invalid',
+    ]
+    // Base vide : rien à signaler.
+    expect(messageComptesEtrangers([], courrielsDemo)).toBeNull()
+    // Comptes de démo seuls : rien à signaler.
+    expect(messageComptesEtrangers(courrielsDemo, courrielsDemo)).toBeNull()
+    // Un compte étranger : refus, message SANS aucun courriel lu en base.
+    const message = messageComptesEtrangers(
+      [...courrielsDemo, 'marie.durand@mairie-quimper.fr'],
+      courrielsDemo,
+    )
+    expect(message).toContain('1 utilisateur(s) hors comptes de démo')
+    expect(message).not.toContain('marie.durand@mairie-quimper.fr')
+    expect(message).not.toContain('@')
+    // Deux comptes étrangers : le nombre seul les compte.
+    expect(
+      messageComptesEtrangers(
+        ['a@ville.fr', 'operateur@pdlm.invalid', 'b@ville.fr'],
+        courrielsDemo,
+      ),
+    ).toContain('2 utilisateur(s) hors comptes de démo')
   })
 })

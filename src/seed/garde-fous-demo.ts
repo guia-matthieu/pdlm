@@ -125,3 +125,21 @@ export function domainesMalRattaches(domaines: DomaineLu[], attendus: DomaineAtt
     })
     .map((attendu) => attendu.hostname)
 }
+
+/**
+ * Retouche O : message de refus si la base contient un utilisateur hors
+ * comptes de démo, `null` si tout va bien. Le message ne cite AUCUN courriel
+ * lu en base — ceux d'une base inconnue peuvent être réels — seulement leur
+ * nombre.
+ */
+export function messageComptesEtrangers(
+  courriels: string[],
+  courrielsDemo: string[],
+): string | null {
+  const etrangers = courriels.filter((courriel) => !courrielsDemo.includes(courriel))
+  if (etrangers.length === 0) return null
+  return (
+    `Seed de démo interrompu : la base contient ${etrangers.length} utilisateur(s) hors comptes ` +
+    'de démo — le seed de démo refuse toute base qui n’est pas la sienne.'
+  )
+}
