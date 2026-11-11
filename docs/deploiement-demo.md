@@ -197,6 +197,14 @@ prend ci-dessus ; la **refonte** après mise à jour est une seule commande
 (§ 8), qui restaure d'abord la référence actuelle : elle ne capture jamais
 ce que les visiteurs ont écrit dans la journée.
 
+`backup.sh` porte `umask 077` : `backups/` et tout ce qu'il contient
+naissent inaccessibles aux autres. Pour un `backups/` créé avant cette
+garantie :
+
+```bash
+chmod 700 backups
+```
+
 ## 6. Caddy partagé et rafraîchissement périodique
 
 Le Caddyfile est **monté** dans le conteneur Caddy : édition et copie se
@@ -264,30 +272,65 @@ démo :
 - l'agenda seul reste vivant : le seed le re-date (marché à J+5, conseil
   municipal à J+12).
 
-Une seule ligne de crontab — chaque étape enchaînée par `&&`, la date et le
-code de sortie de chacune au journal, un échec interrompant la suite :
+La crontab appelle un script — `scripts/demo-restauration-nuit.sh` — qui
+prend lui-même le verrou, enchaîne les étapes (contrôles, pile présente,
+restauration de la référence, seed) et journalise chacune :
 
 ```
-17 3 * * * flock -n <DOSSIER>/.verrou sh -c 'cd <DOSSIER> && exec >> restauration.log 2>&1 && set -a && . ./.env && set +a && echo "=== $(date "+\%Y-\%m-\%d \%H:\%M:\%S") contrôles" && ./scripts/demo-controles.sh <CONTENEUR_CADDY> && echo "  contrôles : rc=0" && docker compose ps --all --format "{{.Name}}" | grep -q "^pdlm-demo-" && echo "  pile présente : rc=0" && echo "=== $(date "+\%Y-\%m-\%d \%H:\%M:\%S") restauration" && ./scripts/restore.sh backups/reference && echo "  restauration : rc=0" && echo "=== $(date "+\%Y-\%m-\%d \%H:\%M:\%S") seed" && docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml run --rm -T -e DEMO_DOMAIN -e PLATFORM_DOMAIN -e DEMO_MDP_OPERATEUR -e DEMO_MDP_ADMIN -e DEMO_MDP_REDACTEUR -e DEMO_MDP_RELAIS migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts && echo "  seed : rc=0" || echo "ÉCHEC rc=$?"'
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * <DOSSIER>/scripts/demo-restauration-nuit.sh <CONTENEUR_CADDY>
 ```
+
+La ligne `PATH=` est explicite : cron démarre avec un PATH minimal. Sur une
+Debian/Ubuntu standard, tout ce que le script demande y est couvert —
+`docker` (`docker-ce-cli`, `/usr/bin/docker`), le plugin compose, `flock`
+(`util-linux`, `/usr/bin/flock`).
 
 Détails qui comptent :
 
-- le journal va dans `<DOSSIER>/restauration.log` : horodatage et `rc=0`
-  par étape, `ÉCHEC rc=<n>` sur la première qui échoue — jamais une valeur
-  du `.env`, seuls des noms de variables figurent dans les sorties ;
-- les `%` du `date` sont protégés par `\%` : un `%` nu dans une ligne
-  crontab devient un saut de ligne, la commande serait tronquée ;
+- le journal va dans `<DOSSIER>/restauration.log` (créé en 600) : une ligne
+  `<date> <étape> rc=<n>` par étape, `ÉCHEC <étape> rc=<n>` sur la première
+  qui échoue — le script s'arrête là, sortie non nulle ; jamais une valeur
+  du `.env` n'y figure, seuls des noms de variables sortent ;
 - `scripts/restore.sh` ne demande **aucune confirmation** (aucune invite,
   tout y est `-T`) : le cron l'appelle directement — jamais `yes | …` ;
 - l'étape finale (seed) re-date l'agenda et recrée au besoin les comptes et
-  communes manquants : la base restaurée reste celle de référence, seule
+  communes manquants : la base restaurée reste celle de référence, seul
   l'agenda vit.
 
 Le verrou `<DOSSIER>/.verrou` est **le même que celui de la mise à jour**
 (§ 8) : le cron s'écarte (`flock -n`) si une mise à jour est en cours, une
-mise à jour attend son tour si le cron tourne. `flock` ne connaît pas les
-secrets — le `.env` reste lisible par son seul propriétaire (§ 3).
+mise à jour attend son tour si le cron tourne. Une nuit écartée signe
+« nuit sautée, verrou pris » au journal et sort 75 (EX_TEMPFAIL : rien à
+faire, ce n'est pas une panne). `flock` ne connaît pas les secrets — le
+`.env` reste lisible par son seul propriétaire (§ 3).
+
+### Le matin : vérifier la nuit
+
+```bash
+tail -n 15 <DOSSIER>/restauration.log
+```
+
+Une nuit réussie finit par « nuit terminée rc=0 ». Sur une ligne
+`ÉCHEC <étape> rc=<n>` :
+
+- `ÉCHEC contrôles` ou `ÉCHEC pile` : **rien n'a été touché** — lire les
+  lignes au-dessus (conteneur Caddy renommé ? pile jamais redémarrée après
+  un reboot du serveur ? relancer le § 4), puis rejouer la nuit à la main :
+  `<DOSSIER>/scripts/demo-restauration-nuit.sh <CONTENEUR_CADDY>` ;
+- `ÉCHEC restauration` : la sortie de `restore.sh` est dans le journal,
+  juste au-dessus. Deux cas (retouche U) —
+  - échec **avant** la bascule (« la base en service … n'ont pas été
+    touchés ») : l'app n'a jamais été arrêtée, le site est debout sur
+    l'état de la veille ; corriger la cause, rejouer la nuit ;
+  - échec **après** la bascule (« l'application reste arrêtée ») : **le
+    site est coupé** — agir d'abord. La base d'origine
+    (`<db>_precedente`) existe encore ; le journal porte les commandes du
+    retour arrière (deux `ALTER DATABASE … RENAME`, puis
+    `docker compose start app`) ;
+- `ÉCHEC seed` : la base est restaurée et l'app tourne — l'agenda n'est pas
+  re-daté, c'est tout. Le seed est idempotent : rejouer la nuit, ou la
+  commande du § 5.
 
 Retrait du cron à la désinstallation : § 10, point 4.
 

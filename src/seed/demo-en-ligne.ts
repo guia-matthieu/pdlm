@@ -341,6 +341,8 @@ async function seed() {
 try {
   await seed()
 } catch (erreur) {
-  console.error(erreur)
+  // Seul le message : le journal de la nuit ne doit pas recevoir un objet
+  // d'erreur entier, qui peut embarquer des données (retouche W).
+  console.error(erreur instanceof Error ? erreur.message : String(erreur))
   process.exit(1)
 }
