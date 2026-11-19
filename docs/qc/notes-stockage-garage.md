@@ -366,6 +366,108 @@ résolu et planifié sans COMPOSE_PROFILES (le profil s'active par `run`) ;
 `docker ps -a` après : vide, rien de créé. La preuve fonctionnelle complète
 (backup.sh → suppression média → restore.sh) est celle de l'étape 6.
 
+## Étape 5 — CI et doc
+
+### Retouches
+
+- **`.github/workflows/ci.yml` et `trivy-rescan.yml`** (mêmes changements
+  dans les deux) : la cible `minio` disparaît ; trois paires
+  résolution-de-digest + scan la remplacent — `garage`, `rclone` (service
+  copie-s3) et `node` (service init-s3), toutes images tierces épinglées
+  dans `docker-compose.yml`. Le digest est **lu dans `docker-compose.yml**
+  par grep** au moment du run : la CI ne peut jamais diverger de ce qui est
+  réellement déployé. Options inchangées partout (`scanners: vuln`,
+  `severity: HIGH,CRITICAL`, `ignore-unfixed: true`, `exit-code: '1'`,
+  `if: always()`) — les images tierces restent en remontée seule
+  (`continue-on-error`, exception I13). Nom du job mis à jour :
+  « Trivy — images tierces (postgres, caddy, garage, rclone, node, umami) —
+  remontée seule ».
+- **`.env.example`** : section stockage réécrite (Garage, endpoint dev
+  `localhost:3900`, clé `pdlm-app` documentée comme importée par init-s3) ;
+  section infrastructure : `GARAGE_RPC_SECRET` (exactement 64 hex — Garage
+  décode la valeur telle quelle, cf. doc citée à l'étape 2) et
+  `GARAGE_ADMIN_TOKEN` documentés, `S3_APP_PASSWORD` explicitement « même
+  valeur que S3_SECRET_ACCESS_KEY », `S3_QUOTA` en commentaire (aucun quota
+  par défaut : la production n'a pas de raison de borner son stockage —
+  c'est la démo qui pose `2GiB` via `DEMO_S3_QUOTA`).
+  `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` : retirés.
+- **`docs/deploiement-demo.md`** : § 3 — la boucle de génération produit
+  `GARAGE_RPC_SECRET` et `GARAGE_ADMIN_TOKEN` par `openssl rand -hex 32`
+  (64 hex satisfont à la fois le garde-fou du seed et le format exact du
+  secret RPC) ; `S3_ACCESS_KEY_ID` devient
+  `pdlm-app-$(openssl rand -hex 8)` — identifiant non défaut, exigé par la
+  surcouche démo (garde G), lettres/chiffres/tirets : un identifiant, pas
+  un secret. Bullets : jetons Garage jamais publiés ni journalisés ;
+  `NEXT_PUBLIC_S3_PUBLIC_URL` reste à son défaut (Garage non publié).
+  § 6 : bornes « 1 CPU / 128 pour Garage » (`DEMO_S3_*`). § 8 :
+  `--no-deps` ne recrée ni postgres, ni garage, ni init-s3.
+- **`README.md`** (8 retouches) : intro et démarrage parlent de Garage ;
+  secrets obligatoires en prod = `POSTGRES_PASSWORD`, `PAYLOAD_SECRET`,
+  `S3_APP_PASSWORD`, `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN` ; «
+  PostgreSQL et Garage ne publient **aucun** port » ; **nouveau bloc
+  « Migration depuis MinIO »** (remplacement du 19/11/2026, images MinIO
+  non distribuées, aucun script de migration fourni — aucune donnée
+  n'existait, une ancienne installation devra retéléverser ses médias) ;
+  politique de fichiers : le bucket n'accorde **aucun accès anonyme,
+  nulle part** — la mention du téléchargement anonyme de dev MinIO
+  disparaît.
+- **`SECURITY.md`** (3 retouches) : images déployées = « application,
+  PostgreSQL, Garage, migration » ; secrets d'infrastructure à régénérer =
+  `POSTGRES_PASSWORD`, `S3_APP_PASSWORD`, `GARAGE_RPC_SECRET`,
+  `GARAGE_ADMIN_TOKEN` ; accès infrastructure = « identifiants
+  Garage/PostgreSQL ».
+- **`.claude/skills/verifier-actualites/SKILL.md`** : « Postgres et Garage
+  tournent » (repéré par l'inventaire de l'étape 1).
+
+### Grep final (critère de l'étape 5)
+
+```
+$ git grep -n -i minio -- . ':!docs/qc' ':!docs/superpowers'
+README.md:137:**Migration depuis MinIO** : le stockage objet de pdlm est Garage depuis le
+README.md:138:19/11/2026 (les images MinIO ne sont plus distribuées). Aucun script de
+README.md:139:migration MinIO → Garage n'est fourni : aucune donnée n'existait au moment du
+```
+
+**Exception assumée et documentée** : le critère « plus rien rendre hors
+`docs/qc/` et `docs/superpowers/` » et la décision du tableau « pas de
+script de migration, **le dire dans le README** » se contredisent à la
+lettre — le dire exige de nommer MinIO. Les 3 lignes restantes sont
+exactement le bloc de migration exigé ; aucune mention MinIO d'usage (config,
+script, compose, doc de procédure) ne subsiste.
+
+### Preuves (sorties brutes)
+
+Motifs de résolution des digests rejoués localement (macOS : grep BSD sans
+`-P`, équivalent `-oE` avec `[[:space:]]` — la CI tourne sur `ubuntu-latest`,
+GNU grep, motifs `-oP` identiques à ceux des workflows) :
+
+```
+$ grep -oE 'dxflrs/garage:[^@[:space:]]+@sha256:[a-f0-9]+' docker-compose.yml | head -1
+dxflrs/garage:v2.5.0@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5
+$ grep -oE 'rclone/rclone@sha256:[a-f0-9]+' docker-compose.yml | head -1
+rclone/rclone@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+$ grep -oE 'node:[^@[:space:]]+@sha256:[a-f0-9]+' docker-compose.yml | head -1
+node:22.17.0-alpine@sha256:fc3e945f920b7e3000cd1af86c4ae406ec70c72f328b667baf0f3a8910d69eed
+$ grep -cE <les trois motifs> docker-compose.yml
+1
+1
+1                             ← chaque motif matche exactement une fois : head -1
+                                est déterministe, c'est le service visé
+```
+
+Syntaxe YAML des deux workflows (js-yaml, celui des node_modules) :
+
+```
+$ node -e "…y.load…"
+.github/workflows/ci.yml OK
+.github/workflows/trivy-rescan.yml OK
+```
+
+`docker compose config -q` : inchangé depuis l'étape 4 (aucun compose
+retouché à cette étape). Résidu `docs/qc/.run-garage-1.json` (capture
+d'avertissements stderr d'une commande de l'étape 2, aucun secret) :
+supprimé.
+
 ## Hors brief
 
 - Conteneur d'init : `node:22.17.0-alpine` épinglé par digest plutôt qu'une image

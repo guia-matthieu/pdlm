@@ -64,13 +64,14 @@ cd <DOSSIER>
   printf 'PLATFORM_DOMAIN=%s\n'    demo.pdlm.guia.fr        >> .env
   printf 'ADMIN_URL=%s\n'          https://demo.pdlm.guia.fr >> .env
   printf 'NEXT_PUBLIC_APP_URL=%s\n' https://demo.pdlm.guia.fr >> .env
-  for v in POSTGRES_PASSWORD PAYLOAD_SECRET MINIO_ROOT_PASSWORD S3_APP_PASSWORD \
-           DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR DEMO_MDP_RELAIS; do
+  for v in POSTGRES_PASSWORD PAYLOAD_SECRET GARAGE_RPC_SECRET GARAGE_ADMIN_TOKEN \
+           S3_APP_PASSWORD DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR \
+           DEMO_MDP_RELAIS; do
     printf '%s=%s\n' "$v" "$(openssl rand -hex 32)" >> .env
   done
-  # Retouche AD — identifiant MinIO non défaut (la surcouche l'exige). Court :
-  # un identifiant, pas un secret — MinIO borne la taille d'une access key.
-  printf 'MINIO_ROOT_USER=%s\n' "minio-$(openssl rand -hex 8)" >> .env
+  # Identifiant de la clé S3 de l'app, non défaut (la surcouche l'exige) :
+  # lettres, chiffres et tirets — un identifiant, pas un secret.
+  printf 'S3_ACCESS_KEY_ID=%s\n' "pdlm-app-$(openssl rand -hex 8)" >> .env
   printf 'COMPOSE_PROJECT_NAME=%s\n'  pdlm-demo                                  >> .env
   printf 'COMPOSE_FILE=%s\n'          'docker-compose.yml:docker-compose.demo.yml' >> .env
 )
@@ -83,13 +84,18 @@ rien d'autre. Ne pas lancer de commande Compose d'une autre pile depuis ce
 dossier.
 
 - Les 64 caractères hexadécimaux satisfont le garde-fou du seed
-  (mots de passe ≥ 16 caractères).
-- `MINIO_ROOT_USER` est un identifiant, pas un secret : court (14 caractères),
-  distinct du défaut public « minioadmin » — la surcouche refuse de démarrer
-  sans lui (retouche AD), `docker-compose.yml` garde son défaut (production).
+  (mots de passe ≥ 16 caractères) — et le format de `GARAGE_RPC_SECRET`,
+  qu'il faut exactement : Garage décode la valeur comme de l'hexadécimal
+  brut (32 octets), un caractère de moins et le nœud refuse de démarrer.
+- `GARAGE_RPC_SECRET` et `GARAGE_ADMIN_TOKEN` n'apparaissent qu'ici :
+  le premier protège l'entrée du cluster, le second l'API d'administration
+  (init-s3, quota) — jamais publiés, jamais dans un journal.
+- `S3_ACCESS_KEY_ID` est un identifiant, pas un secret : court, distinct du
+  défaut « pdlm-app » — la surcouche refuse de démarrer sans lui,
+  `docker-compose.yml` garde son défaut (production).
 - Rien d'autre à écrire : `DATABASE_URI` et `S3_ENDPOINT` sont générés par
   Compose (réseau interne), `S3_BUCKET`, `S3_REGION`… ont des défauts corrects.
-- `NEXT_PUBLIC_S3_PUBLIC_URL` reste par défaut : MinIO n'est pas publié, les
+- `NEXT_PUBLIC_S3_PUBLIC_URL` reste par défaut : Garage n'est pas publié, les
   médias passent par Payload.
 - **Conserver ce `.env`** : le cron de rafraîchissement (§ 6) relit les
   `DEMO_MDP_*`. Ils ne sont lus qu'à la **création** des comptes — changer
@@ -220,7 +226,7 @@ est publié est visible de tous** jusqu'à la restauration de la nuit — et
 21 MiB par requête (`max_size` ci-dessous), 20 Mo par fichier (limite de
 l'app), 2 Gio de quota sur le bucket, et pour la pile 768 Mo / 1,5 CPU /
 128 processus pour l'app, 512 Mo / 1 CPU / 128 pour PostgreSQL, 768 Mo /
-1 CPU / 128 pour MinIO — surchargeables par `.env` (variables
+1 CPU / 128 pour Garage — surchargeables par `.env` (variables
 `DEMO_*_MEM_LIMIT`, `DEMO_*_CPUS`, `DEMO_*_PIDS_LIMIT`, `DEMO_S3_QUOTA`).
 
 Le Caddyfile est **monté** dans le conteneur Caddy : édition et copie se
@@ -431,8 +437,8 @@ Le `flock` porte le même verrou que le cron de restauration nocturne du
 jour attend que le cron en cours finisse, le cron s'écarte tant qu'une
 mise à jour tient le verrou.
 
-`--no-deps` : la mise à jour ne recrée **ni** `postgres`, **ni** `minio`,
-**ni** `createbuckets` — la base ne redémarre pas. L'ordre migration → app
+`--no-deps` : la mise à jour ne recrée **ni** `postgres`, **ni** `garage`,
+**ni** `init-s3` — la base ne redémarre pas. L'ordre migration → app
 ne change pas : `app` dépend de `migrate` (`service_completed_successfully`,
 `docker-compose.yml`) et les deux services sont dans la liste, `--no-deps`
 n'exclut que les dépendances **absentes** de la liste — Compose attend donc

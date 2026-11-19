@@ -53,15 +53,15 @@ sans bloquer une publication.
 - Les dépendances npm sont auditées en continu (`npm audit
 --audit-level=high` bloquant en CI) ; `dependabot.yml` propose les mises à
   jour de sécurité.
-- Les images Docker déployées (application, PostgreSQL, MinIO, migration)
+- Les images Docker déployées (application, PostgreSQL, Garage, migration)
   sont épinglées par version ou par digest et scannées (Trivy) ; un
   rescan périodique est nécessaire même sans changement de code, une CVE
   pouvant être publiée après le build.
 - `PAYLOAD_SECRET` et les mots de passe d'infrastructure
-  (`POSTGRES_PASSWORD`, `S3_APP_PASSWORD`, `MINIO_ROOT_PASSWORD`) doivent
-  être régénérés en cas de doute sur leur exposition (dépôt de secret par
-  erreur, ancien collaborateur ayant eu accès à `.env`) — une rotation
-  invalide toutes les sessions actives.
+  (`POSTGRES_PASSWORD`, `S3_APP_PASSWORD`, `GARAGE_RPC_SECRET`,
+  `GARAGE_ADMIN_TOKEN`) doivent être régénérés en cas de doute sur leur
+  exposition (dépôt de secret par erreur, ancien collaborateur ayant eu
+  accès à `.env`) — une rotation invalide toutes les sessions actives.
 
 ## Révocation des accès
 
@@ -72,7 +72,7 @@ sans bloquer une publication.
 - **Opérateur quittant l'organisation hébergeuse** : supprimer son compte
   immédiatement — un opérateur a accès à toutes les communes. Vérifier
   qu'au moins un autre opérateur reste actif avant la suppression.
-- **Accès infrastructure** (SSH serveur, identifiants MinIO/PostgreSQL,
+- **Accès infrastructure** (SSH serveur, identifiants Garage/PostgreSQL,
   `.env` de production) : révoquer et régénérer les secrets concernés dès
   qu'une personne ayant eu cet accès quitte l'organisation ou le prestataire
   — la rotation d'un secret d'infrastructure ne se déduit pas de la

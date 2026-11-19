@@ -78,18 +78,52 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
 
-      - name: Résoudre le digest minio épinglé
-        id: minio
+      - name: Résoudre le digest garage épinglé
+        id: garage
         if: always()
         run: |
-          DIGEST=$(grep -oP 'quay\.io/minio/minio@sha256:[a-f0-9]+' docker-compose.yml | head -1)
+          DIGEST=$(grep -oP 'dxflrs/garage:[^@\s]+@sha256:[a-f0-9]+' docker-compose.yml | head -1)
           echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
 
-      - name: minio (digest épinglé)
+      - name: garage (digest épinglé)
         if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ steps.minio.outputs.image }}
+          image-ref: ${{ steps.garage.outputs.image }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Résoudre le digest rclone épinglé
+        id: rclone
+        if: always()
+        run: |
+          DIGEST=$(grep -oP 'rclone/rclone@sha256:[a-f0-9]+' docker-compose.yml | head -1)
+          echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: rclone — service copie-s3 (digest épinglé)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.rclone.outputs.image }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Résoudre le digest node épinglé
+        id: node
+        if: always()
+        run: |
+          DIGEST=$(grep -oP 'node:[^@\s]+@sha256:[a-f0-9]+' docker-compose.yml | head -1)
+          echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: node — service init-s3 (digest épinglé)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.node.outputs.image }}
           scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: true

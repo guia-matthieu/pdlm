@@ -9,7 +9,7 @@ Skill écrite en rejouant à la main, dans un navigateur, le parcours qu'elle d�
 
 ## 1. Lancer la pile
 
-- Postgres et MinIO tournent (`docker compose -f docker-compose.dev.yml up -d`) : `docker ps` pour s'en assurer.
+- Postgres et Garage tournent (`docker compose -f docker-compose.dev.yml up -d`) : `docker ps` pour s'en assurer.
 - Serveur de dev **sur un port à soi** : `npm run dev -- --port 3011` (en arrière-plan). Attendre `/api/health` → 200.
 - ⚠️ **Ne jamais réutiliser un serveur déjà ouvert sans savoir de quel dossier il sort.** Le 3000 peut être tenu par un autre worktree ou un autre projet : `lsof -a -p <pid> -d cwd` donne son dossier. Vérifier ce worktree-là ne dit rien de celui-ci.
 - ⚠️ **Base à soi par worktree.** En dev, Payload aligne le schéma de la base sur celui de la branche lancée (« Pulling schema from database »), et plusieurs worktrees pointent sur la même base `pdlm`. Créer une base jetable (`createdb pdlm_<nom>_dev` dans le conteneur Postgres), la mettre dans le `.env` du worktree, puis `npx payload migrate` et `npm run seed`. `payload run` régénère `src/payload-types.ts` : `git checkout --` ce fichier s'il apparaît modifié.

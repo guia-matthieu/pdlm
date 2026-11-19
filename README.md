@@ -7,7 +7,8 @@ pour le compte de communes — un EPCI, un syndicat mixte (SCEM) ou tout
 prestataire mutualisé.
 
 Construit avec [Payload 3](https://payloadcms.com/) sur [Next.js 16](https://nextjs.org/)
-(App Router), PostgreSQL et un stockage compatible S3 (MinIO en développement).
+(App Router), PostgreSQL et un stockage compatible S3
+([Garage](https://garagehq.deuxfleurs.fr/)).
 
 ## Sommaire
 
@@ -34,7 +35,7 @@ Construit avec [Payload 3](https://payloadcms.com/) sur [Next.js 16](https://nex
 
 ## Démarrage — développement
 
-En développement, seuls PostgreSQL et MinIO tournent dans Docker ; l'application
+En développement, seuls PostgreSQL et Garage tournent dans Docker ; l'application
 Next.js tourne directement sur la machine (rechargement à chaud).
 
 ```bash
@@ -69,14 +70,15 @@ production.
 
 ```bash
 cp .env.example .env         # POSTGRES_PASSWORD, PAYLOAD_SECRET, S3_APP_PASSWORD,
-                              # MINIO_ROOT_PASSWORD obligatoires — le démarrage
-                              # échoue explicitement si l'un manque
+                              # GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN
+                              # obligatoires — le démarrage échoue
+                              # explicitement si l'un manque
 # éditer Caddyfile : remplacer pdlm.example.fr par le domaine de la plateforme,
 # ajouter un bloc par commune (voir « Ajouter une commune »)
 CADDY_FILE=./Caddyfile docker compose up --build -d
 ```
 
-La pile de production (`docker-compose.yml`) : PostgreSQL et MinIO ne
+La pile de production (`docker-compose.yml`) : PostgreSQL et Garage ne
 publient **aucun** port sur l'hôte (réseau Docker interne uniquement) ; un
 service `migrate` applique les migrations Postgres **avant** le démarrage de
 l'application (pas de synchronisation automatique de schéma en production) ;
@@ -111,11 +113,11 @@ ne s'appliquent qu'à la pile de développement.
 | `ADMIN_URL`                                                   | Origine de l'interface d'administration (CORS/CSRF)                                                                                              | **oui**                  |
 | `PLATFORM_DOMAIN`                                             | Domaine racine de la plateforme (résolution des sous-domaines communaux)                                                                         | **oui**                  |
 | `DEFAULT_COMMUNE_SLUG`                                        | Commune servie sur un host local nu — **développement uniquement**, ignoré en production                                                         | non                      |
-| `S3_ENABLED`                                                  | Active le stockage S3/MinIO (sinon disque local)                                                                                                 | oui (`true`)             |
+| `S3_ENABLED`                                                  | Active le stockage S3/Garage (sinon disque local)                                                                                                | oui (`true`)             |
 | `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`                       | Connexion au stockage objet                                                                                                                      | oui                      |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`                    | Identifiants S3 — en Compose, généré depuis `S3_APP_PASSWORD`                                                                                    | oui                      |
 | `NEXT_PUBLIC_S3_PUBLIC_URL`                                   | Hostname du stockage, réservé pour qu'aucune commune ne puisse le revendiquer comme domaine                                                      | oui                      |
-| `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `S3_APP_PASSWORD` | Secrets d'infrastructure (Compose)                                                                                                               | **oui**                  |
+| `POSTGRES_PASSWORD`, `S3_APP_PASSWORD`, `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN` | Secrets d'infrastructure (Compose)                                                                                             | **oui**                  |
 | `CADDY_FILE`                                                  | Fichier Caddy à charger (`Caddyfile.dev` par défaut, démo sans TLS)                                                                              | oui (`./Caddyfile`)      |
 | `COMPOSE_PROFILES`                                            | `mesure` pour installer la mesure d'audience (Umami)                                                                                             | non                      |
 | `UMAMI_DB_PASSWORD`                                           | mot de passe du rôle Postgres `umami` (`openssl rand -hex 32`)                                                                                   | oui si `mesure`          |
@@ -127,9 +129,16 @@ ne s'appliquent qu'à la pile de développement.
 | `UMAMI_DESINSTALLE`                                           | `1` seulement après une désinstallation délibérée (base `umami` supprimée) : autorise la suppression d'une commune qui a un historique de mesure | non                      |
 
 `.env` n'est jamais versionné (`.gitignore`, `.dockerignore`). En production,
-`PAYLOAD_SECRET`, `POSTGRES_PASSWORD`, `S3_APP_PASSWORD` et
-`MINIO_ROOT_PASSWORD` doivent être générés aléatoirement (`openssl rand -hex 32`)
-et non les valeurs de démonstration du gabarit.
+`PAYLOAD_SECRET`, `POSTGRES_PASSWORD`, `S3_APP_PASSWORD`, `GARAGE_ADMIN_TOKEN`
+et `GARAGE_RPC_SECRET` doivent être générés aléatoirement (`openssl rand -hex 32`
+— le secret RPC de Garage exige exactement 64 caractères hexadécimaux) et non
+les valeurs de démonstration du gabarit.
+
+**Migration depuis MinIO** : le stockage objet de pdlm est Garage depuis le
+19/11/2026 (les images MinIO ne sont plus distribuées). Aucun script de
+migration MinIO → Garage n'est fourni : aucune donnée n'existait au moment du
+remplacement. Une ancienne installation qui voudrait passer à jour devra
+retéléverser ses médias.
 
 ## Rôles et permissions
 
@@ -388,11 +397,9 @@ ignoré quand Docker relance les conteneurs au redémarrage) ;
   (`/api/media/file/…`, `/api/documents/file/…`), qui applique le contrôle
   d'accès Payload de la collection — en v0.1, `media` et `documents` sont
   lisibles sans authentification (contenu destiné au site public), mais
-  **jamais** lus directement depuis le stockage objet : le bucket de
-  production n'accorde aucun accès anonyme (seules les identifiants
-  applicatifs `pdlm-app` peuvent lire/écrire). En développement, MinIO
-  autorise en complément le téléchargement anonyme direct sur le bucket
-  (commodité locale, sans conséquence en production).
+  **jamais** lus directement depuis le stockage objet : le bucket n'accorde
+  aucun accès anonyme, nulle part (seuls les identifiants applicatifs
+  peuvent lire/écrire).
 - **Limites assumées en v0.1** : l'URL d'un fichier n'est pas signée — la
   confidentialité d'un brouillon non publié dont un média a déjà été
   téléversé repose sur l'obscurité de l'URL, pas sur un contrôle d'accès
