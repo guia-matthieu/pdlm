@@ -28,7 +28,7 @@ export function estDomainePlateforme(host: string): boolean {
   return nu === plateforme || nu === `www.${plateforme}` || nu === `admin.${plateforme}`
 }
 
-export function proxy(request: NextRequest) {
+function traiter(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostBrut = request.headers.get('host') ?? ''
   const host = hostBrut.split(':')[0].toLowerCase()
@@ -87,6 +87,25 @@ export function proxy(request: NextRequest) {
     return NextResponse.rewrite(cible, { request: { headers: entetes } })
   }
   return NextResponse.next({ request: { headers: entetes } })
+}
+
+/**
+ * Retouche AB — noindex applicatif. La démo pose `NOINDEX=1`
+ * (docker-compose.demo.yml) : l'application elle-même répond
+ * `X-Robots-Tag: noindex, nofollow`, la défense ne dépend plus du seul bloc
+ * Caddy (§ 6 de docs/deploiement-demo.md, qui reste en défense en
+ * profondeur). Lu à chaque requête ; sans la variable (production),
+ * comportement inchangé. Couvre toutes les réponses sortant du proxy —
+ * `next()`, réécritures, redirections, 404 ; les exclusions du matcher
+ * (`_next/static`, `_next/image`, favicon) n'ont pas de contenu indexable
+ * et restent couvertes par Caddy.
+ */
+export function proxy(request: NextRequest) {
+  const reponse = traiter(request)
+  if (process.env.NOINDEX === '1') {
+    reponse.headers.set('X-Robots-Tag', 'noindex, nofollow')
+  }
+  return reponse
 }
 
 export const config = {

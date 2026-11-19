@@ -242,7 +242,13 @@ son message. Le tampon du proxy Next est aligné dessus
 applicative veut dire ajuster les DEUX et ce max_size.
 
 `X-Robots-Tag` interdit l'indexation : une démo avec données fictives ne doit
-pas se retrouver dans les moteurs de recherche.
+pas se retrouver dans les moteurs de recherche. Défense en profondeur
+(retouche AB) : l'application répond elle aussi `X-Robots-Tag: noindex,
+nofollow` sur toutes ses réponses et sert un `robots.txt` en `Disallow: /` —
+la surcouche démo pose `NOINDEX=1` (`docker-compose.demo.yml`), absente en
+production où l'indexation est légitime. Le bloc Caddy reste nécessaire :
+lui seul couvre aussi les fichiers statiques (`_next/static`, `_next/image`,
+favicon) que le proxy de Next ne traite pas.
 
 Ce Caddyfile sert **d'autres sites** : copie horodatée côté hôte avant
 édition, validation avant rechargement, et **jamais `caddy restart`** — un
@@ -376,6 +382,11 @@ curl -sS -o /dev/null -w '%{http_code}\n' -H 'Host: saint-ex.demo.pdlm.guia.fr' 
 curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3110/api/health    # 200
 curl -sS -o /dev/null -w '%{http_code}\n' -H 'Host: inconnu.demo.pdlm.guia.fr' http://127.0.0.1:3110/
 # 404
+curl -sSI -H 'Host: saint-ex.demo.pdlm.guia.fr' http://127.0.0.1:3110/ | grep -i x-robots-tag
+curl -s -H 'Host: saint-ex.demo.pdlm.guia.fr' http://127.0.0.1:3110/robots.txt
+# noindex sans passer par Caddy (retouche AB) : « X-Robots-Tag: noindex,
+# nofollow » sur la page, et robots.txt en « Disallow: / » sans ligne
+# Sitemap — l'interdiction d'indexer vit dans l'application même.
 ```
 
 Depuis l'extérieur, après le bloc Caddy :

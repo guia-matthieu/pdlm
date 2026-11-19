@@ -91,6 +91,11 @@ services:
       # avec lui. En dur ici (pas dans le .env) : absent en production, le
       # hook protegerComptePartage n'y refusera rien.
       COMPTES_PARTAGES: relais@pdlm.invalid
+      # Retouche AB — noindex servi par l'application même (proxy :
+      # X-Robots-Tag sur toute réponse, robots.txt en Disallow: /). Le bloc
+      # Caddy du § 6 reste en défense en profondeur ; sans cette variable
+      # (production), l'application n'interdit rien.
+      NOINDEX: '1'
     # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
     # tout passe par le Caddy partagé du serveur.
     ports:

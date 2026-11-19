@@ -11,6 +11,15 @@ export const dynamic = 'force-dynamic'
  * `sitemap.xml` se résout par host, jamais par chemin.
  */
 export async function GET() {
+  // Retouche AB — démo (NOINDEX=1, docker-compose.demo.yml) : interdire toute
+  // exploration depuis l'application même, sans dépendre du frontal. Pas de
+  // Sitemap, pas d'appel à la base : la démo n'a rien à faire dans un moteur
+  // de recherche.
+  if (process.env.NOINDEX === '1') {
+    return new Response('User-agent: *\nDisallow: /\n', {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  }
   const site = await resolveSite()
   const base = site
     ? baseCanonique(site.langueRacine, await domainesCommune(site.commune.id), basePlateforme(site.commune.slug))
