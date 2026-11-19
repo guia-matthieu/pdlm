@@ -1,4 +1,4 @@
-# Environnement de développement : PostgreSQL + MinIO uniquement.
+# Environnement de développement : PostgreSQL + Garage uniquement.
 # L'application tourne hors Docker (`npm run dev`).
 #
 # Nom de projet explicite : la pile de production (docker-compose.yml) occupe
@@ -23,51 +23,49 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    # Les images MinIO ont quitté Docker Hub — registre canonique : quay.io
-    image: quay.io/minio/minio:latest
-    command: server /data --console-address ":9001"
+  garage:
+    # Même image épinglée que la production (v2.5.0) — le développement doit
+    # répliquer ce qui tourne en prod, pas une dérive « latest ».
+    image: dxflrs/garage:v2.5.0@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      # Défauts de développement, valables ICI uniquement (la prod et la démo
+      # exigent les vraies valeurs, voir docker-compose.yml). Le secret RPC
+      # doit être de l'hexadécimal 32 octets : Garage le décode tel quel.
+      GARAGE_RPC_SECRET: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+      GARAGE_ADMIN_TOKEN: dev-admin-token
     ports:
-      - '9000:9000'
-      # Console d'administration MinIO — développement uniquement, ne jamais exposer en production.
-      - '9001:9001'
+      # API S3 pour `npm run dev` sur l'hôte (.env : S3_ENDPOINT=http://localhost:3900)
+      - '3900:3900'
     volumes:
-      - minio_dev:/data
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage_meta_dev:/var/lib/garage/meta
+      - garage_data_dev:/var/lib/garage/data
     healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
+      test: ['CMD', '/garage', 'json-api', 'GetClusterStatus']
       interval: 5s
       timeout: 3s
       retries: 10
 
-  createbuckets:
-    image: quay.io/minio/mc:latest
+  init-s3:
+    # Même initialisation que la production, avec les valeurs de dev :
+    # bucket pdlm, clé pdlm-app importée, droits lecture+écriture, pas de
+    # quota. Plus AUCUN accès anonyme (l'ancienne policy de lecture publique
+    # de dev disparaît) : les fichiers passent par Payload
+    # (/api/media/file/…), en dev comme ailleurs.
+    image: node:22.17.0-alpine@sha256:fc3e945f920b7e3000cd1af86c4ae406ec70c72f328b667baf0f3a8910d69eed
     depends_on:
-      minio:
+      garage:
         condition: service_healthy
-    # I5 : téléchargement d'objet connu autorisé, listing et écriture
-    # anonymes refusés. `mc anonymous set download` accorde à tort les DEUX
-    # permissions s3:GetObject ET s3:ListBucket (constat de recette J9,
-    # 2026-09-21 : listing anonyme du bucket entier possible en dev) — policy
-    # JSON explicite, GetObject seul, pour se limiter à ce que I5 documente.
-    #
-    # Forme liste + bloc littéral `|` (pas `>` replié en une ligne d'espaces,
-    # qui avait déjà silencieusement cassé une première version de ce script :
-    # sans `&&` explicite entre chaque commande, tout finissait comme
-    # arguments surnuméraires de la première — `mc alias set` seul, exit 0,
-    # aucune des étapes suivantes exécutée). Même forme que le service
-    # `createbuckets` de docker-compose.yml (prod), déjà correcte.
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        set -e
-        mc alias set local http://minio:9000 minioadmin minioadmin
-        mc mb --ignore-existing local/pdlm
-        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::pdlm/*"]}]}' > /tmp/anon-policy.json
-        mc anonymous set-json /tmp/anon-policy.json local/pdlm
+    environment:
+      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_ADMIN_TOKEN: dev-admin-token
+      S3_BUCKET: pdlm
+      S3_ACCESS_KEY_ID: pdlm-app
+      S3_APP_PASSWORD: motdepasse-a-changer
+    volumes:
+      - ./scripts/garage-init.mjs:/garage-init.mjs:ro
+      - ./scripts/garage-quota.mjs:/garage-quota.mjs:ro
+    entrypoint: ['node', '/garage-init.mjs']
 
   # Mesure d'audience : docker compose -f docker-compose.dev.yml --profile mesure up -d
   # puis, dans .env : UMAMI_URL=http://127.0.0.1:3002 (+ clé et équipe, README).
@@ -121,4 +119,5 @@ services:
 
 volumes:
   pgdata_dev:
-  minio_dev:
+  garage_meta_dev:
+  garage_data_dev:

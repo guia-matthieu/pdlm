@@ -117,6 +117,105 @@ trois Compose, `scripts/backup.sh`, `scripts/restore.sh`, `scripts/demo-controle
 `payload.config.ts` : rien à changer — `forcePathStyle: true` déjà là, région
 par défaut `fr-1` = `s3_region` du `garage.toml`.
 
+## Étape 2 — Compose prod/dev/démo + init
+
+### Décisions complémentaires, prises en écrivant
+
+- **Le secret RPC est décodé en hexadécimal strict** : `src/garage/main.rs:321-326`
+  fait `hex::decode(rpc_secret)` (« Invalid RPC secret key (bad hex) ») puis
+  `NetworkKey::from_slice` (« wrong length ») → exactement 32 octets, donc
+  64 hex, OBLIGATOIRE même en dev. Le défaut de développement
+  (docker-compose.dev.yml) est de l'hexadécimal valide : `deadbeef`×8. Le
+  jeton admin reste une chaîne libre.
+- **Les crédentiels de dev changent** : l'app en dev s'authentifiait avec
+  l'utilisateur racine (`minioadmin`/`minioadmin`, valeurs de .env.example)
+  car le `createbuckets` de dev ne créait pas l'utilisateur pdlm-app.
+  Désormais l'init de dev importe `pdlm-app`/`motdepasse-a-changer` : le
+  `.env` de dev devra poser `S3_ACCESS_KEY_ID=pdlm-app`,
+  `S3_SECRET_ACCESS_KEY=motdepasse-a-changer` et
+  `S3_ENDPOINT=http://localhost:3900` (gabarit .env.example retouché à
+  l'étape 5 ; le .env du dépôt n'est pas lu — interdit).
+- **Ports publiés en dev : 3900 seul** (API S3, pour `npm run dev` sur
+  l'hôte). L'ancienne console web 9001 n'a pas d'équivalent (Garage n'en a
+  pas) ; RPC 3901 et admin 3903 restent internes — exploration par
+  `docker compose exec garage /garage …` si besoin.
+- **Image épinglée tag + digest** : `dxflrs/garage:v2.5.0@sha256:677e5b…` —
+  digest re-vérifié le 19/11 (`docker buildx imagetools inspect
+  dxflrs/garage:v2.5.0`, manifeste identique à la décision du brief).
+- `NEXT_PUBLIC_S3_PUBLIC_URL` (défaut prod 9000 → 3900) : réservation d'hôte
+  uniquement (`src/collections/Communes.ts:93`), ne commande aucun
+  téléchargement — les médias passent par l'API Payload.
+- Accès anonyme supprimé en dev aussi : aucun test ne dépend d'une lecture
+  S3 directe (grep : rien dans src/ ni tests/ ne construit d'URL d'objet ;
+  le seul test touchant à la variable pose la sienne). Suite complète
+  rejouée en fin de brief.
+
+### Fichiers écrits
+
+- `garage.toml` — versionné, sans secret, monté ro dans /etc/garage.toml.
+- `scripts/garage-quota.mjs` — conversion `2GiB` → octets.
+- `scripts/garage-init.mjs` — init idempotent par l'API admin v2 (layout,
+  bucket, import de clé, droits lecture+écriture sans owner, quota). Aucun
+  secret en sortie : ni jeton admin ni secret de clé ; l'identifiant de clé
+  reste public (statut de l'identifiant racine MinIO avant lui).
+- `docker-compose.yml` — `garage` (healthcheck `/garage json-api
+  GetClusterStatus`, zéro port publié, secrets `:?`) et `init-s3` (node
+  alpine épinglé) ; app sur `http://garage:3900` ; volumes `garage_meta` +
+  `garage_data`.
+- `docker-compose.dev.yml` — mêmes services avec les défauts de dev
+  (secrets dev ICI seulement), 3900 publié, volumes `garage_meta_dev` +
+  `garage_data_dev`.
+- `docker-compose.demo.yml` — `garage` (`DEMO_S3_MEM_LIMIT`/`_CPUS`/
+  `_PIDS_LIMIT`, valeurs inchangées 768m/1/128 ; alias `pdlm-demo-garage`),
+  `init-s3` (`GARAGE_ADMIN_TOKEN`, `S3_ACCESS_KEY_ID`, `S3_APP_PASSWORD`
+  en `:?` ; `S3_QUOTA=${DEMO_S3_QUOTA:-2GiB}`), app sur
+  `http://pdlm-demo-garage:3900`.
+- `tests/unit/garage-quota.spec.ts` — 14 cas (conversions et refus).
+
+### Preuves (sorties brutes, sans secret)
+
+Test unitaire du nouveau fichier :
+
+```
+ RUN  v4.1.11 /Users/matthieucredou/Projects/glm.garage
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+```
+
+`docker compose config -q` — env factice généré par mktemp (umask 077,
+supprimé après ; jamais le .env du dépôt) :
+
+```
+--- prod ---
+OK
+--- dev ---
+OK
+--- demo (base + surcouche) ---
+OK
+```
+
+Fusion démo, champs non secrets extraits du rendu `config` :
+
+```
+  app:
+      S3_ENDPOINT: http://pdlm-demo-garage:3900
+    ports:
+        published: "3110"   (×2 : 127.0.0.1 et [::1])
+  garage:
+    image: dxflrs/garage:v2.5.0@sha256:677e5b75…
+        aliases:
+          - pdlm-demo-garage
+  init-s3:
+      S3_QUOTA: 2GiB
+    image: node:22.17.0-alpine@sha256:fc3e945f…
+```
+
+Aucun port publié pour `garage` en prod ni en démo ; en dev, 3900 seul.
+Les mots « minio » et « createbuckets » ont disparu des trois Compose
+(mentions historiques reformulées sans le nom — le grep final de l'étape 5
+exige zéro résultat hors docs/qc et docs/superpowers).
+
 ## Hors brief
 
 - Conteneur d'init : `node:22.17.0-alpine` épinglé par digest plutôt qu'une image

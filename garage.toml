@@ -1,0 +1,26 @@
+# pdlm — configuration Garage (serveur S3), nœud unique.
+#
+# Aucun secret dans ce fichier : GARAGE_RPC_SECRET et GARAGE_ADMIN_TOKEN sont
+# passés au conteneur par variables d'environnement (lues par Garage depuis
+# v0.8.2 — sources et citations dans docs/qc/notes-stockage-garage.md).
+# Monté en lecture seule dans /etc/garage.toml (chemin par défaut du binaire).
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+
+# Un seul nœud : pas de redondance possible. La sauvegarde cohérente
+# (scripts/backup.sh) reste l'unique garantie contre la perte de données.
+replication_factor = 1
+
+# La région DOIT être celle annoncée à l'application (S3_REGION, défaut fr-1) :
+# Garage refuse les appels S3 visant une autre région
+# (AuthorizationHeaderMalformed). Un seul endroit décide : ici.
+[s3_api]
+s3_region = "fr-1"
+api_bind_addr = "[::]:3900"
+
+# API d'administration (jeton GARAGE_ADMIN_TOKEN) : layout, bucket, clé, quota.
+# Jamais publiée — réseau interne uniquement.
+[admin]
+api_bind_addr = "[::]:3903"
