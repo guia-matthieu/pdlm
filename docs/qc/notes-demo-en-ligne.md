@@ -2203,3 +2203,157 @@ lendemain 12 novembre avant commit :
      === /tmp ===
      ls: /tmp/caddy-essai: No such file or directory
      ls: /tmp/pdlm-demo-essai: No such file or directory
+
+## Retouches AA-AD (19/11)
+
+Brief : `docs/qc/brief-2026-11-19_retouches-relecture.md` (relecture neuve du
+19/11, APPROVED sous réserve de M1). Un commit par point. Docker éteint :
+tout ce qui suit est vérifié sans conteneur — lint, typecheck, tests
+unitaires, `sh -n`, parse YAML, lecture de source des dépendances.
+
+### AA — `c7d2688` : une migration passée impose la refonte de référence
+
+Diff résumé (2 fichiers, +50 −7) :
+
+- `docs/deploiement-demo.md` § 8 : le tri « `up` suffit / refonte
+  obligatoire » passe par une commande,
+  `git diff --name-only <ANCIEN> <NOUVEAU> -- src/migrations` — migration
+  passée OU contenu de démo changé → `demo-refaire-reference.sh`
+  **obligatoire** ; `up` seul réservé au correctif sans migration. Pourquoi
+  ajouté : la nuit restaure une référence prise AVANT la migration ;
+- `docs/deploiement-demo.md` § 6 : la chaîne de la nuit énumère désormais
+  « restauration de la référence, migrations, seed », une puce décrit l'étape
+  `migration` (filet), et « Le matin » gagne le cas `ÉCHEC migration`
+  (app tourne sur schéma ancien → refaire la référence) ;
+- `scripts/demo-restauration-nuit.sh` : `etape migration rejouer_migrations`
+  entre restauration et seed — `docker compose … run --rm -T migrate`, sans
+  commande : le service exécute sa CMD (`payload migrate`, Dockerfile,
+  cible `migrator`).
+
+Sécurité du changement, lue dans les sources des dépendances (pas
+exécutable ici, Docker éteint) : `payload migrate` sans attente journalise
+« No migrations to run. » et sort 0
+(`node_modules/@payloadcms/drizzle/dist/migrate.js:11-16` +
+`node_modules/payload/dist/bin/migrate.js:99`) ; chaque migration tourne en
+transaction et un échec fait `process.exit(1)`
+(`drizzle/dist/migrate.js:62-95`) → ligne `ÉCHEC migration rc=1` au
+journal, la nuit s'arrête là, l'étape suivante (seed) ne s'écrit pas.
+
+Sorties brutes (arbre devenu `c7d2688`) :
+
+     $ sh -n scripts/demo-restauration-nuit.sh && echo OK
+     sh -n OK
+     $ npm run lint
+     (aucune sortie — eslint propre)
+     $ npm run typecheck ; echo rc=$?
+     rc=0
+     $ npm run test:unit
+      Test Files  37 passed (37)
+           Tests  354 passed (354)
+
+### AB — `158989c` : le noindex vit aussi dans l'application
+
+Diff résumé (6 fichiers, +143 −2) :
+
+- `src/proxy.ts` : l'ancienne fonction devient `traiter()` (privée), le
+  `proxy()` exporté l'entoure et pose `X-Robots-Tag: noindex, nofollow`
+  quand `NOINDEX === '1'` — lu à chaque requête, sur toutes les réponses
+  sortant du proxy (`next()`, réécritures, redirections, 404). Les
+  exclusions du matcher (`_next/static`, `_next/image`, favicon) n'ont pas
+  de contenu indexable et restent couvertes par Caddy ;
+- `src/app/(frontend)/robots.txt/route.ts` : `NOINDEX=1` → retour immédiat
+  `User-agent: *\nDisallow: /\n`, sans Sitemap ni appel à la base ;
+- `docker-compose.demo.yml` (app) : `NOINDEX: '1'` — posé par la surcouche
+  seule, la production n'interdit rien ;
+- `docs/deploiement-demo.md` § 6 : le bloc Caddy devient défense en
+  profondeur (l'application répond elle-même) ; § 7 : deux contrôles directs
+  sur 127.0.0.1:3110 (en-tête sur une page, robots.txt sans Sitemap) ;
+- tests : `tests/unit/proxy.spec.ts` +5 (en-tête présent sur réponse
+  réécrite / `next()` / redirection / 404, absent sans `NOINDEX`),
+  `tests/unit/robots.spec.ts` +2 (contenu exact en démo, `resolveSite` non
+  consulté ; production inchangée avec `Sitemap:`).
+
+Sorties brutes (arbre devenu `158989c`) :
+
+     $ npm run lint
+     (aucune sortie — eslint propre)
+     $ npm run typecheck ; echo rc=$?
+     rc=0
+     $ npm run test:unit
+      Test Files  38 passed (38)
+           Tests  361 passed (361)
+
+(354 + 5 proxy + 2 robots = 361.)
+
+### AC — `e5ae2d1` : le source de verifier-dump.sh ne dépend plus du cd
+
+Diff résumé (2 fichiers, +10 −4) : dans `scripts/restore.sh` et
+`scripts/backup.sh`, `SCRIPTS=$(cd "$(dirname "$0")" && pwd)` est calculé
+AVANT le `cd` vers la racine, puis `. "$SCRIPTS/verifier-dump.sh"` —
+auparavant le `cd` rendait `$(dirname "$0")` relatif au nouveau dossier et
+le source ne tenait que par accident.
+
+Sorties brutes (arbre devenu `e5ae2d1`) :
+
+     $ sh -n scripts/restore.sh && echo OK
+     restore.sh : OK
+     $ sh -n scripts/backup.sh && echo OK
+     backup.sh : OK
+     $ npm run lint
+     (aucune sortie — eslint propre)
+     $ npm run typecheck ; echo rc=$?
+     rc=0
+     $ npm run test:unit
+      Test Files  38 passed (38)
+           Tests  361 passed (361)
+
+### AD — `e4ec9ff` : identifiant MinIO non défaut exigé par la surcouche démo
+
+Diff résumé (3 fichiers, +14 −2) :
+
+- `docker-compose.demo.yml` : `MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis dans .env}`
+  sur `minio` ET `createbuckets`, comme le mot de passe (retouche P) ;
+  `docker-compose.yml` garde son défaut `minioadmin` (production, inchangé) ;
+- `docs/deploiement-demo.md` § 3 : ligne de génération dans le sous-shell
+  umask — `printf 'MINIO_ROOT_USER=%s\n' "minio-$(openssl rand -hex 8)" >> .env`
+  (identifiant court, MinIO borne la taille d'une access key) — et puce
+  d'explication ;
+- `.env.example` : note sur `MINIO_ROOT_USER` (défaut de développement,
+  la démo le refuse).
+
+Contrôle sans Docker — parse YAML de la surcouche (node) :
+
+     minio.MINIO_ROOT_USER = ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis dans .env}
+     createbuckets.MINIO_ROOT_USER = ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis dans .env}
+     app.NOINDEX = 1
+
+Sorties brutes (arbre devenu `e4ec9ff`) :
+
+     $ npm run lint
+     (aucune sortie — eslint propre)
+     $ npm run typecheck ; echo rc=$?
+     rc=0
+     $ npm run test:unit
+      Test Files  38 passed (38)
+           Tests  361 passed (361)
+
+### Ce qui n'a pas pu être vérifié (Docker éteint)
+
+- AA : la nuit réelle — `etape migration` dans le cron, la ligne
+  `migration rc=0` au journal, et le cas `ÉCHEC migration` sur une base
+  volontairement retardée. La sûreté repose sur la lecture des sources
+  payload 3.90.1 citée plus haut et sur la parenté avec des commandes déjà
+  prouvées (le même `run --rm -T migrate …` au seed § 5, la même CMD à
+  chaque `up`) ;
+- AB : l'en-tête et le robots.txt sur des réponses HTTP réelles (conteneur
+  construit, `curl` du § 7), et le câblage `NOINDEX` par Compose — seuls
+  les tests unitaires du proxy et de la route couvrent le comportement ;
+- AC : une exécution de `backup.sh`/`restore.sh` (seulement `sh -n` et
+  lecture) ;
+- AD : le refus de Compose sans `MINIO_ROOT_USER` (`docker compose config`
+  exige le démon) — seulement le parse YAML ;
+- e2e : suite non jouée (Docker).
+
+À rejouer au premier essai Docker : la première nuit après déploiement
+(regarder `migration rc=0` dans `restauration.log`), et les deux contrôles
+noindex du § 7 sur 127.0.0.1:3110.
