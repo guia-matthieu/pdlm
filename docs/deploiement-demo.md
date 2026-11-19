@@ -281,8 +281,8 @@ l'exploitant).
 ### Restauration nocturne (`crontab -e`)
 
 Chaque nuit à 3 h 17, la démo revient à sa sauvegarde de référence (§ 5),
-puis le seed re-date l'agenda. À énoncer clairement aux visiteurs de la
-démo :
+les migrations sont rejouées (retouche AA), puis le seed re-date l'agenda.
+À énoncer clairement aux visiteurs de la démo :
 
 - l'app est **coupée** pendant la restauration — quelques dizaines de
   secondes vers 3 h 17, un visiteur de cette fenêtre voit une erreur
@@ -295,7 +295,7 @@ démo :
 
 La crontab appelle un script — `scripts/demo-restauration-nuit.sh` — qui
 prend lui-même le verrou, enchaîne les étapes (contrôles, pile présente,
-restauration de la référence, seed) et journalise chacune :
+restauration de la référence, migrations, seed) et journalise chacune :
 
 ```
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -317,7 +317,13 @@ Détails qui comptent :
   tout y est `-T`) : le cron l'appelle directement — jamais `yes | …` ;
 - l'étape finale (seed) re-date l'agenda et recrée au besoin les comptes et
   communes manquants : la base restaurée reste celle de référence, seul
-  l'agenda vit.
+  l'agenda vit ;
+- l'étape `migration` (retouche AA) rejoue `payload migrate` avec le code
+  déployé : la référence a été prise à un moment donné, une mise à jour
+  (§ 8) peut avoir passé une migration depuis. D'ordinaire la refonte du
+  § 8 a déjà mis la référence au niveau du code et l'étape ne fait rien
+  (`rc=0`) — c'est un filet pour la mise à jour dont la refonte de
+  référence aurait été oubliée.
 
 Le verrou `<DOSSIER>/.verrou` est **le même que celui de la mise à jour**
 (§ 8) : le cron s'écarte (`flock -n`) si une mise à jour est en cours, une
@@ -349,6 +355,11 @@ Une nuit réussie finit par « nuit terminée rc=0 ». Sur une ligne
     (`<db>_precedente`) existe encore ; le journal porte les commandes du
     retour arrière (deux `ALTER DATABASE … RENAME`, puis
     `docker compose start app`) ;
+- `ÉCHEC migration` (retouche AA) : la base est restaurée et l'app tourne,
+  sur un schéma plus ancien que le code — signe d'une mise à jour avec
+  migration dont la référence n'a pas été refaite. Faire
+  `./scripts/demo-refaire-reference.sh <CONTENEUR_CADDY>` (§ 8) : elle
+  remet la référence, base et bucket, au niveau du code courant ;
 - `ÉCHEC seed` : la base est restaurée et l'app tourne — l'agenda n'est pas
   re-daté, c'est tout. Le seed est idempotent : rejouer la nuit, ou la
   commande du § 5.
@@ -415,13 +426,30 @@ fini avant le démarrage de `app`, cf. notes).
 ancien conteneur `migrate` déjà terminé avec succès peut démarrer l'app sans
 jouer la nouvelle migration.
 
-La mise à jour n'ajoute pas de contenu de démo ? Le `up` ci-dessus suffit.
-Elle en ajoute (communes, seed) ? **Une seule commande** fait alors les
-quatre pas — ne lance pas le `up` à part :
+Quel cas ? Trancher par une commande, pas au jugé — la réponse dépend des
+migrations, invisibles depuis le contenu :
+
+```bash
+git -C <chemin-du-dépôt> diff --name-only <ANCIEN> <NOUVEAU> -- src/migrations
+# aucune sortie : pas de migration ; un fichier ou plus : migration passée
+```
+
+- **ni migration, ni contenu de démo changé** (correctif seul) : le `up`
+  ci-dessus suffit ;
+- **migration passée OU contenu de démo changé** (communes, seed) :
+  `demo-refaire-reference.sh` est **obligatoire** — **une seule commande**
+  fait les quatre pas, ne lance pas le `up` à part :
 
 ```bash
 ./scripts/demo-refaire-reference.sh <CONTENEUR_CADDY>
 ```
+
+Pourquoi la migration impose la refonte (retouche AA) : la nuit (§ 6)
+restaure `backups/reference`, prise AVANT la migration — sans refonte, le
+code neuf repartirait chaque nuit sur le schéma ancien. La nuit rejoue
+désormais `migrate` après la restauration (filet, § 6), mais le filet ne
+remplace pas la règle : seule la refonte met la référence — base et
+bucket — au niveau du nouveau code.
 
 Le script porte lui-même le verrou (le même que la nuit du § 6 et que le
 `up` du haut, `flock` bloquant : il attend son tour) et enchaîne dans

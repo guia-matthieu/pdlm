@@ -8,6 +8,10 @@
 # qui rendait 0 : un échec se voit le matin (queue du journal, § 6).
 # Le journal ne reçoit jamais une valeur du `.env`.
 #
+# Retouche AA — après la restauration, les migrations sont rejouées : la
+# référence peut dater d'avant une migration passée dans la journée (mise à
+# jour du § 8 sans refonte). Voir rejouer_migrations ci-dessous.
+#
 # Verrou : le même que la mise à jour (§ 8) et la refonte de référence
 # (demo-refaire-reference.sh). Déjà tenu → « nuit sautée, verrou pris »,
 # sortie 75 (EX_TEMPFAIL : rien à faire, ce n'est pas une panne).
@@ -58,9 +62,20 @@ seed_demo() { # && partout : etape() teste le code, set -e ne s'applique pas.
        migrate node node_modules/payload/bin.js run src/seed/demo-en-ligne.ts
 }
 
+rejouer_migrations() { # Retouche AA — la référence peut précéder une
+  # migration passée depuis (le `up` d'une mise à jour joue celle-ci sur la
+  # base du jour, la référence reste au schéma ancien). Sans commande, le
+  # service `migrate` exécute sa CMD (`payload migrate`, cf. Dockerfile) :
+  # rien en attente → « No migrations to run. », rc=0 ; chaque migration est
+  # transactionnelle, un échec sort 1 → ÉCHEC migration au journal.
+  docker compose -p pdlm-demo --env-file .env -f docker-compose.yml -f docker-compose.demo.yml \
+    run --rm -T migrate
+}
+
 etape contrôles ./scripts/demo-controles.sh "$CONTENEUR_CADDY"
 etape pile pile_presente
 etape restauration ./scripts/restore.sh backups/reference
+etape migration rejouer_migrations
 etape seed seed_demo
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') nuit terminée rc=0" >>"$JOURNAL"
