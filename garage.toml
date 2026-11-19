@@ -13,6 +13,10 @@ db_engine = "lmdb"
 # (scripts/backup.sh) reste l'unique garantie contre la perte de données.
 replication_factor = 1
 
+# Écoute RPC (obligatoire, sans valeur par défaut — même un nœud seul
+# s'écoute : c'est par là que le CLI local « garage json-api » dialogue).
+rpc_bind_addr = "[::]:3901"
+
 # La région DOIT être celle annoncée à l'application (S3_REGION, défaut fr-1) :
 # Garage refuse les appels S3 visant une autre région
 # (AuthorizationHeaderMalformed). Un seul endroit décide : ici.

@@ -216,6 +216,88 @@ Les mots « minio » et « createbuckets » ont disparu des trois Compose
 (mentions historiques reformulées sans le nom — le grep final de l'étape 5
 exige zéro résultat hors docs/qc et docs/superpowers).
 
+## Étape 3 — Dev sur Garage
+
+### Incident et correctif : `rpc_bind_addr` obligatoire
+
+Premier `docker compose -f docker-compose.dev.yml up -d` : le conteneur
+`garage` sortait en erreur avant tout listen — `docker compose logs garage` :
+
+```
+Error: TOML decode error: missing field `rpc_bind_addr`
+```
+
+`rpc_bind_addr` n'a **pas de valeur par défaut** (doc configuration.md, § du
+même nom — contrairement aux adresses S3/admin). Même un nœud unique s'écoute :
+c'est par ce port que le CLI local `garage …` (et le healthcheck `json-api`)
+dialogue avec le démon. Correctif : `rpc_bind_addr = "[::]:3901"` posé dans
+`garage.toml` (avec commentaire) — commit de ce fichier avec l'étape 3.
+
+### Preuves (sorties brutes, sans secret)
+
+Pile dev redémarrée (`docker ps --format …`) :
+
+```
+pdlm-garage-1     garage    Up (healthy)
+pdlm-init-s3-1    init-s3   Exited (0)
+pdlm-postgres-1   postgres  Up (healthy)
+```
+
+Premier passage d'`init-s3` (`docker compose logs init-s3`) :
+
+```
+layout : nœud 650f195c posé (version 1)
+bucket pdlm : créé
+clé pdlm-app : importée
+droits : pdlm-app lit et écrit dans pdlm (sans owner)
+quota : aucun
+initialisation Garage : terminée
+```
+
+Rejeu (`docker compose -f docker-compose.dev.yml run --rm init-s3`) —
+idempotence :
+
+```
+layout : déjà posé (version 1)
+bucket pdlm : déjà présent
+clé pdlm-app : déjà importée
+droits : pdlm-app lit et écrit dans pdlm (sans owner)
+quota : aucun
+initialisation Garage : terminée
+```
+
+Inspection par le CLI local (`docker compose exec garage /garage …`) :
+
+```
+==== CURRENT CLUSTER LAYOUT ====
+ID                Tags    Zone  Capacity  Usable capacity
+650f195cd87db191  [pdlm]  dc1   10.0 GiB  10.0 GiB (100.0%)
+Current cluster layout version: 1
+
+==== BUCKET INFORMATION ====
+Bucket:          b2d5190c2fd2770adc1207c96d01643b28238b86f6b67ce3851a33c9e7751d3e
+Size:            0 B (0 B) — Objects: 0
+Global alias:    pdlm
+==== KEYS FOR THIS BUCKET ====
+Permissions  Access key            Local aliases
+RW           pdlm-app    pdlm-app
+
+==== ACCESS KEY INFORMATION ====
+Key ID:              pdlm-app
+Secret key:          (redacted)
+Validity:            valid
+Can create buckets:  false
+==== BUCKETS FOR THIS KEY ====
+Permissions  ID                Global aliases
+RW           b2d5190c2fd2770a  pdlm
+```
+
+La clé de l'app ne peut **pas** créer de buckets (l'ancien utilisateur racine
+le pouvait) — réduction de privilège effective.
+
+Le téléversement d'un média par `npm run dev` est prouvé à l'essai de
+l'étape 6, comme le prévoit le brief. La pile dev reste lancée pour la suite.
+
 ## Hors brief
 
 - Conteneur d'init : `node:22.17.0-alpine` épinglé par digest plutôt qu'une image
