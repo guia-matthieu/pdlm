@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# pdlm — sauvegarde cohérente PostgreSQL + S3 (MinIO)
+# pdlm — sauvegarde cohérente PostgreSQL + S3 (Garage)
 #
 # Cohérence (plan J7) : l'application est ARRÊTÉE pendant la sauvegarde
-# (fenêtre de maintenance) — un pg_dump + mc mirror sous écritures
+# (fenêtre de maintenance) — un pg_dump + copie du bucket sous écritures
 # concurrentes ne garantit pas la cohérence entre base et fichiers.
 #
 # Retouche V — jamais d'écrasement en place : une destination qui existe déjà
@@ -90,28 +90,33 @@ if docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -tAc \
   verifier_dump "$DEST_ABS/umami.sql.gz" "$DEST/umami.sql.gz"
 fi
 
-# Le serveur MinIO tourne dans le service `minio` : c'est lui qu'il faut
-# joindre par son nom de service. Viser `localhost` depuis ce conteneur
-# jetable revenait à interroger un hôte où rien n'écoute.
+# La copie passe par le service `copie-s3` (rclone, profil « outils »),
+# configuré par son environnement Compose (RCLONE_CONFIG_*) : le serveur S3
+# est joint par son nom de service `garage` — viser `localhost` depuis ce
+# conteneur jetable reviendrait à interroger un hôte où rien n'écoute.
 # Le script interne est en quotes SIMPLES : les identifiants viennent de
 # l'environnement du service, jamais d'une interpolation par l'hôte.
-# mc mirror est muselé (>/dev/null) : la sortie capturée est le seul compte
-# d'objets du bucket, compté côté hôte (retouche V — le compte de fichiers
-# copiés doit égaler celui du bucket, un mirror interrompu en silence
-# laisserait une référence incomplète).
+# rclone sync est silencieux en succès : la sortie capturée est le seul
+# compte d'objets du bucket, compté côté hôte (retouche V — le compte de
+# fichiers copiés doit égaler celui du bucket, une copie interrompue en
+# silence laisserait une référence incomplète).
 echo "3/4 — Copie du bucket S3 → $DEST/s3"
 # Le rc du docker run est testé EXPLICITEMENT : un « | grep -c . » en fin de
-# chaîne masquerait un échec du mirror pour un bucket vide (0 = 0 passerait).
+# chaîne masquerait un échec de la copie pour un bucket vide (0 = 0 passerait).
+# umask 077 dans le conteneur : les fichiers écrits par rclone sont à 600,
+# comme les dumps écrits par l'hôte (la sauvegarde contient tout le site).
+# --files-only : lsf liste aussi les « dossiers » du bucket, qui ne sont pas
+# des fichiers côté hôte (le compte resterait faux).
 liste_objets=''
 if ! liste_objets=$(docker compose run --rm -T \
   -e S3_BUCKET="$S3_BUCKET" \
   -v "$DEST_ABS/s3:/sauvegarde" \
   --entrypoint /bin/sh \
-  minio -c '
+  copie-s3 -c '
     set -e
-    mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-    mc mirror --overwrite --remove "local/$S3_BUCKET" /sauvegarde >/dev/null
-    mc ls --recursive "local/$S3_BUCKET"
+    umask 077
+    rclone sync "pdlm:$S3_BUCKET" /sauvegarde
+    rclone lsf -R --files-only "pdlm:$S3_BUCKET"
   '); then
   echo "ÉCHEC : copie du bucket S3 impossible — sauvegarde annulée." >&2
   exit 1

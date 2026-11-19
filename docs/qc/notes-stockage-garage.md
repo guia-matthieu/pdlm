@@ -298,6 +298,74 @@ le pouvait) — réduction de privilège effective.
 Le téléversement d'un média par `npm run dev` est prouvé à l'essai de
 l'étape 6, comme le prévoit le brief. La pile dev reste lancée pour la suite.
 
+## Étape 4 — backup.sh / restore.sh sur rclone
+
+### Décisions complémentaires, prises en écrivant
+
+- **rclone 1.75.2 ne connaît pas le provider « Garage »** : `RCLONE_CONFIG_*
+  _PROVIDER=Garage` produit un avis « s3 provider "Garage" not known » à
+  chaque appel (vérifié sur l'image épinglée : la liste des providers de
+  `help backend s3 provider` ne le contient pas). Le réglage retenu est
+  `Other` (S3 compatible quelconque) : AWS v4, style chemin — éprouvé
+  ci-dessous contre le Garage de dev.
+- **Service Compose `copie-s3`** (profil `outils`, jamais lancé par `up`)
+  plutôt qu'un `docker run` nu : les identifiants S3 restent dans
+  l'environnement du service, interpolés par Compose depuis le `.env`
+  (source unique `S3_APP_PASSWORD`, comme l'app et init-s3) — jamais posés
+  par l'hôte, qui aurait exposé le secret dans sa ligne de commandes.
+  `docker compose run` active le profil du service visé (preuve : dry-run
+  ci-dessous — et au passage, le dry-run SIMULE aussi les conteneurs de
+  dépendance : rien n'est réellement créé, `docker ps -a` le confirme).
+- **Comptage (retouche V)** : `rclone lsf -R` liste aussi les « dossiers »
+  du bucket → `--files-only`, sans quoi le compte ne matcherait jamais
+  `find -type f` côté hôte (constaté sur l'essai : `dossier/` apparaissait).
+- **`umask 077` dans le conteneur** : les fichiers écrits par rclone dans
+  la sauvegarde sont à 600 comme les dumps écrits par l'hôte (l'en-tête du
+  script le promet — « la sauvegarde contient tout le site »).
+- **Le bucket n'est pas recréé par restore.sh** : la clé de l'app ne peut
+  pas créer ni supprimer de bucket (droits sans owner — refus 403
+  « Operation is not allowed for this key » constaté à l'essai sur une
+  tentative `purge` du bucket entier). C'est init-s3 qui pose le bucket ;
+  s'il manquait, `rclone sync` échoue et `echec_apres_bascule` garde le
+  retour arrière ouvert. L'ancien `mc mb --ignore-existing` disparaît.
+- Surcouche démo : `copie-s3` reçoit les mêmes bornes que le serveur S3
+  (`DEMO_S3_MEM_LIMIT`/`_CPUS`/`_PIDS_LIMIT`) — la copie héritait des
+  bornes du service S3 avant elle (conteneur jetable mais serveur mutualisé).
+
+### Preuves (sorties brutes, sans secret)
+
+Essai rclone ↔ Garage dev sur un bucket jetable `pdlm-essai-rclone`
+(créé et supprimé par le CLI admin ; creds dev, par défaut du dépôt) —
+config par `RCLONE_CONFIG_ESSAI_*`, `PROVIDER=Other`,
+endpoint `http://host.docker.internal:3900` :
+
+```
+$ rclone version            → rclone v1.75.2 (alpine 3.24.2)
+$ rclone sync /src essai:pdlm-essai-rclone      → rc=0
+$ rclone lsf -R --files-only essai:pdlm-essai-rclone
+a.txt
+b/c.txt
+$ rclone cat …/b/c.txt       → ccc
+$ copyto parasite.txt ; rclone sync /src … (rejeu)
+$ rclone lsf -R --files-only essai:pdlm-essai-rclone
+a.txt
+b/c.txt                       ← parasite.txt supprimé par sync (effet --remove)
+$ rclone purge essai:pdlm-essai-rclone
+ERROR … DeleteBucket … 403 AccessDenied: Operation is not allowed for this key
+                              ← la clé n'est pas owner (voulu) ; bucket vidé,
+                                supprimé ensuite par /garage bucket delete --yes
+```
+
+Seul avis résiduel de rclone : « Config file not found - using defaults » —
+attendu, la configuration vit dans l'environnement, pas dans rclone.conf.
+
+`bash -n` sur les deux scripts : OK. `docker compose config -q` (env factice
+mktemp, umask 077, supprimé) : prod OK, dev OK, démo OK. Dry-run
+`docker compose run copie-s3` : le conteneur `…-copie-s3-run-…` est bien
+résolu et planifié sans COMPOSE_PROFILES (le profil s'active par `run`) ;
+`docker ps -a` après : vide, rien de créé. La preuve fonctionnelle complète
+(backup.sh → suppression média → restore.sh) est celle de l'étape 6.
+
 ## Hors brief
 
 - Conteneur d'init : `node:22.17.0-alpine` épinglé par digest plutôt qu'une image

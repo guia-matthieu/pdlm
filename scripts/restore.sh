@@ -149,17 +149,19 @@ else
 fi
 
 echo "4/6 — Restauration du bucket S3…"
-# `--remove` : sans lui, les fichiers ajoutés après la sauvegarde survivaient
-# à la restauration — le bucket n'était pas remis dans l'état sauvegardé.
+# rclone sync rend la destination identique à la source : les objets ajoutés
+# après la sauvegarde sont supprimés (l'effet de l'ancien --remove) — le
+# bucket est remis dans l'état sauvegardé. Le bucket n'est pas recréé ici :
+# la clé de l'app ne peut pas créer de bucket (droits sans owner, posés par
+# init-s3) — s'il manquait, sync échoue et le retour arrière reste ouvert
+# (echec_apres_bascule).
 if ! docker compose run --rm -T \
   -e S3_BUCKET="$S3_BUCKET" \
   -v "$DOSSIER_ABS/s3:/sauvegarde:ro" \
   --entrypoint /bin/sh \
-  minio -c '
+  copie-s3 -c '
     set -e
-    mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-    mc mb --ignore-existing "local/$S3_BUCKET"
-    mc mirror --overwrite --remove /sauvegarde "local/$S3_BUCKET"
+    rclone sync /sauvegarde "pdlm:$S3_BUCKET"
   '; then
   echec_apres_bascule "bucket"
 fi

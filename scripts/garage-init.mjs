@@ -16,7 +16,7 @@
 //
 // Aucun secret ne doit apparaître dans la sortie : on n'imprime ni le jeton
 // d'administration, ni le secret de la clé. L'identifiant de clé n'est pas un
-// secret (même statut que l'identifiant MinIO avant lui).
+// secret (même statut que l'identifiant de l'ancien serveur S3 avant lui).
 //
 // Environnement :
 //   GARAGE_ADMIN_URL   — défaut http://garage:3903

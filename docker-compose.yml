@@ -88,6 +88,29 @@ services:
     # Le bucket n'est pas anonyme : les fichiers sont servis par Payload
     # (/api/media/file/…), jamais lus directement depuis Garage.
 
+  copie-s3:
+    # Copie du bucket pour la sauvegarde et la restauration (scripts/backup.sh,
+    # scripts/restore.sh), par rclone. Profil « outils » : jamais lancé par un
+    # simple `up`, seulement par `docker compose run` (qui active le profil).
+    # La configuration passe par l'environnement (RCLONE_CONFIG_*) — jamais par
+    # un fichier rclone.conf, qui contiendrait le secret de la clé.
+    # Provider « Other » : Garage n'a pas d'entrée dédiée dans rclone ;
+    # S3 compatible, style chemin, région identique à garage.toml (fr-1).
+    # Le secret vient de la même variable que l'app (S3_APP_PASSWORD) :
+    # source unique, interpolée par Compose — jamais posée par l'hôte.
+    image: rclone/rclone@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+    profiles: [outils]
+    depends_on:
+      garage:
+        condition: service_healthy
+    environment:
+      RCLONE_CONFIG_PDLM_TYPE: s3
+      RCLONE_CONFIG_PDLM_PROVIDER: Other
+      RCLONE_CONFIG_PDLM_ENDPOINT: http://garage:3900
+      RCLONE_CONFIG_PDLM_REGION: ${S3_REGION:-fr-1}
+      RCLONE_CONFIG_PDLM_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-pdlm-app}
+      RCLONE_CONFIG_PDLM_SECRET_ACCESS_KEY: ${S3_APP_PASSWORD:-motdepasse-a-changer}
+
   migrate:
     build:
       context: .
