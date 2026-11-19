@@ -124,3 +124,51 @@ describe('proxy — aiguillage des langues', () => {
     }
   })
 })
+
+describe('proxy — noindex applicatif (retouche AB, démo)', () => {
+  const avant = { ...process.env }
+  beforeEach(() => {
+    process.env.PLATFORM_DOMAIN = 'plateforme.test'
+  })
+  afterEach(() => {
+    process.env = { ...avant }
+  })
+
+  it('NOINDEX=1 : X-Robots-Tag sur une réponse réécrite (front)', () => {
+    process.env.NOINDEX = '1'
+    const reponse = proxy(requete('pigna.fr', '/marche'))
+    expect(reponse.headers.get('x-middleware-rewrite')).toBeTruthy()
+    expect(reponse.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+  })
+
+  it('NOINDEX=1 : X-Robots-Tag sur une réponse next (api publique)', () => {
+    process.env.NOINDEX = '1'
+    const reponse = proxy(requete('pigna.fr', '/api/health'))
+    expect(reponse.headers.get('x-middleware-next')).toBe('1')
+    expect(reponse.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+  })
+
+  it('NOINDEX=1 : X-Robots-Tag sur une redirection (admin hors plateforme)', () => {
+    process.env.NOINDEX = '1'
+    process.env.ADMIN_URL = 'https://admin.plateforme.test/'
+    const reponse = proxy(requete('mairie-a.fr', '/admin'))
+    expect(reponse.status).toBe(307)
+    expect(reponse.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+  })
+
+  it('NOINDEX=1 : X-Robots-Tag sur un refus 404 (api fermée)', () => {
+    process.env.NOINDEX = '1'
+    delete process.env.ADMIN_URL
+    const reponse = proxy(requete('mairie-a.fr', '/api/pages'))
+    expect(reponse.status).toBe(404)
+    expect(reponse.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+  })
+
+  it('sans NOINDEX, aucun X-Robots-Tag (production inchangée)', () => {
+    delete process.env.NOINDEX
+    const front = proxy(requete('pigna.fr', '/marche'))
+    expect(front.headers.get('x-robots-tag')).toBeNull()
+    const api = proxy(requete('mairie-a.fr', '/api/pages'))
+    expect(api.headers.get('x-robots-tag')).toBeNull()
+  })
+})

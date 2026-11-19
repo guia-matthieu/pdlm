@@ -80,13 +80,24 @@ async function traduire(
  * mentions légales, politique de confidentialité, déclaration d'accessibilité —
  * à compléter par chaque commune.
  */
+/** Réglages du contenu de démonstration — défauts = comportement du seed de dev. */
+export interface OptionsContenuDemo {
+  /** Nom de la seconde commune (accueil) — défaut : Valvert. */
+  nomSecondaire?: string
+  /** Traductions corses de la seconde commune (démo multilingue) — défaut : oui. */
+  traductionsCorses?: boolean
+}
+
 export async function seedContenuDemo(
   payload: Payload,
   saintExId: number,
   valvertId: number,
   auteurId: number,
+  options: OptionsContenuDemo = {},
 ) {
   const J = 86_400_000
+  const nomSecondaire = options.nomSecondaire ?? 'Valvert'
+  const traductionsCorses = options.traductionsCorses ?? true
 
   // La page « accueil » alimente la section texte libre de l'accueil composé
   // par le gabarit (le héros vient du gabarit) : pas de bloc hero ici, il
@@ -318,7 +329,7 @@ export async function seedContenuDemo(
       {
         blockType: 'texteRiche',
         contenu: texteRich(
-          'Bienvenue à Valvert. Retrouvez ici les actualités et l’agenda de la commune.',
+          `Bienvenue à ${nomSecondaire}. Retrouvez ici les actualités et l’agenda de la commune.`,
         ),
       },
     ],
@@ -357,27 +368,29 @@ export async function seedContenuDemo(
   // Corse (démo) — textes PROVISOIRES, à relire par un locuteur (spec § 10, point 1).
   // `titre` (champ page, non affiché — R1) reste non vide : `exigerTraductionComplete`
   // l'exige pour valider la traduction, au même titre que `blocs`.
-  await traduire(payload, 'pages', valvertAccueil.id, {
-    titre: 'Benvenuti à Valverde',
-    blocs: [
-      {
-        blockType: 'texteRiche',
-        contenu: texteRich(
-          'Benvenuti à Valverde. Trovate quì e nutizie è l’agenda di u cumunu.',
-        ),
-      },
-    ],
-  })
-  await traduire(payload, 'pages', valvertMarche.id, {
-    titre: 'Mercatu di u sabbatu',
-    blocs: [
-      { blockType: 'hero', titre: 'Mercatu di u sabbatu' },
-      {
-        blockType: 'texteRiche',
-        contenu: texteRich('U mercatu si tene ogni sabbatu matina nant’à a piazza.'),
-      },
-    ],
-  })
+  if (traductionsCorses) {
+    await traduire(payload, 'pages', valvertAccueil.id, {
+      titre: 'Benvenuti à Valverde',
+      blocs: [
+        {
+          blockType: 'texteRiche',
+          contenu: texteRich(
+            'Benvenuti à Valverde. Trovate quì e nutizie è l’agenda di u cumunu.',
+          ),
+        },
+      ],
+    })
+    await traduire(payload, 'pages', valvertMarche.id, {
+      titre: 'Mercatu di u sabbatu',
+      blocs: [
+        { blockType: 'hero', titre: 'Mercatu di u sabbatu' },
+        {
+          blockType: 'texteRiche',
+          contenu: texteRich('U mercatu si tene ogni sabbatu matina nant’à a piazza.'),
+        },
+      ],
+    })
+  }
   // `demarches` reste non traduite : aucun appel à `traduire` pour cette page.
 
   // Menu de Valvert : structure créée en français (R4), libellés traduits ensuite.
@@ -411,27 +424,29 @@ export async function seedContenuDemo(
   // Corse (démo) — seul le premier libellé est traduit (« Mercatu »), les lignes
   // (mêmes id, mêmes pages) restent celles créées en français (R4). Texte
   // PROVISOIRE, à relire par un locuteur (spec § 10, point 1).
-  const menuCoExistant = await payload.findByID({
-    collection: 'menus',
-    id: valvertMenu.id,
-    locale: 'co',
-    fallbackLocale: false,
-    overrideAccess: true,
-  })
-  const items = (valvertMenu as { items?: Array<{ id?: string | null }> }).items ?? []
-  const [itemMarche, itemDemarches] = items
-  if (menuCoExistant?.items?.[0]?.label !== 'Mercatu' && itemMarche?.id && itemDemarches?.id) {
-    await payload.update({
+  if (traductionsCorses) {
+    const menuCoExistant = await payload.findByID({
       collection: 'menus',
       id: valvertMenu.id,
       locale: 'co',
-      data: {
-        items: [
-          { id: itemMarche.id, label: 'Mercatu', page: valvertMarche.id },
-          { id: itemDemarches.id, page: valvertDemarches.id },
-        ],
-      },
+      fallbackLocale: false,
       overrideAccess: true,
     })
+    const items = (valvertMenu as { items?: Array<{ id?: string | null }> }).items ?? []
+    const [itemMarche, itemDemarches] = items
+    if (menuCoExistant?.items?.[0]?.label !== 'Mercatu' && itemMarche?.id && itemDemarches?.id) {
+      await payload.update({
+        collection: 'menus',
+        id: valvertMenu.id,
+        locale: 'co',
+        data: {
+          items: [
+            { id: itemMarche.id, label: 'Mercatu', page: valvertMarche.id },
+            { id: itemDemarches.id, page: valvertDemarches.id },
+          ],
+        },
+        overrideAccess: true,
+      })
+    }
   }
 }

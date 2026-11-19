@@ -1,0 +1,123 @@
+# pdlm — surcouche de l'instance de démonstration en ligne
+#
+# Usage : docker compose -f docker-compose.yml -f docker-compose.demo.yml …
+# Le serveur cible a déjà un Caddy partagé — un CONTENEUR, que la procédure
+# connecte au réseau `pdlm-demo-edge` ci-dessous : la pile de démo ne lance
+# PAS son propre Caddy, et l'app y est jointe par son alias `pdlm-demo`
+# (reverse_proxy pdlm-demo:3000). Les publications 127.0.0.1:3110 / [::1]:3110
+# restent utiles pour contrôler depuis l'hôte. Procédure complète :
+# docs/deploiement-demo.md.
+#
+# Isolation (retouche H) : la pile ne touche PAS `vps-network`, le réseau des
+# autres sites du serveur — un conteneur de la pile n'y voit ni leur site ni
+# leur base. Seul le Caddy partagé est connecté à `pdlm-demo-edge`, réseau
+# créé et possédé par la pile. Les alias sans ambiguïté `pdlm-demo-postgres`
+# et `pdlm-demo-minio` (retouche A) restent : défense en profondeur à coût
+# nul, un éventuel `postgres` étranger n'entre jamais en concurrence.
+
+services:
+  postgres:
+    # Retouche Y : VPS1 est mutualisé — chaque service de longue durée de la
+    # pile est plafonné (mémoire/CPU/processus), surchargeable par .env. Les
+    # défauts viennent de la mesure du 11/11 (notes-demo-en-ligne.md) : pics
+    # observés 33 Mo pour postgres au repos ; marge ≥ 2× partout.
+    # https://docs.docker.com/compose/compose-file/05-services/#mem_limit
+    mem_limit: ${DEMO_POSTGRES_MEM_LIMIT:-512m}
+    cpus: ${DEMO_POSTGRES_CPUS:-1}
+    pids_limit: ${DEMO_POSTGRES_PIDS_LIMIT:-128}
+    networks:
+      default:
+        aliases:
+          - pdlm-demo-postgres
+
+  minio:
+    mem_limit: ${DEMO_MINIO_MEM_LIMIT:-768m}
+    cpus: ${DEMO_MINIO_CPUS:-1}
+    pids_limit: ${DEMO_MINIO_PIDS_LIMIT:-128}
+    environment:
+      # Retouche P : le compose de base garde des défauts de développement
+      # (« minioadmin ») ; sur le serveur mutualisé, la pile ne démarre pas
+      # sans les vraies valeurs — aucune donnée démo derrière un mot de passe
+      # connu du monde entier. Retouche AD : l'IDENTIFIANT aussi — « minioadmin »
+      # est tout aussi public que le mot de passe par défaut.
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis dans .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis dans .env}
+    networks:
+      default:
+        aliases:
+          - pdlm-demo-minio
+
+  createbuckets:
+    environment:
+      # Mêmes variables que docker-compose.yml, sans leurs défauts (retouches P, AD).
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis dans .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis dans .env}
+      S3_APP_PASSWORD: ${S3_APP_PASSWORD:?S3_APP_PASSWORD requis dans .env}
+      # Retouche Y : quota dur du bucket — le seul plafond DISQUE de la pile
+      # (mem_limit ne borne pas ce que les relais peuvent entreposer). La
+      # nuit ramène le bucket à la référence, le quota borne donc « une
+      # journée d'uploads » ; 2 Gio ≈ 110 images téléversées (chaque image
+      # stocke l'original + 5 tailles). Vérifié sur l'image MinIO épinglée
+      # (mc 9.6, RELEASE.2025-09-07) — sortie brute dans les notes.
+      S3_QUOTA: ${DEMO_S3_QUOTA:-2GiB}
+
+  migrate:
+    environment:
+      # Mêmes variables que docker-compose.yml, seul l'hôte change. Le mot de
+      # passe n'a PAS de défaut ici (retouche L) : un serveur mutualisé ne doit
+      # jamais voir tourner un postgres « postgres » par omission du .env.
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
+
+  app:
+    # Retouche Y : mesuré 330 Mo de pic au téléversement de 5 × 15 Mo
+    # (11/11) → 768 Mo = marge 2,3×. 11 threads au repos → 128 pids.
+    mem_limit: ${DEMO_APP_MEM_LIMIT:-768m}
+    cpus: ${DEMO_APP_CPUS:-1.5}
+    pids_limit: ${DEMO_APP_PIDS_LIMIT:-128}
+    # `default` explicite : poser `networks` sur un service le retire sinon du
+    # réseau de la pile — il perdrait postgres et minio. `pdlm-demo-edge` porte
+    # l'alias `pdlm-demo` : c'est là, et là seulement, que le Caddy partagé
+    # trouve l'app.
+    networks:
+      default: {}
+      pdlm-demo-edge:
+        aliases:
+          - pdlm-demo
+    environment:
+      DATABASE_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}@pdlm-demo-postgres:5432/${POSTGRES_DB:-pdlm}
+      S3_ENDPOINT: http://pdlm-demo-minio:9000
+      # La clé d'accès S3 de l'app est S3_APP_PASSWORD : sans défaut ici
+      # non plus (retouche P).
+      S3_SECRET_ACCESS_KEY: ${S3_APP_PASSWORD:?S3_APP_PASSWORD requis dans .env}
+      # Retouche X : compte de démonstration partagé — son mot de passe est
+      # public, il ne doit pouvoir être changé par personne se connectant
+      # avec lui. En dur ici (pas dans le .env) : absent en production, le
+      # hook protegerComptePartage n'y refusera rien.
+      COMPTES_PARTAGES: relais@pdlm.invalid
+      # Retouche AB — noindex servi par l'application même (proxy :
+      # X-Robots-Tag sur toute réponse, robots.txt en Disallow: /). Le bloc
+      # Caddy du § 6 reste en défense en profondeur ; sans cette variable
+      # (production), l'application n'interdit rien.
+      NOINDEX: '1'
+    # Boucle locale seulement : rien n'est joignable depuis l'extérieur,
+    # tout passe par le Caddy partagé du serveur.
+    ports:
+      - '127.0.0.1:3110:3000'
+      - '[::1]:3110:3000'
+
+  caddy:
+    # Profil jamais activé : Compose ignore ce service tant que
+    # COMPOSE_PROFILES ne vaut pas `desactive` — 80/443 restent au Caddy
+    # partagé de l'hôte.
+    profiles:
+      - desactive
+
+networks:
+  # Réseau DÉDIÉ au dialogue Caddy partagé ↔ app de démo (retouche H). Nom
+  # fixe : la procédure y connecte le conteneur Caddy du serveur, quel que
+  # soit le projet Compose qui a créé la pile. Jamais dans le Compose du
+  # Caddy partagé : absent au démarrage de celui-ci, il l'empêcherait de
+  # démarrer — la connexion vit hors Compose, par `docker network connect`
+  # (docs/deploiement-demo.md § 4).
+  pdlm-demo-edge:
+    name: pdlm-demo-edge
