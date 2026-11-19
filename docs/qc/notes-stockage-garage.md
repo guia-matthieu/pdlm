@@ -638,6 +638,37 @@ $ lsof -i :3000 -P -n | wc -l      $ lsof -i :3007 -P -n | wc -l
 La pile **dev** (pdlm-postgres-1, pdlm-garage-1) reste levée pour les tests
 d'intégration de fin de brief.
 
+## Contrôles de fin de brief
+
+Premier passage de `npm run test:int` : 26 échecs « missing secret key. A
+secret key is needed to secure Payload. » — ce worktree n'avait **pas de
+`.env`** (néant à voir avec Garage : `vitest.setup.ts` fait
+`import 'dotenv/config'`). Créé depuis `.env.example` avec un
+`PAYLOAD_SECRET` généré (`openssl rand -hex 32`, mode 600, jamais affiché) ;
+la base `pdlm_test` existait déjà dans le postgres de la pile dev. Deuxième
+passage : vert.
+
+```
+$ npm run lint
+> eslint .
+LINT_EXIT=0                        (aucune sortie d'erreur)
+
+$ npm run typecheck
+> tsc --noEmit
+TSC_EXIT=0                         (aucune sortie d'erreur)
+
+$ npm run test:unit
+ Test Files  39 passed (39)
+      Tests  375 passed (375)
+   Duration  4.43s
+
+$ npm run test:int
+[✓] Pulling schema from database...
+ Test Files  26 passed (26)
+      Tests  236 passed (236)
+   Duration  36.21s
+```
+
 ## Hors brief
 
 - Conteneur d'init : `node:22.17.0-alpine` épinglé par digest plutôt qu'une image
