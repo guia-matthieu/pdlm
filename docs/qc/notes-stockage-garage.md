@@ -468,6 +468,176 @@ retouché à cette étape). Résidu `docs/qc/.run-garage-1.json` (capture
 d'avertissements stderr d'une commande de l'étape 2, aucun secret) :
 supprimé.
 
+## Étape 6 — Essai local de la pile démo sur Garage
+
+Essai le 19/11/2026 dans `/tmp/pdlm-garage-essai`, projet Compose
+`pdlm-garage-essai` (`-p` explicite à chaque commande — la surcouche pose
+`name: pdlm-prod`), surcouche `docker-compose.demo.yml`. `.env` créé par le
+§ 3 de `docs/deploiement-demo.md` : domaine `demo.pdlm.localhost` (3
+étiquettes, garde G), 9 secrets par `openssl rand -hex 32`,
+`S3_ACCESS_KEY_ID=pdlm-app-$(openssl rand -hex 8)`, mode 600, jamais affiché.
+`COMPOSE_PROJECT_NAME` et `COMPOSE_FILE` y sont posés : les scripts
+`backup.sh`/`restore.sh` et leur `docker compose` nu ciblent la pile d'essai.
+
+### Montée de la pile
+
+`docker compose … up -d --build` → `EXIT=0` (réseau `pdlm-demo-edge` créé,
+init-s3 et migrate `Exited`, app `Started` — elle dépend de
+`service_completed_successfully` sur les deux, leur réussite est donc prouvée
+par son démarrage) :
+
+```
+NAME                           SERVICE    STATUS                    PORTS
+pdlm-garage-essai-app-1        app        Up 13 seconds (healthy)   127.0.0.1:3110->3000/tcp, [::1]:3110->3000/tcp
+pdlm-garage-essai-garage-1     garage     Up 21 seconds (healthy)
+pdlm-garage-essai-postgres-1   postgres   Up 21 seconds (healthy)   5432/tcp
+```
+
+Init rejoué **deux fois** après le `up` (trois exécutions au total), `rc=0`
+chaque fois — chaque étape tolère l'existant :
+
+```
+$ docker compose … run --rm --entrypoint node init-s3 /garage-init.mjs   # ×2
+layout : déjà posé (version 1)
+bucket pdlm : déjà présent
+clé pdlm-app-42cc7112444d3375 : déjà importée
+droits : pdlm-app-42cc7112444d3375 lit et écrit dans pdlm (sans owner)
+quota : 2147483648 octets (2GiB)
+initialisation Garage : terminée
+rc=0
+```
+
+Seed de la démo (conteneur `migrate`, `DEMO_MDP_*` passés par
+l'environnement, jamais en clair dans la commande) :
+
+```
+[13:51:17] INFO: Démo en ligne prête — saint-ex (Village) et port-lavanne
+(Littoral) sur *.demo.pdlm.localhost, comptes operateur@pdlm.invalid,
+admin@pdlm.invalid, redacteur@pdlm.invalid, relais@pdlm.invalid.
+```
+
+Login admin (`POST /api/users/login`, compte `admin@pdlm.invalid`) :
+HTTP 200, jeton récupéré dans un fichier — jamais affiché.
+
+### Téléversement puis relecture d'un média
+
+PNG 128×128 (320 octets), sha256
+`728b6feebe65d1addec0e13fbda13e177b3ca2b16a928da1c359259e8dfd6369`.
+
+Deux leçons d'API avant le succès (aucune n'est un défaut du code) :
+
+- les collections sont servies sur l'hôte **plateforme**
+  (`demo.pdlm.localhost`) : `POST /api/media` sur l'hôte locataire
+  (`saint-ex.demo.pdlm.localhost`) répond 404 — voulu, l'hôte locataire ne
+  sert que le site public ;
+- en multipart, les champs non-fichier passent par **`_payload` en JSON**
+  (comme le fait l'admin et la suite e2e `mosaique-390`) : un champ `alt`
+  libre en `-F` n'atteint pas la donnée localisée → 400 « Ce champ est
+  obligatoire en français. » ; `tenant` (id 1, saint-ex) est passé dans le
+  même JSON (rôle vérifié par `verifierCommuneCreation` sur le tenant final).
+
+```
+$ curl … -X POST -H 'Host: demo.pdlm.localhost' -H "Authorization: JWT …" \
+    -F 'file=@essai-media.png;type=image/png' \
+    --form-string '_payload={"alt":"Essai de téléversement sur Garage","tenant":1}' \
+    http://127.0.0.1:3110/api/media
+→ HTTP 201   { id: 1, filename: "essai-media.png", alt: "Essai de téléversement
+               sur Garage", tenant: saint-ex, mimeType: "image/png", filesize: 320 }
+
+$ curl http://127.0.0.1:3110/api/media/file/essai-media.png -H 'Host: demo.pdlm.localhost'
+→ HTTP 200
+$ shasum -a 256 essai-media.png relu.png
+728b6feebe65d1addec0e13fbda13e177b3ca2b16a928da1c359259e8dfd6369  essai-media.png
+728b6feebe65d1addec0e13fbda13e177b3ca2b16a928da1c359259e8dfd6369  relu.png
+$ cmp essai-media.png relu.png && echo 'cmp : octets identiques'
+cmp : octets identiques
+```
+
+### Quota relu par l'API d'administration
+
+`GetBucketInfo?globalAlias=pdlm` depuis le conteneur init-s3 (le jeton vit
+dans l'environnement du service, il n'apparaît pas) — la **valeur** seule est
+consignée :
+
+```
+bucket: bd842bc65413a6040cb7d42e64982568f0ae488bf6a198a6fdd36c28ca3536c3 alias: pdlm
+quotas: {"maxSize":2147483648,"maxObjects":null}
+```
+
+### Sauvegarde → suppression → restauration
+
+`backup.sh /tmp/pdlm-garage-essai/backups/essai` (arrêt app, pg_dump+rclone,
+redémarrage) :
+
+```
+Sauvegarde terminée : /tmp/pdlm-garage-essai/backups/essai ( 28K)
+  base    : 7697 lignes de SQL
+  fichiers: 1 (autant dans le bucket)
+EXIT=0
+```
+
+Suppression du média (`DELETE /api/media/1`, JWT + cookie locataire) :
+HTTP 200 ; le fichier répond ensuite **404**. Puis
+`restore.sh /tmp/pdlm-garage-essai/backups/essai` :
+
+```
+5/6 — Suppression de pdlm_precedente (base et bucket sont restaurés)…
+DROP DATABASE
+6/6 — Redémarrage de l'application…
+…
+Restauration terminée depuis : /tmp/pdlm-garage-essai/backups/essai
+EXIT=0
+```
+
+Relecture après restauration — mêmes octets, et la ligne est de retour dans
+la collection :
+
+```
+$ curl http://127.0.0.1:3110/api/media/file/essai-media.png -H 'Host: demo.pdlm.localhost'
+→ HTTP 200
+$ shasum -a 256 essai-media.png restaure.png
+728b6feebe65d1addec0e13fbda13e177b3ca2b16a928da1c359259e8dfd6369  essai-media.png
+728b6feebe65d1addec0e13fbda13e177b3ca2b16a928da1c359259e8dfd6369  restaure.png
+$ curl http://127.0.0.1:3110/api/media?limit=1&depth=0 …
+→ docs: [ { id: 1, filename: 'essai-media.png', alt: 'Essai de téléversement sur Garage' } ]
+```
+
+### Accès anonyme refusé sur le port S3
+
+Depuis un conteneur du réseau (image node du service init-s3), SANS aucun
+identifiant :
+
+```
+http://garage:3900/                     → 403 Forbidden | <?xml…<Code>AccessDenied</Code>…
+http://garage:3900/pdlm/                → 403 Forbidden | <?xml…<Code>AccessDenied</Code>…
+http://garage:3900/pdlm/essai-media.png → 403 Forbidden | <?xml…<Code>AccessDenied</Code>…
+```
+
+(« Garage does not support anonymous access » dans le message — refus
+catégorique du serveur, pas un bucket mal configuré.)
+
+### Démontage
+
+`docker compose … down -v --remove-orphans` → `EXIT=0` (conteneurs, volumes
+`pgdata`/`garage_data`/`garage_meta`, réseaux `pdlm-demo-edge` et `default`
+supprimés). Puis `docker rmi pdlm-garage-essai-app pdlm-garage-essai-migrate`
+et `rm -rf /tmp/pdlm-garage-essai` (le `.env` d'essai et le jeton de login
+disparaissent avec). Vérifications finales :
+
+```
+$ docker ps -a --filter name=pdlm-garage-essai --format '{{.Names}}' | wc -l
+0
+$ docker volume ls --filter name=pdlm-garage-essai -q | wc -l
+0
+$ docker network ls --filter name=pdlm-demo-edge -q | wc -l
+0
+$ lsof -i :3000 -P -n | wc -l      $ lsof -i :3007 -P -n | wc -l
+0                                0
+```
+
+La pile **dev** (pdlm-postgres-1, pdlm-garage-1) reste levée pour les tests
+d'intégration de fin de brief.
+
 ## Hors brief
 
 - Conteneur d'init : `node:22.17.0-alpine` épinglé par digest plutôt qu'une image
