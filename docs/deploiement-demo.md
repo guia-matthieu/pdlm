@@ -68,6 +68,9 @@ cd <DOSSIER>
            DEMO_MDP_OPERATEUR DEMO_MDP_ADMIN DEMO_MDP_REDACTEUR DEMO_MDP_RELAIS; do
     printf '%s=%s\n' "$v" "$(openssl rand -hex 32)" >> .env
   done
+  # Retouche AD — identifiant MinIO non défaut (la surcouche l'exige). Court :
+  # un identifiant, pas un secret — MinIO borne la taille d'une access key.
+  printf 'MINIO_ROOT_USER=%s\n' "minio-$(openssl rand -hex 8)" >> .env
   printf 'COMPOSE_PROJECT_NAME=%s\n'  pdlm-demo                                  >> .env
   printf 'COMPOSE_FILE=%s\n'          'docker-compose.yml:docker-compose.demo.yml' >> .env
 )
@@ -81,6 +84,9 @@ dossier.
 
 - Les 64 caractères hexadécimaux satisfont le garde-fou du seed
   (mots de passe ≥ 16 caractères).
+- `MINIO_ROOT_USER` est un identifiant, pas un secret : court (14 caractères),
+  distinct du défaut public « minioadmin » — la surcouche refuse de démarrer
+  sans lui (retouche AD), `docker-compose.yml` garde son défaut (production).
 - Rien d'autre à écrire : `DATABASE_URI` et `S3_ENDPOINT` sont générés par
   Compose (réseau interne), `S3_BUCKET`, `S3_REGION`… ont des défauts corrects.
 - `NEXT_PUBLIC_S3_PUBLIC_URL` reste par défaut : MinIO n'est pas publié, les

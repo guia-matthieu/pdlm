@@ -38,7 +38,9 @@ services:
       # Retouche P : le compose de base garde des défauts de développement
       # (« minioadmin ») ; sur le serveur mutualisé, la pile ne démarre pas
       # sans les vraies valeurs — aucune donnée démo derrière un mot de passe
-      # connu du monde entier.
+      # connu du monde entier. Retouche AD : l'IDENTIFIANT aussi — « minioadmin »
+      # est tout aussi public que le mot de passe par défaut.
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis dans .env}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis dans .env}
     networks:
       default:
@@ -47,7 +49,8 @@ services:
 
   createbuckets:
     environment:
-      # Mêmes variables que docker-compose.yml, sans leurs défauts (retouche P).
+      # Mêmes variables que docker-compose.yml, sans leurs défauts (retouches P, AD).
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis dans .env}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis dans .env}
       S3_APP_PASSWORD: ${S3_APP_PASSWORD:?S3_APP_PASSWORD requis dans .env}
       # Retouche Y : quota dur du bucket — le seul plafond DISQUE de la pile
