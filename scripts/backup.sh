@@ -18,8 +18,11 @@
 
 set -euo pipefail
 umask 077 # la sauvegarde contient tout le site : 600 pour les fichiers, 700 pour les dossiers
-cd "$(dirname "$0")/.."
-. "$(dirname "$0")/verifier-dump.sh"
+# Retouche AC — calculer le dossier des scripts AVANT le cd : après, $0 ne
+# désigne plus scripts/, et le source échouerait.
+SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+cd "$SCRIPTS/.."
+. "$SCRIPTS/verifier-dump.sh"
 
 # La configuration est lue dans les CONTENEURS, pas en sourçant `.env`.
 # Deux raisons : `.env` suit la syntaxe Docker Compose, pas celle du shell

@@ -19,8 +19,11 @@
 # Usage : ./scripts/restore.sh <dossier-de-sauvegarde>
 
 set -euo pipefail
-cd "$(dirname "$0")/.."
-. "$(dirname "$0")/verifier-dump.sh"
+# Retouche AC — calculer le dossier des scripts AVANT le cd : après, $0 ne
+# désigne plus scripts/, et le source échouerait.
+SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+cd "$SCRIPTS/.."
+. "$SCRIPTS/verifier-dump.sh"
 
 # Configuration lue dans les conteneurs — voir l'explication dans backup.sh.
 valeur_conteneur() { # $1=service $2=variable $3=valeur par défaut
